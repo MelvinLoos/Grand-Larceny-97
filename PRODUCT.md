@@ -18,14 +18,15 @@ A chaotic sandbox: emergent mayhem, escalating police chases, combos and score m
 ## Capabilities and Constraints
 - Already in place (in `index.html`): walking and driving, hijacking and exiting vehicles, several vehicle types including police and a tank, weapon cycling, a wanted level that decays over time, police pursuit, missions started at payphones and tracked by pager, a score multiplier, repair/respray garages, hidden bonuses, a procedural Web Audio synth (`RetroAudio`), a horn and siren, and on-screen touch controls.
 - **Binding:** mobile touch controls must stay fully playable for every feature.
-- Current stack: a single `index.html` with canvas and inline JS. It loads the Tailwind CDN and Google Fonts (Press Start 2P, VT323). The user did not make the single-file layout, the absence of a build step or the lack of external dependencies binding.
+- Current stack: a single `index.html` (inline CSS, canvas and JS, no build step, no external requests) plus self-hosted fonts in `assets/fonts/` (Archivo, Barlow Condensed). The user did not make the single-file layout or the absence of a build step binding.
 - **Parody, not a copy:** a non-profit, nostalgic wink at 1997 top-down crime games. Genre mechanics and generic words (Cabbie, Police, Van, Battle Tank, Central Park, Dockyard) are fine. Distinctive names from Grand Theft Auto (its title, cities, model names, characters, catchphrases) are never used, and no name maps one-to-one onto one of theirs.
 
 ## Brand Commitments
 - Title: **GRAND LARCENY '97**. Tagline: "Steal cars. Cause havoc. Blame the '90s."
 - City: **Neon Bay** (Downtown, Westside, Central Park Plaza, Southeast Dockyard; Neon Bay General Hospital).
-- Vehicles: Hellcrab GTS, Bumbler, Blitz V8, Cabbie, Van, Police, Battle Tank.
-- Respray garage: **Spray-B-Gone**. Crowd bonus: **HALLELUJAH!** Mission giver: **Mama Volta**.
+- Vehicles: Hellcrab GTS, Bumbler, Blitz V8, Cabbie Taxi, Box Van, Cop Cruiser, Battle Tank.
+- Radio: Crash FM 98.7, Beige 101, The Meter 88.3, Rush 104, Talk Back 640 AM, NBPD Dispatch, Army Surplus Radio (CB).
+- Respray garage: **Spray-B-Gone**. Crowd bonus: **HALLELUJAH!** Mission givers: **Mama Volta**, **The Dentist**, **Cousin Ricky**.
 - Voice: on-the-nose '90s arcade bravado, loud and tongue-in-cheek.
 
 ## Evidence on Hand
