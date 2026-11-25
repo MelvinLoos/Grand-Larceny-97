@@ -115,6 +115,22 @@
         transform: none;
     }
 }
+#hud-bomb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    color: var(--route);
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.08em;
+}
+#hud-bomb[hidden] {
+    display: none;
+}
+#hud-bomb.armed {
+    animation: probation-blink 0.2s steps(2, jump-none) infinite;
+}
 #btn-weapon {
     pointer-events: auto;
     display: flex;

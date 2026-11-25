@@ -66,6 +66,9 @@
     gap: 10px;
     pointer-events: auto;
 }
+.pad-btn[hidden] {
+    display: none;
+}
 .pad-btn {
     touch-action: none;
     border-radius: 14px;

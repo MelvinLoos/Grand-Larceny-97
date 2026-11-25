@@ -1,5 +1,5 @@
 import { audio } from './audio.js';
-import { isSolidAt, normalizeAngle } from './city.js';
+import { hasLineOfSight, isSolidAt, normalizeAngle } from './city.js';
 import { WEAPONS } from './config.js';
 import { addDecal } from './entities.js';
 import { addScore, hideRadio, showBigBanner, showRadio, updateHUD } from './hud.js';
@@ -33,6 +33,15 @@ export function findAimTarget(x, y, facing) {
     const t = mission.targetEntity;
     if (t && t.hp > 0 && !peds.includes(t)) consider(t, 0.5);
     return best;
+}
+
+// --- MIDTOWN TURF GANGS ---
+// Gangsters that can see a player gunshot or carjack nearby go hostile for a while
+export function alertGangs(x, y) {
+    for (const p of peds) {
+        if (p.role !== 'gangster' || p.hp <= 0) continue;
+        if (Math.hypot(p.x - x, p.y - y) < 520 && hasLineOfSight(p.x, p.y, x, y)) p.hostileTimer = 25;
+    }
 }
 
 // --- ENTER / EXIT VEHICLE ---
@@ -91,6 +100,7 @@ export function toggleEnterExitVehicle() {
                 shootTimer: 0.8
             });
             addCrime(bestCar.spec.isPolice ? 1.2 : 0.45);
+            alertGangs(bestCar.x, bestCar.y);
             addScore(150, bestCar.x, bestCar.y - 20, 'JACKED');
         }
 
@@ -147,6 +157,7 @@ export function fireWeapon(x, y, angle, weaponIdx, fromPlayer = true) {
     });
 
     if (fromPlayer) {
+        alertGangs(x, y);
         // Alert nearby pedestrians
         for (const p of peds) {
             if (Math.hypot(p.x - x, p.y - y) < 340 && p.role === 'civilian') {
@@ -157,7 +168,7 @@ export function fireWeapon(x, y, angle, weaponIdx, fromPlayer = true) {
     }
 }
 
-export function triggerExplosion(x, y, radius = 125, fromPlayer = true) {
+export function triggerExplosion(x, y, radius = 125, fromPlayer = true, dmgMul = 1) {
     audio.explosion();
     camera.shake = Math.max(camera.shake, 18);
     addDecal('crater', x, y, Math.random() * 6.28, radius * 0.42, 'rgba(15, 15, 15, 0.72)');
@@ -182,7 +193,7 @@ export function triggerExplosion(x, y, radius = 125, fromPlayer = true) {
     for (const p of peds) {
         const d = Math.hypot(p.x - x, p.y - y);
         if (d < radius) {
-            damagePed(p, (1 - d / radius) * 220, fromPlayer);
+            damagePed(p, (1 - d / radius) * 220 * dmgMul, fromPlayer);
         }
     }
 
@@ -191,7 +202,7 @@ export function triggerExplosion(x, y, radius = 125, fromPlayer = true) {
         if (c.hp <= 0) continue;
         const d = Math.hypot(c.x - x, c.y - y);
         if (d < radius * 1.1) {
-            c.hp -= (1 - d / (radius * 1.15)) * 210;
+            c.hp -= (1 - d / (radius * 1.15)) * 210 * dmgMul;
             if (c.hp <= 0) destroyCar(c, fromPlayer);
         }
     }
@@ -200,7 +211,7 @@ export function triggerExplosion(x, y, radius = 125, fromPlayer = true) {
     if (!player.inCar && player.deadTimer <= 0) {
         const dp = Math.hypot(player.x - x, player.y - y);
         if (dp < radius) {
-            damagePlayer((1 - dp / radius) * 95);
+            damagePlayer((1 - dp / radius) * 95 * dmgMul);
         }
     }
 }

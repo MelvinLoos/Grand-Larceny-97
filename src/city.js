@@ -70,6 +70,7 @@ export const LANDMARKS = {
         vanSpawn: { x: 0, y: 0 },
         drop: { x: 0, y: 0 }
     },
+    exportBoard: { x: 0, y: 0 },
     keepClear: []
 };
 
@@ -341,7 +342,9 @@ export function buildCity() {
     LANDMARKS.missions.vanSpawn = { x: 21.5 * TILE, y: getLaneCoord(30, 0) };
     LANDMARKS.missions.drop = { x: (yx0 + 3.5) * TILE, y: (yy0 + 2.5) * TILE };
 
+    LANDMARKS.exportBoard = { x: (yx0 + 1.5) * TILE, y: (yy0 + 1.5) * TILE };
     LANDMARKS.keepClear.push(
+        LANDMARKS.exportBoard,
         LANDMARKS.playerSpawn,
         LANDMARKS.tank,
         LANDMARKS.missions.hotCar,

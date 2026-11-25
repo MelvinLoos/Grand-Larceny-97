@@ -61,6 +61,9 @@ export const player = {
     probationWanted: 0
 };
 
+// Harbor Export orders: which models are still wanted (reset after the $25,000 bonus)
+export const exportBoard = { hellcrab: false, blitz: false, cabbie: false, bumbler: false };
+
 // Active Payphone Mission State
 export const mission = {
     active: false,
@@ -85,6 +88,7 @@ export const game = {
     lastWantedLevel: -1,
     districtTimer: null,
     districtCooldown: 0,
+    gangTimer: 0,
     pagerTimeout: null,
     radioTimer: null,
     policeFlowTimer: 0,

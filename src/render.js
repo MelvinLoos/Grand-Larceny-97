@@ -1,4 +1,4 @@
-import { DIR_VECS, bayByTile, isRoadCell } from './city.js';
+import { DIR_VECS, LANDMARKS, bayByTile, isRoadCell } from './city.js';
 import {
     MAP_SIZE,
     TILE,
@@ -25,6 +25,7 @@ import {
     cars,
     ctx,
     decals,
+    exportBoard,
     floatingTexts,
     foliageGrid,
     game,
@@ -337,6 +338,8 @@ export function render() {
         ctx.fillRect(ph.x + 3, ph.y - 5, 3, 8);
     }
 
+    drawExportBoard();
+
     if (mission.active && mission.type === 'steal_deliver' && mission.stage === 2) {
         const r = 40 + Math.sin(nowSec * 6) * 5;
         ctx.fillStyle = 'rgba(210, 58, 42, 0.14)';
@@ -608,6 +611,51 @@ export function render() {
     ctx.globalAlpha = 1;
 
     drawNavigationArrows(shakeX, shakeY);
+}
+
+// Persistent wanted-car checklist beside the export bay
+const BOARD_ROWS = [
+    ['hellcrab', 'HELLCRAB GTS'],
+    ['blitz', 'BLITZ V8'],
+    ['cabbie', 'CABBIE'],
+    ['bumbler', 'BUMBLER']
+];
+function drawExportBoard() {
+    const { x, y } = LANDMARKS.exportBoard;
+    if (Math.abs(x - camera.x) > view.w / camera.zoom || Math.abs(y - camera.y) > view.h / camera.zoom) return;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = 'rgba(20, 19, 15, 0.3)';
+    ctx.fillRect(-52, -50, 112, 108);
+    ctx.fillStyle = INK;
+    ctx.fillRect(-56, -54, 112, 108);
+    ctx.fillStyle = HAZARD;
+    ctx.fillRect(-56, -54, 112, 20);
+    ctx.fillStyle = INK;
+    ctx.font = 'italic 900 14px "Archivo", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('EXPORT ORDERS', 0, -43);
+    ctx.textAlign = 'left';
+    ctx.font = '700 13px "Barlow Condensed", sans-serif';
+    BOARD_ROWS.forEach(([key, label], i) => {
+        const ry = -20 + i * 20;
+        ctx.strokeStyle = HAZARD;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-48, ry - 6, 12, 12);
+        if (exportBoard[key]) {
+            ctx.strokeStyle = '#6ee787';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(-46, ry);
+            ctx.lineTo(-42, ry + 4);
+            ctx.lineTo(-37, ry - 6);
+            ctx.stroke();
+        }
+        ctx.fillStyle = exportBoard[key] ? '#6ee787' : PAPER;
+        ctx.fillText(label, -30, ry + 1);
+    });
+    ctx.restore();
 }
 
 const lerpPt = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
@@ -962,6 +1010,22 @@ export function drawVehicle(c, nowSec) {
             ctx.fillStyle = '#d23a2a';
             ctx.fillRect(-l * 0.49, -w * 0.4, 3, 6);
             ctx.fillRect(-l * 0.49, w * 0.4 - 6, 3, 6);
+        }
+    }
+
+    // Car bomb: satchel on the roof, rapid red blink once armed
+    if (c.hasBomb && c.hp > 0) {
+        ctx.fillStyle = INK;
+        ctx.fillRect(-l * 0.1, -5, 10, 10);
+        const blink = c.bombArmed ? Math.floor(nowSec * (6 + (5 - Math.min(5, c.bombTimer)) * 4)) % 2 === 0 : false;
+        ctx.fillStyle = blink ? '#ff2a2a' : '#5a1a1a';
+        ctx.fillRect(-l * 0.1 + 3, -2, 4, 4);
+        if (blink) {
+            ctx.globalAlpha = 0.35;
+            ctx.beginPath();
+            ctx.arc(-l * 0.1 + 5, 0, 16, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
         }
     }
 

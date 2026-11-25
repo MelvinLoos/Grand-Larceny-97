@@ -94,6 +94,10 @@
             </symbol>
             <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" /></symbol>
             <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M21 12L5 4l4 8-4 8z" /></symbol>
+            <symbol id="i-bomb" viewBox="0 0 24 24">
+                <circle cx="11" cy="14" r="6.5" />
+                <path d="M15.5 9.5L18 7M18 7l1.5-2.5M18 7l2.5.5M16.8 4.6v.01" />
+            </symbol>
             <symbol id="i-spray" viewBox="0 0 24 24">
                 <path d="M8 10h8v11H8zM10 10V6.5h4V10" />
                 <path d="M16 5h1.5M19.5 3.5v.01M19.5 6.5v.01M21.5 5v.01" />
@@ -119,6 +123,10 @@
                     <div class="heat-row">
                         <span class="lbl">Heat</span>
                         <div id="hud-wanted" aria-label="Wanted level 0 of 4"></div>
+                    </div>
+                    <div id="hud-bomb" hidden title="Car bomb fitted: press B to arm">
+                        <svg class="icon" aria-hidden="true"><use href="#i-bomb" /></svg>
+                        <span id="hud-bomb-lbl">CAR BOMB · B</span>
                     </div>
                     <button id="btn-weapon" title="Switch weapon (Q or 1–4)">
                         <svg class="icon" aria-hidden="true"><use id="hud-weapon-icon" href="#i-pistol" /></svg>
@@ -192,6 +200,9 @@
                         </button>
                         <button data-key="Space" class="pad-btn act brake">
                             <svg class="icon" aria-hidden="true"><use href="#i-brake" /></svg><span>BRAKE</span>
+                        </button>
+                        <button id="touch-bomb" data-key="KeyB" class="pad-btn act brake" hidden>
+                            <svg class="icon" aria-hidden="true"><use href="#i-bomb" /></svg><span>BOMB</span>
                         </button>
                         <button data-key="Fire" class="pad-btn act fire">
                             <svg class="icon" aria-hidden="true"><use href="#i-fire" /></svg><span>FIRE</span>

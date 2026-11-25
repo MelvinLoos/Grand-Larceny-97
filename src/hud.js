@@ -127,6 +127,10 @@ export function updateHUD() {
     }
 
     $('hud-wanted').classList.toggle('probation', player.probation > 0);
+    const car = player.inCar;
+    $('hud-bomb').hidden = !(car && car.hasBomb);
+    $('hud-bomb').classList.toggle('armed', !!(car && car.bombArmed));
+    $('touch-bomb').hidden = !(car && car.hasBomb && !car.bombArmed);
     $('hud-mission-timer').hidden = !mission.active;
     if (mission.active) $('mission-text').textContent = mission.title;
 

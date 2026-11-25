@@ -17,6 +17,7 @@ import { damagePed, damagePlayer, destroyCar, findAimTarget, fireWeapon, trigger
 import { collideCarFoliage, steerAroundTrunks, trunkBlocks, updateFoliage } from './foliage.js';
 import { MAP_SIZE, TILE, T_ROAD_X, WEAPONS, isSidewalkTile, isSolidTile } from './config.js';
 import { getDistrictAt } from './districts.js';
+import { PUNK_HAIR, pedLook } from './palette.js';
 import { addDecal, createCar, pickCarType, spawnRandomPed } from './entities.js';
 import { buzz } from './haptics.js';
 import { showPager, spawnFloatingText, updateDistrictName, updateHUD } from './hud.js';
@@ -40,6 +41,71 @@ import {
 } from './state.js';
 
 let stickReverse = false; // hysteresis for point-to-go reversing
+let bombKeyHeld = false;
+
+// --- CAR BOMBS: B arms a fitted bomb, 5s of beeping, then a huge blast ---
+function updateCarBombs(dt) {
+    const pc = player.inCar;
+    if (keys['KeyB'] && !bombKeyHeld) {
+        bombKeyHeld = true;
+        if (pc && pc.hasBomb && !pc.bombArmed) {
+            pc.bombArmed = true;
+            pc.bombTimer = 5;
+            pc.bombBeep = 0;
+            showPager('BOMB ARMED! 5 SECONDS - BAIL OUT [F] OR RAM SOMETHING AND DIVE CLEAR!');
+            updateHUD();
+        }
+    } else if (!keys['KeyB']) bombKeyHeld = false;
+
+    for (const c of cars) {
+        if (!c.bombArmed) continue;
+        c.bombTimer -= dt;
+        c.bombBeep -= dt;
+        if (c.bombBeep <= 0) {
+            if (Math.hypot(c.x - player.x, c.y - player.y) < 900) audio.beep(c.bombTimer < 2);
+            c.bombBeep = Math.max(0.09, c.bombTimer * 0.12);
+        }
+        if (c.bombTimer <= 0) {
+            c.bombArmed = false;
+            c.hasBomb = false;
+            triggerExplosion(c.x, c.y, 300, true, 2.5);
+            if (c.hp > 0) destroyCar(c, true);
+            updateHUD();
+        }
+    }
+}
+
+// --- MIDTOWN TURF GANGSTERS: keep a couple patrolling each courtyard near the player ---
+function updateGangs(dt) {
+    game.gangTimer -= dt;
+    if (game.gangTimer > 0) return;
+    game.gangTimer = 1;
+    LANDMARKS.gangTurfs.forEach((t, idx) => {
+        const cx = (t.x0 + t.x1) / 2;
+        const cy = (t.y0 + t.y1) / 2;
+        if (Math.hypot(cx - player.x, cy - player.y) > 1500) return;
+        let n = 0;
+        for (const p of peds) if (p.role === 'gangster' && p.turf === idx) n++;
+        if (n >= 2) return;
+        const x = t.x0 + 30 + Math.random() * (t.x1 - t.x0 - 60);
+        const y = t.y0 + 30 + Math.random() * (t.y1 - t.y0 - 60);
+        if (isSolidAt(x, y, 10) || Math.hypot(x - player.x, y - player.y) < 200) return;
+        peds.push({
+            x,
+            y,
+            angle: Math.random() * Math.PI * 2,
+            speed: 42,
+            color: t.jacket,
+            role: 'gangster',
+            turf: idx,
+            hostileTimer: 0,
+            ...pedLook('civilian', PUNK_HAIR),
+            hp: 55,
+            panicTimer: 0,
+            shootTimer: 0.6
+        });
+    });
+}
 
 // --- MAIN SIMULATION LOOP ---
 export function update(dt) {
@@ -273,6 +339,8 @@ export function update(dt) {
     }
 
     updateBays(dt);
+    updateCarBombs(dt);
+    updateGangs(dt);
 
     // --- UPDATE VEHICLES & COLLISIONS ---
     let anySirenNear = false;
@@ -490,7 +558,10 @@ export function update(dt) {
         }
 
         const distP = Math.hypot(player.x - p.x, player.y - p.y);
-        if (p.role === 'civilian' && distP > 2600 && Math.random() < dt * 0.4) {
+        if (
+            ((p.role === 'civilian' && distP > 2600) || (p.role === 'gangster' && distP > 2200)) &&
+            Math.random() < dt * 0.4
+        ) {
             peds.splice(i, 1);
             continue;
         }
@@ -548,6 +619,45 @@ export function update(dt) {
             if (canSeePlayer && p.shootTimer <= 0) {
                 p.shootTimer = 0.55;
                 fireWeapon(p.x, p.y, aimAng, 2, false);
+            }
+        } else if (p.role === 'gangster' && player.deadTimer <= 0) {
+            p.hostileTimer = Math.max(0, (p.hostileTimer || 0) - dt);
+            if (p.hostileTimer > 0 && distP < 420) {
+                // Provoked: pull a pistol and chase
+                const aimAng = Math.atan2(player.y - p.y, player.x - p.x);
+                p.angle = steerAroundTrunks(p.x, p.y, canSeePlayer ? aimAng : applyWallFeelers(p.x, p.y, aimAng, 30));
+                if (!canSeePlayer || distP > 170) {
+                    const nx = p.x + Math.cos(p.angle) * 85 * dt;
+                    const ny = p.y + Math.sin(p.angle) * 85 * dt;
+                    if (!isSolidAt(nx, ny, 8) && !trunkBlocks(p.x, p.y, nx, ny, 8)) {
+                        p.x = nx;
+                        p.y = ny;
+                    }
+                }
+                p.shootTimer -= dt;
+                if (canSeePlayer && p.shootTimer <= 0) {
+                    p.shootTimer = 0.75;
+                    p.angle = aimAng;
+                    fireWeapon(p.x, p.y, aimAng, 1, false);
+                }
+            } else {
+                // Idle: shuffle around the home courtyard
+                const t = LANDMARKS.gangTurfs[p.turf];
+                p.wpT = (p.wpT || 0) - dt;
+                if (!p.wp || p.wpT <= 0 || Math.hypot(p.wp.x - p.x, p.wp.y - p.y) < 20) {
+                    p.wp = {
+                        x: t.x0 + 30 + Math.random() * (t.x1 - t.x0 - 60),
+                        y: t.y0 + 30 + Math.random() * (t.y1 - t.y0 - 60)
+                    };
+                    p.wpT = 4 + Math.random() * 4;
+                }
+                p.angle = steerAroundTrunks(p.x, p.y, Math.atan2(p.wp.y - p.y, p.wp.x - p.x));
+                const nx = p.x + Math.cos(p.angle) * p.speed * dt;
+                const ny = p.y + Math.sin(p.angle) * p.speed * dt;
+                if (!isSolidAt(nx, ny, 8) && !trunkBlocks(p.x, p.y, nx, ny, 8)) {
+                    p.x = nx;
+                    p.y = ny;
+                } else p.wpT = 0;
             }
         } else if (p.role === 'hallelujah' && p.panicTimer <= 0) {
             // Synchronized Central Park jogger conga patrol!

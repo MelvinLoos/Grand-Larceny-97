@@ -1,8 +1,8 @@
 import { audio } from './audio.js';
-import { DIR_VECS, normalizeAngle } from './city.js';
+import { DIR_VECS, isSolidAt, normalizeAngle } from './city.js';
 import { TILE } from './config.js';
-import { showBigBanner, spawnFloatingText, updateHUD } from './hud.js';
-import { bays, particles, player } from './state.js';
+import { hideRadio, showBigBanner, spawnFloatingText, updateHUD } from './hud.js';
+import { bays, cars, exportBoard, particles, player } from './state.js';
 
 // --- DRIVE-IN GARAGE BAYS ---
 // One prefab (a T_BAY tile recessed into a building, shutter on the open side) serves three shops.
@@ -13,6 +13,8 @@ export const BAY_INFO = {
 };
 
 export const SPRAY_COST = 1000;
+export const BOMB_COST = 5000;
+export const EXPORT_BONUS = 25000;
 const NEAR = 1.8 * TILE; // shutter rolls up when an eligible car gets this close
 const SERVICE_TIME = 1.5;
 const ROLLOUT_TIME = 1.0;
@@ -29,7 +31,25 @@ function check(b, car) {
         if (car.hp <= car.maxHp * 0.25) return { ok: true, free: true }; // critical: "on the tab"
         return { ok: false, msg: 'NEED $1,000 FOR RESPRAY!' };
     }
-    return { ok: false, msg: 'CLOSED' };
+    if (b.type === 'bomb') {
+        if (car.hasBomb) return { ok: false, msg: 'ALREADY RIGGED!' };
+        if (player.score < BOMB_COST) return { ok: false, msg: 'NEED $5,000 FOR A BOMB!' };
+        return { ok: true };
+    }
+    if (spec.isPolice || spec.isTank) return { ok: false, msg: 'NO COPS OR TANKS!' };
+    if (!spec.exportValue || car.hp < car.maxHp * 0.25) return { ok: false, msg: 'TOO WRECKED TO EXPORT!' };
+    return { ok: true };
+}
+
+// Drop the player on foot beside the shed's side door
+function ejectBeside(b) {
+    const v = DIR_VECS[b.dir];
+    for (const side of [1, -1]) {
+        const x = b.ex - v.dy * side * TILE * 0.8;
+        const y = b.ey + v.dx * side * TILE * 0.8;
+        if (!isSolidAt(x, y, 11)) return { x, y };
+    }
+    return { x: b.ex, y: b.ey };
 }
 
 // Runs once at the end of the service sequence; returns true if the car was consumed
@@ -57,6 +77,42 @@ function serve(b, car, chk) {
             '#7fb2f0'
         );
         updateHUD();
+    }
+    if (b.type === 'bomb') {
+        player.score -= BOMB_COST;
+        car.hasBomb = true;
+        spawnFloatingText('-$5,000', car.x, car.y - 30, '#ffd400');
+        audio.cash();
+        showBigBanner('BOMB FITTED!', 'PRESS B TO ARM — 5s FUSE. BAIL OUT!', '#ff5a2a');
+        updateHUD();
+        return false;
+    }
+    if (b.type === 'export') {
+        const payout = Math.round(car.spec.exportValue * (car.hp / car.maxHp));
+        player.score += payout;
+        const spot = ejectBeside(b);
+        cars.splice(cars.indexOf(car), 1);
+        player.inCar = null;
+        player.x = spot.x;
+        player.y = spot.y;
+        hideRadio();
+        audio.cash();
+        spawnFloatingText(`EXPORT +$${payout.toLocaleString('en-US')}`, spot.x, spot.y - 24, '#ffd400');
+        if (car.typeKey in exportBoard) exportBoard[car.typeKey] = true;
+        if (Object.values(exportBoard).every(Boolean)) {
+            player.score += EXPORT_BONUS;
+            for (const k in exportBoard) exportBoard[k] = false;
+            showBigBanner(
+                'EXPORT BONUS!',
+                `ORDER BOARD COMPLETE: +$${EXPORT_BONUS.toLocaleString('en-US')}`,
+                '#ffd400'
+            );
+            audio.cash();
+        } else {
+            showBigBanner('EXPORTED!', `+$${payout.toLocaleString('en-US')} FOR THE ${car.spec.name}`, '#ffd400');
+        }
+        updateHUD();
+        return true;
     }
     return false;
 }
@@ -149,7 +205,7 @@ export function updateBays(dt) {
                 if (serve(b, car, b.chk)) {
                     unlockCar(b);
                     b.state = 'idle';
-                    b.cooldown = 3;
+                    b.cooldown = 1;
                 } else {
                     b.state = 'rollout';
                     b.timer = ROLLOUT_TIME;
