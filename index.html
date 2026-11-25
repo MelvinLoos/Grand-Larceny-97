@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GRAND THEFT AUTO '97 — Top-Down 2.5D Edition</title>
+    <title>GRAND LARCENY '97 — Steal cars. Cause havoc. Blame the '90s.</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
     <style>
@@ -97,9 +97,9 @@
     <!-- Top Control & Status Bar -->
     <header class="w-full bg-zinc-950 border-b-2 border-zinc-800 px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 z-30">
         <div class="flex items-center gap-3">
-            <span class="pixel-font text-xs sm:text-sm text-yellow-400 tracking-wider drop-shadow">GTA '97</span>
+            <span class="pixel-font text-xs sm:text-sm text-yellow-400 tracking-wider drop-shadow">LARCENY '97</span>
             <span id="district-badge" class="bg-zinc-900 border border-zinc-700 text-amber-300 px-2 py-0.5 rounded text-sm sm:text-base tracking-wide">
-                SAN ANDREAS DOWNTOWN
+                NEON BAY DOWNTOWN
             </span>
             <span id="radio-badge" class="hidden sm:inline-flex items-center gap-1.5 bg-zinc-900 border border-emerald-700/60 text-emerald-400 px-2 py-0.5 rounded text-sm">
                 <span>📻</span> <span id="radio-name">WALKING</span>
@@ -150,7 +150,7 @@
                         </div>
                     </div>
                 </div>
-                <!-- Police Wanted Heads (Classic GTA 1 Style!) -->
+                <!-- Police Wanted Heads -->
                 <div class="flex items-center gap-1.5 min-h-[22px]">
                     <span class="text-xs text-zinc-400 uppercase tracking-wider">WANTED:</span>
                     <div id="hud-wanted" class="flex items-center gap-1 text-base leading-none">
@@ -171,7 +171,7 @@
             </div>
         </div>
 
-        <!-- Pager / Mission Box (Top-Center, authentic GTA 1 Pager!) -->
+        <!-- Pager / Mission Box (Top-Center) -->
         <div id="pager-box" class="pointer-events-none absolute top-16 sm:top-4 left-1/2 -translate-x-1/2 z-20 transition-all duration-300 opacity-0 -translate-y-4">
             <div class="bg-zinc-900 border-2 border-zinc-500 rounded-lg px-4 py-1.5 shadow-2xl flex items-center gap-2.5">
                 <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
@@ -181,9 +181,9 @@
             </div>
         </div>
 
-        <!-- Big Arcade Center Banner (WASTED / BUSTED / GOURANGA / MISSION COMPLETE) -->
+        <!-- Big Arcade Center Banner (WASTED / BUSTED / HALLELUJAH / MISSION COMPLETE) -->
         <div id="big-banner" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center z-20 opacity-0 transition-opacity duration-200 px-4 text-center">
-            <div id="big-banner-title" class="pixel-font text-2xl sm:text-5xl text-yellow-400 gta-title-glow tracking-wider">GOURANGA!</div>
+            <div id="big-banner-title" class="pixel-font text-2xl sm:text-5xl text-yellow-400 gta-title-glow tracking-wider">HALLELUJAH!</div>
             <div id="big-banner-sub" class="text-xl sm:text-2xl text-white bg-black/75 px-4 py-1 rounded mt-3 border border-yellow-500/50">BONUS $5,000</div>
         </div>
 
@@ -192,10 +192,10 @@
             <div class="bg-zinc-950 border-2 border-yellow-500 rounded-xl max-w-xl w-full p-5 sm:p-6 shadow-2xl">
                 <div class="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
                     <div>
-                        <h1 class="pixel-font text-lg sm:text-2xl text-yellow-400 gta-title-glow">GRAND THEFT AUTO '97</h1>
+                        <h1 class="pixel-font text-lg sm:text-2xl text-yellow-400 gta-title-glow">GRAND LARCENY '97</h1>
                         <p class="text-zinc-400 text-base sm:text-lg">Authentic Top-Down 2.5D Perspective Engine</p>
                     </div>
-                    <span class="bg-amber-500/20 border border-amber-500 text-amber-300 px-2.5 py-1 rounded text-sm">LIBERTY / SAN ANDREAS</span>
+                    <span class="bg-amber-500/20 border border-amber-500 text-amber-300 px-2.5 py-1 rounded text-sm">NEON BAY</span>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-base sm:text-lg mb-4">
@@ -214,8 +214,8 @@
                         <div class="text-emerald-400 font-bold mb-1">☎️ FEATURES & SECRETS</div>
                         <ul class="text-zinc-300 space-y-0.5 text-base">
                             <li>• Follow <span class="text-yellow-300">Yellow Arrows</span> to ringing Payphones for Missions!</li>
-                            <li>• Visit <span class="text-fuchsia-400">PAY 'N' SPRAY</span> garages to clear Cops & repair damage.</li>
-                            <li>• Spot the orange <span class="text-orange-400">Joggers</span> in Central Park for a <span class="text-yellow-300">GOURANGA!</span></li>
+                            <li>• Visit <span class="text-fuchsia-400">SPRAY-B-GONE</span> garages to clear Cops & repair damage.</li>
+                            <li>• Spot the orange <span class="text-orange-400">Joggers</span> in Central Park for a <span class="text-yellow-300">HALLELUJAH!</span></li>
                             <li>• Find the hidden <span class="text-lime-400">Battle Tank</span> in the SE Dockyard!</li>
                         </ul>
                     </div>
@@ -262,21 +262,21 @@
             <span><strong class="text-yellow-400">[H]</strong> Horn/Siren</span>
         </div>
         <div id="footer-coords" class="text-zinc-500">
-            PAY 'N' SPRAY ($1,000) CLEARS COPS • FOLLOW ARROWS TO PAYPHONES
+            SPRAY-B-GONE ($1,000) CLEARS COPS • FOLLOW ARROWS TO PAYPHONES
         </div>
     </footer>
 
     <script>
         /**
          * ============================================================================
-         * GRAND THEFT AUTO '97 — TOP-DOWN 2.5D BROWSER ENGINE
+         * GRAND LARCENY '97 — TOP-DOWN 2.5D BROWSER ENGINE
          * Complete single-file replica featuring:
          * - 2.5D Perspective-Extruded City Blocks with sorted walls & detailed roofs
-         * - Dynamic Speed-Zoom Camera (classic DMA Design feel)
+         * - Dynamic Speed-Zoom Camera (classic '90s feel)
          * - Arcade Vehicle Physics, Handbrake Drifts, Skidmarks, Hijacking
          * - Weapons (Fists, Pistol, Machine Gun, Rocket Launcher), Pickups, Tank
-         * - Pedestrians, Gouranga Joggers, Police Wanted Heads & Road Pursuit AI
-         * - Ringing Payphone Missions + Pay 'n' Spray Respray Garages
+         * - Pedestrians, Hallelujah Joggers, Police Wanted Heads & Road Pursuit AI
+         * - Ringing Payphone Missions + Spray-B-Gone Respray Garages
          * - Procedural Web Audio SFX & Retro Car Radio Stations
          * ============================================================================
          */
@@ -294,7 +294,7 @@
         const T_ROAD_V   = 4;
         const T_ROAD_X   = 5;
         const T_BLDG     = 6;
-        const T_SPRAY    = 7; // Pay 'n' Spray Garage
+        const T_SPRAY    = 7; // Spray-B-Gone Garage
 
         // Weapon Definitions
         const WEAPONS = [
@@ -304,22 +304,22 @@
             { id: 3, name: 'ROCKET',   icon: '🚀', cooldown: 0.85, range: 640, damage: 250,auto: false, speed: 520, explosive: true }
         ];
 
-        // Vehicle Archetypes (Classic GTA 1 Legends!)
+        // Vehicle Archetypes
         const CAR_TYPES = {
-            beast: {
-                name: 'BEAST GTS', w: 30, l: 56, maxSpeed: 540, accel: 380, grip: 0.91, hp: 140,
+            hellcrab: {
+                name: 'HELLCRAB GTS', w: 30, l: 56, maxSpeed: 540, accel: 380, grip: 0.91, hp: 140,
                 colors: ['#ef4444', '#eab308', '#3b82f6', '#f97316'], stripe: '#ffffff', radio: 'HEAD RADIO 98.4 FM', value: 1200
             },
-            mundano: {
-                name: 'MUNDANO', w: 29, l: 54, maxSpeed: 410, accel: 260, grip: 0.93, hp: 130,
+            bumbler: {
+                name: 'BUMBLER', w: 29, l: 54, maxSpeed: 410, accel: 260, grip: 0.93, hp: 130,
                 colors: ['#64748b', '#0ea5e9', '#10b981', '#a855f7', '#d97706'], stripe: null, radio: 'BROOKLYN UNDERGROUND', value: 600
             },
             cabbie: {
                 name: 'CABBIE TAXI', w: 30, l: 55, maxSpeed: 430, accel: 290, grip: 0.92, hp: 145,
                 colors: ['#facc15'], stripe: '#111827', taxiSign: true, radio: 'NCT-FM HIP HOP', value: 800
             },
-            stallion: {
-                name: 'STALLION V8', w: 31, l: 58, maxSpeed: 500, accel: 350, grip: 0.87, hp: 150,
+            blitz: {
+                name: 'BLITZ V8', w: 31, l: 58, maxSpeed: 500, accel: 350, grip: 0.87, hp: 150,
                 colors: ['#dc2626', '#16a34a', '#9333ea', '#f59e0b'], stripe: '#18181b', radio: 'IT\'S UNLEASHED FM', value: 1000
             },
             van: {
@@ -331,7 +331,7 @@
                 colors: ['#1e293b'], isPolice: true, radio: 'POLICE DISPATCH BAND', value: 1500
             },
             tank: {
-                name: 'RHINO TANK', w: 42, l: 68, maxSpeed: 260, accel: 260, grip: 0.97, hp: 900,
+                name: 'BATTLE TANK', w: 42, l: 68, maxSpeed: 260, accel: 260, grip: 0.97, hp: 900,
                 colors: ['#3f6212'], isTank: true, radio: 'HEAVY METAL ARMOR FM', value: 5000
             }
         };
@@ -474,7 +474,7 @@
                         this.radioTimer = 0;
                         const groove = [110, 110, 146.8, 110, 164.8, 146.8, 130.8, 98];
                         const note = groove[this.radioStep % groove.length];
-                        const mult = carType === 'beast' ? 1.25 : (carType === 'tank' ? 0.75 : 1.0);
+                        const mult = carType === 'hellcrab' ? 1.25 : (carType === 'tank' ? 0.75 : 1.0);
                         this.playTone(note * mult, note * mult * 0.98, 0.13, 'sawtooth', 0.028);
                         if (this.radioStep % 2 === 1) {
                             this.playNoise(0.03, 4500, 0.018); // crisp hi-hat
@@ -632,7 +632,7 @@
                 }
             }
 
-            // Place 3 Pay 'n' Spray Garages right next to avenues
+            // Place 3 Spray-B-Gone Garages right next to avenues
             const sprayCoords = [
                 { tx: 7, ty: 6 },
                 { tx: 21, ty: 10 },
@@ -950,15 +950,15 @@
             player.weaponIdx = 1;
             player.ammo = [Infinity, 99, 150, 8];
 
-            // Parked Beast GTS & Stallion V8 neatly on Central Park North Plaza (off active traffic lanes!)
-            cars.push(createCar('beast', 14.35 * TILE, 11.32 * TILE, 0, 'parked'));
-            cars.push(createCar('stallion', 11.35 * TILE, 11.35 * TILE, Math.PI * 0.5, 'parked'));
+            // Parked Hellcrab GTS & Blitz V8 neatly on Central Park North Plaza (off active traffic lanes!)
+            cars.push(createCar('hellcrab', 14.35 * TILE, 11.32 * TILE, 0, 'parked'));
+            cars.push(createCar('blitz', 11.35 * TILE, 11.35 * TILE, Math.PI * 0.5, 'parked'));
 
-            // Secret Rhino Battle Tank in SE Dockyard!
+            // Secret Battle Tank in SE Dockyard!
             cars.push(createCar('tank', 27.5 * TILE, 27.5 * TILE, -Math.PI * 0.5, 'parked'));
 
             // Populate Traffic Cars cleanly aligned inside right-hand lanes
-            const trafficKeys = ['mundano', 'cabbie', 'stallion', 'beast', 'van', 'mundano', 'cabbie'];
+            const trafficKeys = ['bumbler', 'cabbie', 'blitz', 'hellcrab', 'van', 'bumbler', 'cabbie'];
             const roadIndices = [2, 6, 10, 14, 18, 22, 26, 30];
             for (let i = 0; i < 40; i++) {
                 const roadIdx = roadIndices[Math.floor(Math.random() * roadIndices.length)];
@@ -1000,7 +1000,7 @@
                 spawnRandomPed();
             }
 
-            // Spawn Iconic GTA 1 "GOURANGA!" Orange Joggers in a synchronized conga line in Central Park!
+            // Spawn "HALLELUJAH!" Orange Joggers in a synchronized conga line in Central Park!
             const jogStartX = 12.6 * TILE;
             const jogStartY = 12.4 * TILE;
             for (let j = 0; j < 7; j++) {
@@ -1009,8 +1009,8 @@
                     y: jogStartY,
                     angle: 0,
                     speed: 56,
-                    color: '#fb923c', // Bright Hare Krishna / Gouranga orange!
-                    role: 'gouranga',
+                    color: '#fb923c', // Bright Hallelujah orange!
+                    role: 'hallelujah',
                     leaderIdx: j === 0 ? -1 : j - 1,
                     waypointIdx: 0,
                     hp: 20,
@@ -1088,14 +1088,14 @@
                 // Mission 1: Hot Car Delivery (parked cleanly on Westside Plaza pavement)
                 mission.type = 'steal_deliver';
                 mission.stage = 1;
-                const hotCar = createCar('beast', 7.5 * TILE, 17.5 * TILE, 0, 'parked');
+                const hotCar = createCar('hellcrab', 7.5 * TILE, 17.5 * TILE, 0, 'parked');
                 hotCar.color = '#ec4899'; // Neon Pink Boss GTS
                 cars.push(hotCar);
                 mission.targetEntity = hotCar;
                 mission.targetX = hotCar.x;
                 mission.targetY = hotCar.y;
-                mission.title = 'STEAL THE PINK BEAST GTS IN WESTSIDE!';
-                showPager('EL BURRO: STEAL THE PINK BEAST GTS & BRING IT TO EAST DOCKS!');
+                mission.title = 'STEAL THE PINK HELLCRAB GTS IN WESTSIDE!';
+                showPager('MAMA VOLTA: STEAL THE PINK HELLCRAB GTS & BRING IT TO EAST DOCKS!');
             } else if (mIdx === 1) {
                 // Mission 2: Take Out Rival Syndicate Boss + Guards (on Uptown Plaza sidewalk)
                 mission.type = 'assassinate';
@@ -1401,12 +1401,12 @@
                     addScore(pts, ped.x, ped.y);
                     addCrime(ped.role === 'cop' ? 1.1 : 0.35);
 
-                    // Check GOURANGA! (Did player wipe out all orange joggers?)
-                    if (ped.role === 'gouranga') {
-                        const remaining = peds.filter(other => other !== ped && other.role === 'gouranga' && other.hp > 0);
+                    // Check HALLELUJAH! (Did player wipe out all orange joggers?)
+                    if (ped.role === 'hallelujah') {
+                        const remaining = peds.filter(other => other !== ped && other.role === 'hallelujah' && other.hp > 0);
                         if (remaining.length === 0) {
-                            addScore(5000, ped.x, ped.y - 25, 'GOURANGA!');
-                            showBigBanner('GOURANGA!', 'ALL JOGGERS SPLATTERED! +$5,000 BONUS', '#f97316');
+                            addScore(5000, ped.x, ped.y - 25, 'HALLELUJAH!');
+                            showBigBanner('HALLELUJAH!', 'ALL JOGGERS SPLATTERED! +$5,000 BONUS', '#f97316');
                             audio.cash();
                         }
                     }
@@ -1443,7 +1443,7 @@
             }
             const sub = reason === 'BUSTED!'
                 ? 'Hauled to the Precinct — Weapons Confiscated!'
-                : 'Patching you up at San Andreas General Hospital...';
+                : 'Patching you up at Neon Bay General Hospital...';
             showBigBanner(reason, sub, reason === 'BUSTED!' ? '#38bdf8' : '#ef4444');
             updateHUD();
         }
@@ -1868,7 +1868,7 @@
                     player.y = car.y;
                     player.angle = car.angle;
 
-                    // Check Pay 'n' Spray Garage!
+                    // Check Spray-B-Gone Garage!
                     for (const sp of sprayShops) {
                         sp.cooldown = Math.max(0, sp.cooldown - dt);
                         if (sp.cooldown <= 0 && Math.hypot(car.x - sp.x, car.y - sp.y) < 48 && car.speed < 190) {
@@ -2009,7 +2009,7 @@
 
                         const relV = Math.hypot(c.vx - o.vx, c.vy - o.vy);
                         if (relV > 140) {
-                            // Rhino Tank crushes cars instantly!
+                            // Battle Tank crushes cars instantly!
                             if (c.spec.isTank && c === player.inCar && o.hp > 0) {
                                 destroyCar(o, true);
                             } else if (o.spec.isTank && o === player.inCar && c.hp > 0) {
@@ -2097,7 +2097,7 @@
                 }
 
                 // Reflexively dodge fast oncoming cars!
-                if (p.role === 'civilian' || p.role === 'gouranga') {
+                if (p.role === 'civilian' || p.role === 'hallelujah') {
                     for (const c of cars) {
                         if (c.hp <= 0) continue;
                         const cSpd = Math.hypot(c.vx, c.vy);
@@ -2164,7 +2164,7 @@
                         p.shootTimer = 0.55;
                         fireWeapon(p.x, p.y, aimAng, 2, false);
                     }
-                } else if (p.role === 'gouranga' && p.panicTimer <= 0) {
+                } else if (p.role === 'hallelujah' && p.panicTimer <= 0) {
                     // Synchronized Central Park jogger conga patrol!
                     const wp = parkLoop[p.waypointIdx || 0];
                     if (Math.hypot(wp.x - p.x, wp.y - p.y) < 20) {
@@ -2341,7 +2341,7 @@
             updateMission(dt);
             updateDistrictName();
 
-            // --- DYNAMIC GTA 1 SPEED-ZOOM CAMERA ---
+            // --- DYNAMIC SPEED-ZOOM CAMERA ---
             const currentSpeed = player.inCar ? player.inCar.speed : 0;
             // Zooms out smoothly when driving fast so you can spot intersections ahead!
             camera.targetZoom = player.inCar
@@ -2349,7 +2349,7 @@
                 : 1.06;
             camera.zoom += (camera.targetZoom - camera.zoom) * 3.5 * dt;
 
-            // Camera looks slightly ahead of fast vehicles (authentic GTA 1 camera lead!)
+            // Camera looks slightly ahead of fast vehicles
             const leadX = player.inCar ? player.inCar.vx * 0.28 : 0;
             const leadY = player.inCar ? player.inCar.vy * 0.28 : 0;
             camera.x += (player.x + leadX - camera.x) * 6.5 * dt;
@@ -2371,7 +2371,7 @@
 
         function updateDistrictName() {
             const badge = document.getElementById('district-badge');
-            let name = 'DOWNTOWN LIBERTY';
+            let name = 'DOWNTOWN NEON BAY';
             const tx = player.x / TILE;
             const ty = player.y / TILE;
             if (tx >= 11 && tx <= 17 && ty >= 11 && ty <= 17) name = 'CENTRAL PARK PLAZA';
@@ -2396,7 +2396,7 @@
             const radioName = document.getElementById('radio-name');
             radioName.textContent = player.inCar ? player.inCar.spec.radio : 'ON FOOT';
 
-            // Classic GTA 1 Flashing Cop Heads Wanted Meter
+            // Flashing Cop Heads Wanted Meter
             const wantedEl = document.getElementById('hud-wanted');
             const level = Math.floor(player.wanted);
             if (level <= 0) {
@@ -2422,7 +2422,7 @@
             }
         }
 
-        // --- 2.5D PERSPECTIVE RENDERER (EXACT 1997 GTA 1 LOOK!) ---
+        // --- 2.5D PERSPECTIVE RENDERER ---
         function worldToScreen(wx, wy, shakeX, shakeY) {
             return {
                 x: (wx - camera.x) * camera.zoom + viewW * 0.5 + shakeX,
@@ -2450,7 +2450,7 @@
             const minTY = Math.max(0, Math.floor((camera.y - halfH) / TILE));
             const maxTY = Math.min(MAP_SIZE - 1, Math.floor((camera.y + halfH) / TILE));
 
-            // 1. DRAW GROUND TILES (Roads, Sidewalks, Grass, Pay 'n' Spray)
+            // 1. DRAW GROUND TILES (Roads, Sidewalks, Grass, Spray-B-Gone)
             const visibleBuildings = [];
             for (let ty = minTY; ty <= maxTY; ty++) {
                 for (let tx = minTX; tx <= maxTX; tx++) {
@@ -2481,7 +2481,7 @@
                             visibleBuildings.push({ tx, ty, meta: bldgMeta[ty][tx] });
                         }
                     } else if (t === T_SPRAY) {
-                        // Pay 'n' Spray Checkerboard Garage Floor
+                        // Spray-B-Gone Checkerboard Garage Floor
                         ctx.fillStyle = '#3f3f46';
                         ctx.fillRect(x, y, TILE + 1, TILE + 1);
                         ctx.strokeStyle = '#e879f9';
@@ -2734,7 +2734,7 @@
                 }
             }
 
-            // 9. DRAW FLOATING ARCADE POP-UPS & CLASSIC GTA 1 DIRECTIONAL ARROWS!
+            // 9. DRAW FLOATING ARCADE POP-UPS & DIRECTIONAL ARROWS!
             for (const ft of floatingTexts) {
                 const sp = worldToScreen(ft.x, ft.y, shakeX, shakeY);
                 ctx.globalAlpha = Math.max(0, ft.life / ft.maxLife);
@@ -2873,7 +2873,7 @@
                 ctx.fillRect(-l * 0.18, -w * 0.46, l * 0.38, w * 0.92);
             }
 
-            // Racing Stripes (Beast GTS / Stallion / Taxi Checker)
+            // Racing Stripes (Hellcrab GTS / Blitz / Taxi Checker)
             if (c.spec.stripe && c.hp > 0) {
                 ctx.fillStyle = c.spec.stripe;
                 ctx.fillRect(-l * 0.48, -3, l * 0.96, 6);
@@ -2927,7 +2927,7 @@
             ctx.restore();
         }
 
-        // Classic GTA 1 Orbiting Navigation Arrows around Player!
+        // Orbiting Navigation Arrows around Player!
         function drawNavigationArrows(shakeX, shakeY) {
             const pScreen = worldToScreen(player.x, player.y, shakeX, shakeY);
 
@@ -2954,7 +2954,7 @@
                 drawSingleArrow(pScreen.x, pScreen.y, Math.atan2(targetY - player.y, targetX - player.x), 68, arrowColor);
             }
 
-            // 2. Pink Arrow -> Nearest Pay 'n' Spray when Wanted!
+            // 2. Pink Arrow -> Nearest Spray-B-Gone when Wanted!
             if (Math.floor(player.wanted) >= 1) {
                 let bestSp = null;
                 let bestD = Infinity;
