@@ -74,6 +74,21 @@ export const GRIME = (() => {
         if (r() < 0.7) crack(g, r, 0.35);
         if (r() < 0.4) crack(g, r, 0.28);
     });
+    // Harbor roads: pale, cracked, stained concrete slabs
+    const concrete = make(4, 311, (g, r) => {
+        speckle(g, r, 380, '20,19,15', 0.2, 1.8);
+        speckle(g, r, 160, '255,252,240', 0.22, 1.4);
+        for (let i = 0; i < 3; i++) stain(g, r, '60,48,34', 0.14, 30);
+        g.strokeStyle = 'rgba(20,19,15,0.22)';
+        g.lineWidth = 1.5; // slab joints
+        g.beginPath();
+        g.moveTo(S * 0.5, 0);
+        g.lineTo(S * 0.5, S);
+        g.moveTo(0, S * 0.5);
+        g.lineTo(S, S * 0.5);
+        g.stroke();
+        for (let i = 0; i < 3; i++) crack(g, r, 0.42);
+    });
     const walk = make(4, 51, (g, r) => {
         speckle(g, r, 300, '20,19,15', 0.2, 1.4);
         for (let i = 0; i < 2; i++) stain(g, r, '74,69,58', 0.12, 30);
@@ -440,5 +455,5 @@ export const GRIME = (() => {
         g.drawImage(sh, (variant % 3) * cw, (variant % rows) * cw, cw, cw, -CELL / 2, -CELL / 2, CELL, CELL);
     }
     loadOverrides();
-    return { road, walk, grass, roof, water, paper, drawPed, drawPlayer, drawNpc, drawCorpse };
+    return { road, concrete, walk, grass, roof, water, paper, drawPed, drawPlayer, drawNpc, drawCorpse };
 })();

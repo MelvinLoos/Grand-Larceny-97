@@ -4,12 +4,13 @@ import './styles/hud.css';
 import './styles/touch.css';
 import './styles/manual.css';
 import './styles/responsive.css';
-import { buildCity } from './city.js';
-import { TILE } from './config.js';
+import * as city from './city.js';
+import { LANDMARKS, buildCity } from './city.js';
 import { populateWorld } from './entities.js';
 import { bakeFoliage, plantFoliage } from './foliage.js';
 import { updateHUD } from './hud.js';
 import { render } from './render.js';
+import * as state from './state.js';
 import { camera, game, view } from './state.js';
 import { handleResize, setupEvents } from './ui.js';
 import { update } from './update.js';
@@ -58,8 +59,9 @@ function gameLoop(timestamp) {
         game.attractWindow = { x: wr.left + wr.width / 2, y: wr.top + wr.height / 2 };
         camera.zoom = (view.w < 600 ? 0.36 : 0.46) * Math.max(view.fit, 0.85);
         // Figure-eight that starts over Central Park, then sweeps the grid and the coast
-        camera.x = 14.5 * TILE + Math.sin(t * 0.05) * 1150 - (game.attractWindow.x - view.w / 2) / camera.zoom;
-        camera.y = 14.5 * TILE + Math.sin(t * 0.1) * 480 - (game.attractWindow.y - view.h / 2) / camera.zoom;
+        camera.x =
+            LANDMARKS.parkCenter.x + Math.sin(t * 0.05) * 1900 - (game.attractWindow.x - view.w / 2) / camera.zoom;
+        camera.y = LANDMARKS.parkCenter.y + Math.sin(t * 0.1) * 700 - (game.attractWindow.y - view.h / 2) / camera.zoom;
     }
     render();
     requestAnimationFrame(gameLoop);
@@ -80,3 +82,6 @@ async function init() {
 }
 
 init();
+
+// Dev-only console hook for poking at the world (stripped from production builds)
+if (import.meta.env.DEV) window.__gl = { city, state, LANDMARKS };

@@ -55,7 +55,8 @@ export function startGame() {
         document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
     }
     game.state = 'play';
-    game.lastDistrict = '';
+    player.currentDistrict = -1;
+    game.districtCooldown = 0;
     const box = document.getElementById('box');
     box.classList.add('opening');
     setTimeout(() => {

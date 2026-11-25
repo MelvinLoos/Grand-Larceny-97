@@ -140,14 +140,13 @@
         font-size: 17px;
     }
     #district-label {
-        top: 116px !important;
-        font-size: 13px;
+        right: 12px;
+        bottom: calc(190px + var(--safe-b));
+        font-size: 22px;
     }
-    #hud.district-on #hud-mission-timer,
     #hud.radio-on #hud-mission-timer {
         display: none;
     }
-    #hud.paging #district-label,
     #hud.paging #radio {
         opacity: 0;
     }

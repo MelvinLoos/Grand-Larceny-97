@@ -1,19 +1,23 @@
+import { isRoadCell } from './city.js';
 import {
     MAP_SIZE,
     TILE,
+    T_ALLEY,
+    T_BAY,
     T_BLDG,
     T_GRASS,
     T_PAVEMENT,
     T_ROAD_H,
     T_ROAD_V,
     T_ROAD_X,
-    T_SPRAY,
     T_WATER
 } from './config.js';
+import { DISTRICTS, districtAtTile } from './districts.js';
 import { drawCanopy, drawFoliageGround } from './foliage.js';
 import { GRIME } from './grime.js';
-import { HAZARD, INK, PAPER, PARK, ROAD, ROUTE, STREETS_H, STREETS_V, WALK, WATER, shade } from './palette.js';
+import { HAZARD, INK, PAPER, PARK, ROUTE, STREETS_H, STREETS_V, WATER, shade } from './palette.js';
 import {
+    bays,
     bldgMeta,
     bullets,
     camera,
@@ -30,7 +34,6 @@ import {
     peds,
     pickups,
     player,
-    sprayShops,
     view
 } from './state.js';
 
@@ -40,6 +43,49 @@ export function worldToScreen(wx, wy, shakeX, shakeY) {
         x: (wx - camera.x) * camera.zoom + view.w * 0.5 + shakeX,
         y: (wy - camera.y) * camera.zoom + view.h * 0.5 + shakeY
     };
+}
+
+// --- CACHED GROUND TILES ---
+function tileCanvas(draw) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 144;
+    draw(c.getContext('2d'));
+    return c;
+}
+let _brick = null;
+function brickTile() {
+    return (_brick ||= tileCanvas((g) => {
+        g.fillStyle = '#8b5a45';
+        g.fillRect(0, 0, 144, 144);
+        g.strokeStyle = 'rgba(20, 19, 15, 0.35)';
+        g.lineWidth = 2;
+        for (let row = 0; row < 8; row++) {
+            const yy = row * 18;
+            g.beginPath();
+            g.moveTo(0, yy);
+            g.lineTo(144, yy);
+            for (let xx = row % 2 ? 0 : 18; xx < 144; xx += 36) {
+                g.moveTo(xx, yy);
+                g.lineTo(xx, yy + 18);
+            }
+            g.stroke();
+        }
+        g.fillStyle = 'rgba(20, 19, 15, 0.16)'; // gutter down the middle
+        g.fillRect(0, 66, 144, 12);
+        g.drawImage(GRIME.walk[1], 0, 0, 144, 144);
+    }));
+}
+let _bayFloor = null;
+function bayFloorTile() {
+    return (_bayFloor ||= tileCanvas((g) => {
+        g.fillStyle = '#2d2c2e';
+        g.fillRect(0, 0, 144, 144);
+        g.drawImage(GRIME.road[2], 0, 0, 144, 144);
+        g.fillStyle = 'rgba(30, 22, 14, 0.4)';
+        g.beginPath();
+        g.ellipse(70, 80, 30, 18, 0.4, 0, Math.PI * 2);
+        g.fill();
+    }));
 }
 
 export function render() {
@@ -110,43 +156,46 @@ export function render() {
                 ctx.fillRect(x, y, TILE + 1, TILE + 1);
                 ctx.drawImage(GRIME.grass[(tx * 3 + ty * 5) % 3], x, y, TILE + 1, TILE + 1);
             } else if (t === T_PAVEMENT || t === T_BLDG) {
-                ctx.fillStyle = WALK;
+                const gd = DISTRICTS[districtAtTile(tx, ty)].ground;
+                ctx.fillStyle = gd.walk;
                 ctx.fillRect(x, y, TILE + 1, TILE + 1);
                 ctx.drawImage(GRIME.walk[(tx * 7 + ty * 3) & 3], x, y, TILE + 1, TILE + 1);
                 ctx.strokeStyle = 'rgba(20, 19, 15, 0.12)';
                 ctx.lineWidth = 1.5;
                 ctx.strokeRect(x + 2, y + 2, TILE - 4, TILE - 4);
-                if (t === T_BLDG) visibleBuildings.push({ tx, ty, meta: bldgMeta[ty][tx] });
-            } else if (t === T_SPRAY) {
-                ctx.fillStyle = HAZARD;
-                ctx.fillRect(x, y, TILE + 1, TILE + 1);
-                ctx.strokeStyle = INK;
-                ctx.lineWidth = 6;
-                ctx.strokeRect(x + 9, y + 9, TILE - 18, TILE - 18);
-                ctx.lineWidth = 2;
-                for (let d = 28; d < TILE - 20; d += 14) {
+                if (gd.tiled) {
+                    // Crisp tiled plaza: 3x3 slabs
+                    ctx.strokeStyle = 'rgba(20, 19, 15, 0.14)';
                     ctx.beginPath();
-                    ctx.moveTo(x + 18, y + d + 26);
-                    ctx.lineTo(x + TILE - 18, y + d + 26);
+                    for (let k = 1; k < 3; k++) {
+                        ctx.moveTo(x + (TILE * k) / 3, y);
+                        ctx.lineTo(x + (TILE * k) / 3, y + TILE);
+                        ctx.moveTo(x, y + (TILE * k) / 3);
+                        ctx.lineTo(x + TILE, y + (TILE * k) / 3);
+                    }
                     ctx.stroke();
                 }
-                ctx.fillStyle = HAZARD;
-                ctx.fillRect(x + 16, y + 28, TILE - 32, 44);
-                ctx.fillStyle = INK;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.font = 'italic 900 19px "Archivo", sans-serif';
-                ctx.fillText('SPRAY-B-GONE', x + TILE * 0.5, y + 42);
-                ctx.font = '700 14px "Barlow Condensed", sans-serif';
-                ctx.fillText('FREE RESPRAY', x + TILE * 0.5, y + 61);
+                if (t === T_BLDG) visibleBuildings.push({ tx, ty, meta: bldgMeta[ty][tx] });
+            } else if (t === T_ALLEY) {
+                ctx.drawImage(brickTile(), x, y, TILE + 1, TILE + 1);
+            } else if (t === T_BAY) {
+                ctx.drawImage(bayFloorTile(), x, y, TILE + 1, TILE + 1);
             } else if (t === T_ROAD_H || t === T_ROAD_V || t === T_ROAD_X) {
-                ctx.fillStyle = ROAD;
+                const gd = DISTRICTS[districtAtTile(tx, ty)].ground;
+                const curb = gd.walk;
+                ctx.fillStyle = gd.road;
                 ctx.fillRect(x, y, TILE + 1, TILE + 1);
-                ctx.drawImage(GRIME.road[(tx * 5 + ty * 11) & 3], x, y, TILE + 1, TILE + 1);
+                ctx.drawImage(
+                    GRIME[gd.concrete ? 'concrete' : 'road'][(tx * 5 + ty * 11) & 3],
+                    x,
+                    y,
+                    TILE + 1,
+                    TILE + 1
+                );
                 ctx.fillStyle = '#c9c6b4';
                 if (t === T_ROAD_H) {
                     for (let d = 12; d < TILE; d += 36) ctx.fillRect(x + d, y + TILE * 0.5 - 2, 20, 4);
-                    ctx.fillStyle = WALK;
+                    ctx.fillStyle = curb;
                     ctx.fillRect(x, y, TILE + 1, 10);
                     ctx.fillRect(x, y + TILE - 10, TILE + 1, 10);
                     ctx.fillStyle = INK;
@@ -161,7 +210,7 @@ export function render() {
                     }
                 } else if (t === T_ROAD_V) {
                     for (let d = 12; d < TILE; d += 36) ctx.fillRect(x + TILE * 0.5 - 2, y + d, 4, 20);
-                    ctx.fillStyle = WALK;
+                    ctx.fillStyle = curb;
                     ctx.fillRect(x, y, 10, TILE + 1);
                     ctx.fillRect(x + TILE - 10, y, 10, TILE + 1);
                     ctx.fillStyle = INK;
@@ -179,12 +228,29 @@ export function render() {
                         ctx.restore();
                     }
                 } else {
+                    // Junction: zebra crossings only where a road arrives, kerb where the side is closed (T / corner)
+                    const rN = isRoadCell(tx, ty - 1),
+                        rS = isRoadCell(tx, ty + 1),
+                        rW = isRoadCell(tx - 1, ty),
+                        rE = isRoadCell(tx + 1, ty);
                     ctx.fillStyle = 'rgba(236, 230, 210, 0.35)';
                     for (let z = 20; z < TILE - 20; z += 18) {
-                        ctx.fillRect(x + z, y + 4, 10, 14);
-                        ctx.fillRect(x + z, y + TILE - 18, 10, 14);
-                        ctx.fillRect(x + 4, y + z, 14, 10);
-                        ctx.fillRect(x + TILE - 18, y + z, 14, 10);
+                        if (rN) ctx.fillRect(x + z, y + 4, 10, 14);
+                        if (rS) ctx.fillRect(x + z, y + TILE - 18, 10, 14);
+                        if (rW) ctx.fillRect(x + 4, y + z, 14, 10);
+                        if (rE) ctx.fillRect(x + TILE - 18, y + z, 14, 10);
+                    }
+                    if (!rN || !rS || !rW || !rE) {
+                        ctx.fillStyle = curb;
+                        if (!rN) ctx.fillRect(x, y, TILE + 1, 10);
+                        if (!rS) ctx.fillRect(x, y + TILE - 10, TILE + 1, 10);
+                        if (!rW) ctx.fillRect(x, y, 10, TILE + 1);
+                        if (!rE) ctx.fillRect(x + TILE - 10, y, 10, TILE + 1);
+                        ctx.fillStyle = INK;
+                        if (!rN) ctx.fillRect(x, y + 9, TILE + 1, 2.5);
+                        if (!rS) ctx.fillRect(x, y + TILE - 11.5, TILE + 1, 2.5);
+                        if (!rW) ctx.fillRect(x + 9, y, 2.5, TILE + 1);
+                        if (!rE) ctx.fillRect(x + TILE - 11.5, y, 2.5, TILE + 1);
                     }
                 }
             }
@@ -413,10 +479,10 @@ export function render() {
         const r11 = { x: s11.x + (s11.x - vpSx) * h, y: s11.y + (s11.y - vpSy) * h };
         const r01 = { x: s01.x + (s01.x - vpSx) * h, y: s01.y + (s01.y - vpSy) * h };
 
-        if (s00.y > vpSy) drawWallQuad(s00, s10, r10, r00, b.meta.wall, b.meta.win);
-        if (s11.y < vpSy) drawWallQuad(s11, s01, r01, r11, b.meta.dark, b.meta.win);
-        if (s00.x > vpSx) drawWallQuad(s01, s00, r00, r01, b.meta.wall, b.meta.win);
-        if (s10.x < vpSx) drawWallQuad(s10, s11, r11, r10, b.meta.dark, b.meta.win);
+        if (s00.y > vpSy) drawWallQuad(s00, s10, r10, r00, b.meta.wall, b.meta.win, b.meta.winAlpha);
+        if (s11.y < vpSy) drawWallQuad(s11, s01, r01, r11, b.meta.dark, b.meta.win, b.meta.winAlpha);
+        if (s00.x > vpSx) drawWallQuad(s01, s00, r00, r01, b.meta.wall, b.meta.win, b.meta.winAlpha);
+        if (s10.x < vpSx) drawWallQuad(s10, s11, r11, r10, b.meta.dark, b.meta.win, b.meta.winAlpha);
 
         const rw = r10.x - r00.x;
         const rh = r01.y - r00.y;
@@ -427,10 +493,32 @@ export function render() {
         ctx.lineWidth = 2;
         ctx.strokeRect(r00.x, r00.y, rw, rh);
 
+        if (b.meta.kind === 'container') {
+            ctx.strokeStyle = 'rgba(20, 19, 15, 0.38)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            for (let k = 1; k < 6; k++) {
+                ctx.moveTo(r00.x + (rw * k) / 6, r00.y);
+                ctx.lineTo(r00.x + (rw * k) / 6, r00.y + rh);
+            }
+            ctx.stroke();
+            continue;
+        }
+
         const pad = Math.max(4, rw * 0.09);
         ctx.strokeStyle = 'rgba(20, 19, 15, 0.28)';
         ctx.lineWidth = 1.5;
         ctx.strokeRect(r00.x + pad, r00.y + pad, rw - pad * 2, rh - pad * 2);
+        if (b.meta.neon) {
+            // Neon roof trim: wide soft halo + hot core
+            ctx.strokeStyle = b.meta.neon;
+            ctx.globalAlpha = 0.3;
+            ctx.lineWidth = 7;
+            ctx.strokeRect(r00.x + pad, r00.y + pad, rw - pad * 2, rh - pad * 2);
+            ctx.globalAlpha = 1;
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(r00.x + pad, r00.y + pad, rw - pad * 2, rh - pad * 2);
+        }
 
         if (b.meta.style === 0) {
             ctx.strokeStyle = 'rgba(20, 19, 15, 0.55)';
@@ -487,7 +575,7 @@ export function render() {
     drawNavigationArrows(shakeX, shakeY);
 }
 
-export function drawWallQuad(b1, b2, t2, t1, wallColor, winColor) {
+export function drawWallQuad(b1, b2, t2, t1, wallColor, winColor, winAlpha = 0.5) {
     ctx.fillStyle = wallColor;
     ctx.beginPath();
     ctx.moveTo(b1.x, b1.y);
@@ -500,8 +588,9 @@ export function drawWallQuad(b1, b2, t2, t1, wallColor, winColor) {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
+    if (winAlpha <= 0) return;
     ctx.fillStyle = winColor;
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = winAlpha;
     for (let row = 0.25; row <= 0.78; row += 0.26) {
         for (let col = 0.18; col <= 0.82; col += 0.22) {
             const wxA = (b1.x * (1 - col) + b2.x * col) * (1 - row) + (t1.x * (1 - col) + t2.x * col) * row;
@@ -815,19 +904,20 @@ export function drawNavigationArrows(shakeX, shakeY) {
         drawSingleArrow(pScreen.x, pScreen.y, Math.atan2(targetY - player.y, targetX - player.x), 68, arrowColor);
     }
 
-    // 2. Pink Arrow -> Nearest Spray-B-Gone when Wanted!
+    // 2. Blue Arrow -> Nearest Spray-B-Gone bay when Wanted!
     if (Math.floor(player.wanted) >= 1) {
         let bestSp = null;
         let bestD = Infinity;
-        for (const sp of sprayShops) {
-            const d = Math.hypot(sp.x - player.x, sp.y - player.y);
+        for (const sp of bays) {
+            if (sp.type !== 'spray') continue;
+            const d = Math.hypot(sp.ex - player.x, sp.ey - player.y);
             if (d < bestD) {
                 bestD = d;
                 bestSp = sp;
             }
         }
         if (bestSp && bestD > 95) {
-            drawSingleArrow(pScreen.x, pScreen.y, Math.atan2(bestSp.y - player.y, bestSp.x - player.x), 86, WATER);
+            drawSingleArrow(pScreen.x, pScreen.y, Math.atan2(bestSp.ey - player.y, bestSp.ex - player.x), 86, WATER);
         }
     }
 }

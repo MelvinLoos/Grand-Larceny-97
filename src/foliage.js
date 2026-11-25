@@ -1,21 +1,10 @@
 import treeUrl from './assets/sprites/tree.png?url';
 import { audio } from './audio.js';
-import { isRoadCell } from './city.js';
+import { LANDMARKS, isRoadCell } from './city.js';
 import { MAP_SIZE, TILE, T_GRASS, T_PAVEMENT } from './config.js';
+import { DISTRICTS, districtAtTile } from './districts.js';
 import { buzz } from './haptics.js';
-import {
-    camera,
-    cars,
-    foliage,
-    foliageGrid,
-    mapGrid,
-    particles,
-    payphones,
-    pickups,
-    player,
-    sprayShops,
-    view
-} from './state.js';
+import { camera, cars, foliage, foliageGrid, mapGrid, particles, payphones, pickups, player, view } from './state.js';
 
 // --- FOLIAGE: one palette-indexed canopy mask, baked once at startup into recoloured,
 // rotated canvases (trees, compound groves, bushes). No pixel reads/writes after bakeFoliage(). ---
@@ -345,21 +334,22 @@ export function plantFoliage() {
         ...cars.filter((c) => c.aiMode === 'parked'),
         ...payphones,
         ...pickups,
-        ...sprayShops,
-        { x: player.x, y: player.y },
-        { x: 13.5 * TILE, y: 11.7 * TILE },
-        { x: 7.5 * TILE, y: 17.5 * TILE },
-        { x: 21.5 * TILE, y: 7.5 * TILE },
-        { x: 25.5 * TILE, y: 25.5 * TILE }
+        ...LANDMARKS.keepClear,
+        { x: player.x, y: player.y }
     ];
+    const park = LANDMARKS.parkRect;
+    const yard = LANDMARKS.yardRect;
+    const inRect = (r, tx, ty) => tx >= r.x0 && tx <= r.x1 && ty >= r.y0 && ty <= r.y1;
     // Jogger conga loop around Central Park
-    const L0 = 12.4 * TILE,
-        L1 = 16.5 * TILE;
+    const L0x = LANDMARKS.parkLoop[3].x,
+        L1x = LANDMARKS.parkLoop[0].x,
+        L0y = LANDMARKS.parkLoop[3].y,
+        L1y = LANDMARKS.parkLoop[1].y;
     const loopDist = (x, y) => {
-        const ox = Math.max(L0 - x, 0, x - L1),
-            oy = Math.max(L0 - y, 0, y - L1);
+        const ox = Math.max(L0x - x, 0, x - L1x),
+            oy = Math.max(L0y - y, 0, y - L1y);
         if (ox || oy) return Math.hypot(ox, oy);
-        return Math.min(x - L0, L1 - x, y - L0, L1 - y);
+        return Math.min(x - L0x, L1x - x, y - L0y, L1y - y);
     };
 
     // Distance from a point to the nearest road tile edge
@@ -420,19 +410,21 @@ export function plantFoliage() {
     ];
 
     // Central Park: one old-growth grove per quadrant, then mixed trees & bushes
+    const gcx = Math.floor((park.x0 + park.x1) / 2);
+    const gcy = Math.floor((park.y0 + park.y1) / 2);
     const groveTiles = [
-        [13, 13],
-        [15, 13],
-        [13, 15],
-        [15, 15]
+        [gcx - 1, gcy - 1],
+        [gcx + 1, gcy - 1],
+        [gcx - 1, gcy + 1],
+        [gcx + 1, gcy + 1]
     ];
     for (const [tx, ty] of groveTiles) {
         const r = rng(tx * 7919 + ty * 104729);
         for (let a = 0; a < 6; a++)
             if (tryAdd(makeProp('grove', (tx + 0.3 + r() * 0.4) * TILE, (ty + 0.3 + r() * 0.4) * TILE, r))) break;
     }
-    for (let ty = 11; ty <= 17; ty++)
-        for (let tx = 11; tx <= 17; tx++) {
+    for (let ty = park.y0; ty <= park.y1; ty++)
+        for (let tx = park.x0; tx <= park.x1; tx++) {
             if (mapGrid[ty][tx] !== T_GRASS) continue;
             const r = rng(tx * 131 + ty * 977 + 5);
             const count = 2 + Math.floor(r() * 3);
@@ -452,17 +444,19 @@ export function plantFoliage() {
         for (let tx = 2; tx < MAP_SIZE - 1; tx++) {
             if (mapGrid[ty][tx] !== T_PAVEMENT) continue;
             const r = rng(tx * 3301 + ty * 7741 + 11);
-            const parkRing = tx >= 11 && tx <= 17 && ty >= 11 && ty <= 17;
-            const dock = tx >= 23 && tx <= 29 && ty >= 23 && ty <= 29;
+            const parkRing = inRect(park, tx, ty);
+            const dock = inRect(yard, tx, ty);
+            const dcfg = DISTRICTS[districtAtTile(tx, ty)].foliage;
+            const dpal = dcfg.pal || streetPal;
             if (dock) {
-                if (r() < 0.18)
+                if (r() < 0.14)
                     tryAdd(
                         makeProp(
                             'bush',
                             (tx + 0.2 + r() * 0.6) * TILE,
                             (ty + 0.2 + r() * 0.6) * TILE,
                             r,
-                            pickPal(r, streetPal)
+                            pickPal(r, dpal)
                         )
                     );
                 continue;
@@ -474,7 +468,7 @@ export function plantFoliage() {
                 [0, -1]
             ];
             for (const [dx, dy] of sides) {
-                if (!isRoadCell(tx + dx, ty + dy) || r() > (parkRing ? 0.3 : 0.38)) continue;
+                if (!isRoadCell(tx + dx, ty + dy) || r() > (parkRing ? 0.3 : dcfg.sideChance)) continue;
                 const along = 0.22 + r() * 0.56;
                 const x = dx ? (dx > 0 ? (tx + 1) * TILE - inset : tx * TILE + inset) : (tx + along) * TILE;
                 const y = dy ? (dy > 0 ? (ty + 1) * TILE - inset : ty * TILE + inset) : (ty + along) * TILE;
@@ -484,8 +478,8 @@ export function plantFoliage() {
                     type = r() < 0.5 ? 'bush' : 'tree';
                     pal = pickPal(r, parkPal);
                 } else {
-                    if (r() < 0.25) type = 'bush';
-                    pal = pickPal(r, streetPal);
+                    if (r() < dcfg.bushRatio) type = 'bush';
+                    pal = pickPal(r, dpal);
                 }
                 tryAdd(makeProp(type, x, y, r, pal));
             }

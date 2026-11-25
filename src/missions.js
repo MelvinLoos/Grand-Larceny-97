@@ -1,6 +1,5 @@
 import { audio } from './audio.js';
-import { getLaneCoord } from './city.js';
-import { TILE } from './config.js';
+import { LANDMARKS } from './city.js';
 import { pedLook } from './palette.js';
 import { createCar } from './entities.js';
 import { addScore, showBigBanner, showPager, updateHUD } from './hud.js';
@@ -20,23 +19,23 @@ export function startPayphoneMission(phone) {
     mission.active = true;
 
     if (mIdx === 0) {
-        // Mission 1: Hot Car Delivery (parked cleanly on Westside Plaza pavement)
+        // Mission 1: Hot Car Delivery (parked in a Midtown gang courtyard)
         mission.type = 'steal_deliver';
         mission.stage = 1;
-        const hotCar = createCar('hellcrab', 7.5 * TILE, 17.5 * TILE, 0, 'parked');
+        const hotCar = createCar('hellcrab', LANDMARKS.missions.hotCar.x, LANDMARKS.missions.hotCar.y, 0, 'parked');
         hotCar.color = '#e2559b'; // Neon Pink Boss GTS
         cars.push(hotCar);
         mission.targetEntity = hotCar;
         mission.targetX = hotCar.x;
         mission.targetY = hotCar.y;
-        mission.title = 'STEAL THE PINK HELLCRAB GTS IN WESTSIDE!';
-        showPager('MAMA VOLTA: STEAL THE PINK HELLCRAB GTS & BRING IT TO EAST DOCKS!');
+        mission.title = 'STEAL THE PINK HELLCRAB GTS IN MIDTOWN!';
+        showPager('MAMA VOLTA: STEAL THE PINK HELLCRAB GTS IN MIDTOWN & BRING IT TO THE HARBOR YARD!');
     } else if (mIdx === 1) {
-        // Mission 2: Take Out Rival Syndicate Boss + Guards (on Uptown Plaza sidewalk)
+        // Mission 2: Take Out Rival Syndicate Boss + Guards (on the Financial Plaza)
         mission.type = 'assassinate';
         mission.stage = 1;
-        const bx = 21.5 * TILE;
-        const by = 7.5 * TILE;
+        const bx = LANDMARKS.missions.boss.x;
+        const by = LANDMARKS.missions.boss.y;
         const boss = {
             x: bx,
             y: by,
@@ -68,13 +67,13 @@ export function startPayphoneMission(phone) {
         mission.targetEntity = boss;
         mission.targetX = bx;
         mission.targetY = by;
-        mission.title = 'ELIMINATE THE RIVAL CAPO IN UPTOWN!';
-        showPager('THE DENTIST: THE RIVAL CAPO IS IN UPTOWN. TIME FOR AN EXTRACTION.');
+        mission.title = 'ELIMINATE THE RIVAL CAPO IN DOWNTOWN FINANCIAL!';
+        showPager('THE DENTIST: THE RIVAL CAPO IS ON THE FINANCIAL PLAZA. TIME FOR AN EXTRACTION.');
     } else {
         // Mission 3: Armored Van Destruction (cruising cleanly in eastbound lane)
         mission.type = 'destroy_car';
         mission.stage = 1;
-        const armored = createCar('van', 18.5 * TILE, getLaneCoord(22, 0), 0, 'traffic');
+        const armored = createCar('van', LANDMARKS.missions.vanSpawn.x, LANDMARKS.missions.vanSpawn.y, 0, 'traffic');
         armored.color = '#e0a21b';
         armored.hp = 260;
         armored.maxHp = 260;
@@ -120,11 +119,11 @@ export function updateMission(dt) {
             mission.targetY = car.y;
             if (player.inCar === car) {
                 mission.stage = 2;
-                mission.targetX = 25.5 * TILE;
-                mission.targetY = 25.5 * TILE;
-                mission.title = 'DELIVER CAR TO SE DOCKS DROP-OFF!';
+                mission.targetX = LANDMARKS.missions.drop.x;
+                mission.targetY = LANDMARKS.missions.drop.y;
+                mission.title = 'DELIVER CAR TO THE HARBOR YARD DROP-OFF!';
                 addCrime(1.2);
-                showPager('COPS SPOTTED YOU! DELIVER IT TO THE SE DOCKYARD CRANE!');
+                showPager('COPS SPOTTED YOU! DELIVER IT TO THE HARBOR YARD CRANE!');
                 updateHUD();
             }
         } else if (mission.stage === 2) {

@@ -289,32 +289,39 @@
 
 #district-label {
     position: absolute;
-    left: 50%;
-    top: 84px;
-    transform: translate(-50%, -8px);
+    right: 18px;
+    bottom: 22px;
+    transform: translateX(calc(100% + 40px));
     opacity: 0;
     transition:
-        opacity 0.3s,
-        transform 0.5s var(--ease-out);
-    background: var(--paper);
-    color: var(--ink);
-    border-radius: 4px;
-    padding: 5px 12px;
+        opacity 0.2s,
+        transform 0.45s var(--ease-out);
+    background: none;
+    color: var(--hazard);
+    padding: 0;
     font-family: var(--display);
     font-style: italic;
-    font-weight: 800;
-    font-stretch: 115%;
-    font-size: 15px;
-    letter-spacing: 0.14em;
+    font-weight: 900;
+    font-stretch: 125%;
+    font-size: 30px;
+    line-height: 1;
+    letter-spacing: 0.06em;
     white-space: nowrap;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    text-transform: uppercase;
+    /* hard 1997 bitmap-style drop: stacked offsets, no blur */
+    text-shadow:
+        2px 2px 0 var(--ink),
+        4px 4px 0 var(--ink),
+        -2px 0 0 var(--ink),
+        0 -2px 0 var(--ink),
+        2px 0 0 var(--ink),
+        0 2px 0 var(--ink);
+    -webkit-font-smoothing: none;
+    pointer-events: none;
 }
 #district-label.show {
     opacity: 1;
-    transform: translate(-50%, 0);
-}
-#hud.paging #district-label {
-    opacity: 0;
+    transform: translateX(0);
 }
 
 #radio {

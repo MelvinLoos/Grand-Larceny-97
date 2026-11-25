@@ -1,6 +1,7 @@
-import { DIR_VECS, angleToRoadDir, getLaneCoord, tileAtWorld } from './city.js';
-import { CAR_TYPES, MAP_SIZE, TILE, T_GRASS, T_PAVEMENT } from './config.js';
-import { pedLook, SHIRT_COLORS } from './palette.js';
+import { LANDMARKS, angleToRoadDir, pickRoadSpawnAnywhere, tileAtWorld } from './city.js';
+import { CAR_TYPES, MAP_SIZE, TILE, isSidewalkTile } from './config.js';
+import { DISTRICTS, getDistrictAt, pickWeighted } from './districts.js';
+import { PUNK_HAIR, pedLook, SHIRT_COLORS } from './palette.js';
 import { showPager, updateHUD } from './hud.js';
 import { bullets, camera, cars, decals, floatingTexts, particles, peds, pickups, player } from './state.js';
 
@@ -42,6 +43,11 @@ export function createCar(typeKey, x, y, angle = 0, aiMode = 'traffic') {
     };
 }
 
+// Traffic mix follows the district the car spawns in
+export function pickCarType(districtIdx) {
+    return pickWeighted(DISTRICTS[districtIdx].traffic);
+}
+
 export function populateWorld() {
     cars.length = 0;
     peds.length = 0;
@@ -51,9 +57,9 @@ export function populateWorld() {
     decals.length = 0;
     floatingTexts.length = 0;
 
-    // Spawn Player in Central Park Plaza
-    player.x = 13.5 * TILE;
-    player.y = 11.7 * TILE;
+    // Spawn Player on Central Park's north plaza
+    player.x = LANDMARKS.playerSpawn.x;
+    player.y = LANDMARKS.playerSpawn.y;
     player.vx = 0;
     player.vy = 0;
     player.hp = 100;
@@ -63,64 +69,34 @@ export function populateWorld() {
     player.deadTimer = 0;
     player.weaponIdx = 1;
     player.ammo = [Infinity, 99, 150, 8];
+    player.currentDistrict = -1;
+    player.probation = 0;
+    player.probationWanted = 0;
 
-    // Parked Hellcrab GTS & Blitz V8 neatly on Central Park North Plaza (off active traffic lanes!)
-    cars.push(createCar('hellcrab', 14.35 * TILE, 11.32 * TILE, 0, 'parked'));
-    cars.push(createCar('blitz', 11.35 * TILE, 11.35 * TILE, Math.PI * 0.5, 'parked'));
+    // Parked cars on the Central Park north plaza (off active traffic lanes!)
+    for (const pc of LANDMARKS.parkedCars) cars.push(createCar(pc.type, pc.x, pc.y, pc.angle, 'parked'));
 
-    // Secret Battle Tank in SE Dockyard!
-    cars.push(createCar('tank', 27.5 * TILE, 27.5 * TILE, -Math.PI * 0.5, 'parked'));
+    // Secret Battle Tank behind the container stacks in the Harbor yard!
+    cars.push(createCar('tank', LANDMARKS.tank.x, LANDMARKS.tank.y, LANDMARKS.tank.angle, 'parked'));
 
-    // Populate Traffic Cars cleanly aligned inside right-hand lanes
-    const trafficKeys = ['bumbler', 'cabbie', 'blitz', 'hellcrab', 'van', 'bumbler', 'cabbie'];
-    const roadIndices = [2, 6, 10, 14, 18, 22, 26, 30];
-    for (let i = 0; i < 40; i++) {
-        const roadIdx = roadIndices[Math.floor(Math.random() * roadIndices.length)];
-        const horiz = Math.random() < 0.5;
-        // Spawn mid-block (avoid spawning directly inside intersections)
-        const segBase = roadIndices[Math.floor(Math.random() * (roadIndices.length - 1))];
-        const posAlong = (segBase + 1.2 + Math.random() * 1.6) * TILE;
-        const forward = Math.random() < 0.5;
-
-        let dir, cx, cy;
-        if (horiz) {
-            dir = forward ? 0 : 2;
-            cx = posAlong;
-            cy = getLaneCoord(roadIdx, dir);
-        } else {
-            dir = forward ? 1 : 3;
-            cx = getLaneCoord(roadIdx, dir);
-            cy = posAlong;
-        }
-
-        if (Math.hypot(cx - player.x, cy - player.y) > 240) {
-            // Ensure cars don't spawn overlapping each other
-            let overlap = false;
-            for (const existing of cars) {
-                if (Math.hypot(existing.x - cx, existing.y - cy) < 85) {
-                    overlap = true;
-                    break;
-                }
-            }
-            if (!overlap) {
-                const tk = Math.random() < 0.12 ? 'police' : trafficKeys[i % trafficKeys.length];
-                cars.push(createCar(tk, cx, cy, DIR_VECS[dir].ang, 'traffic'));
-            }
-        }
+    // Populate Traffic Cars cleanly aligned inside right-hand lanes, mix by district
+    for (let i = 0; i < 55; i++) {
+        const spot = pickRoadSpawnAnywhere();
+        if (!spot || Math.hypot(spot.x - player.x, spot.y - player.y) < 240) continue;
+        cars.push(createCar(pickCarType(getDistrictAt(spot.x, spot.y)), spot.x, spot.y, spot.angle, 'traffic'));
     }
 
     // Spawn Regular Pedestrians
-    for (let i = 0; i < 65; i++) {
+    for (let i = 0; i < 80; i++) {
         spawnRandomPed();
     }
 
     // Spawn "HALLELUJAH!" Orange Joggers in a synchronized conga line in Central Park!
-    const jogStartX = 12.6 * TILE;
-    const jogStartY = 12.4 * TILE;
+    const jogStart = LANDMARKS.parkLoop[3];
     for (let j = 0; j < 7; j++) {
         peds.push({
-            x: jogStartX - j * 22,
-            y: jogStartY,
+            x: jogStart.x - j * 22,
+            y: jogStart.y,
             angle: 0,
             speed: 56,
             color: '#fb923c', // Bright Hallelujah orange!
@@ -134,17 +110,8 @@ export function populateWorld() {
         });
     }
 
-    // Spawn Weapon, Health, Armor & Bribe Pickups across alleys and parks
-    const pickupSpots = [
-        { x: 14.5 * TILE, y: 14.5 * TILE, kind: 'uzi', color: '#ffd400' },
-        { x: 9.5 * TILE, y: 9.5 * TILE, kind: 'armor', color: '#5a8fd6' },
-        { x: 19.5 * TILE, y: 15.5 * TILE, kind: 'rocket', color: '#ff8a2a' },
-        { x: 7.5 * TILE, y: 19.5 * TILE, kind: 'health', color: '#d23a2a' },
-        { x: 24.5 * TILE, y: 24.5 * TILE, kind: 'rocket', color: '#ff8a2a' },
-        { x: 15.5 * TILE, y: 7.5 * TILE, kind: 'bribe', color: '#a855f7' },
-        { x: 21.5 * TILE, y: 21.5 * TILE, kind: 'health', color: '#d23a2a' }
-    ];
-    for (const p of pickupSpots) {
+    // Weapon, Health, Armor & Bribe Pickups spread over the districts
+    for (const p of LANDMARKS.pickups) {
         pickups.push({ ...p, timer: 0 });
     }
 
@@ -166,16 +133,17 @@ export function spawnRandomPed(role = 'civilian', nearPlayer = false) {
             wx = (2 + Math.random() * (MAP_SIZE - 4)) * TILE;
             wy = (2 + Math.random() * (MAP_SIZE - 4)) * TILE;
         }
-        const t = tileAtWorld(wx, wy);
-        if (t === T_PAVEMENT || t === T_GRASS) {
+        if (isSidewalkTile(tileAtWorld(wx, wy))) {
+            const dp = DISTRICTS[getDistrictAt(wx, wy)].peds;
+            const shirts = role === 'civilian' && dp.shirts ? dp.shirts : SHIRT_COLORS;
             peds.push({
                 x: wx,
                 y: wy,
                 angle: Math.floor(Math.random() * 4) * (Math.PI * 0.5),
                 speed: role === 'cop' ? 115 : 46,
-                color: role === 'cop' ? '#1d4ed8' : SHIRT_COLORS[Math.floor(Math.random() * SHIRT_COLORS.length)],
+                color: role === 'cop' ? '#1d4ed8' : shirts[Math.floor(Math.random() * shirts.length)],
                 role,
-                ...pedLook(role),
+                ...pedLook(role, role === 'civilian' && dp.punk ? PUNK_HAIR : null),
                 hp: role === 'cop' ? 60 : role === 'boss' ? 120 : 25,
                 panicTimer: 0,
                 shootTimer: 0.6

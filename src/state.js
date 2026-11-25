@@ -12,7 +12,7 @@ export const stick = { active: false, x: 0, y: 0, mag: 0 };
 // World Map & Building metadata
 export const mapGrid = [];
 export const bldgMeta = []; // Height, color palette, roof detail per tile
-export const sprayShops = [];
+export const bays = []; // drive-in garage bays (see shops.js)
 export const payphones = [];
 
 // Entities
@@ -55,7 +55,10 @@ export const player = {
     fireTimer: 0,
     deadTimer: 0,
     deadReason: '',
-    walkCycle: 0
+    walkCycle: 0,
+    currentDistrict: -1,
+    probation: 0, // seconds of flashing probation left after a respray
+    probationWanted: 0
 };
 
 // Active Payphone Mission State
@@ -79,9 +82,9 @@ export const game = {
     manualFrom: 'play',
     lastFrameTime: 0,
     attractWindow: null,
-    lastDistrict: '',
     lastWantedLevel: -1,
     districtTimer: null,
+    districtCooldown: 0,
     pagerTimeout: null,
     radioTimer: null,
     policeFlowTimer: 0,

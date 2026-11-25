@@ -4,6 +4,7 @@ import {
     DIR_VECS,
     applyWallFeelers,
     normalizeAngle,
+    LANDMARKS,
     hasLineOfSight,
     isRoadTileType,
     isSolidAt,
@@ -14,10 +15,11 @@ import {
 } from './city.js';
 import { damagePed, damagePlayer, destroyCar, findAimTarget, fireWeapon, triggerExplosion } from './combat.js';
 import { collideCarFoliage, steerAroundTrunks, trunkBlocks, updateFoliage } from './foliage.js';
-import { MAP_SIZE, TILE, T_BLDG, T_GRASS, T_PAVEMENT, T_ROAD_X, T_WATER, WEAPONS } from './config.js';
-import { addDecal, createCar, spawnRandomPed } from './entities.js';
+import { MAP_SIZE, TILE, T_ROAD_X, WEAPONS, isSidewalkTile, isSolidTile } from './config.js';
+import { getDistrictAt } from './districts.js';
+import { addDecal, createCar, pickCarType, spawnRandomPed } from './entities.js';
 import { buzz } from './haptics.js';
-import { showBigBanner, showPager, spawnFloatingText, updateDistrictName, updateHUD } from './hud.js';
+import { showPager, spawnFloatingText, updateDistrictName, updateHUD } from './hud.js';
 import { updateMission } from './missions.js';
 import {
     bullets,
@@ -32,7 +34,6 @@ import {
     peds,
     pickups,
     player,
-    sprayShops,
     stick,
     view
 } from './state.js';
@@ -47,8 +48,8 @@ export function update(dt) {
         if (player.deadTimer <= 0) {
             player.hp = 100;
             player.armor = 25;
-            player.x = 13.5 * TILE;
-            player.y = 11.7 * TILE;
+            player.x = LANDMARKS.playerSpawn.x;
+            player.y = LANDMARKS.playerSpawn.y;
             if (player.deadReason === 'BUSTED!') {
                 player.ammo = [Infinity, 50, 0, 0];
                 player.weaponIdx = 1;
@@ -209,31 +210,6 @@ export function update(dt) {
             player.x = car.x;
             player.y = car.y;
             player.angle = car.angle;
-
-            // Check Spray-B-Gone Garage!
-            for (const sp of sprayShops) {
-                sp.cooldown = Math.max(0, sp.cooldown - dt);
-                if (sp.cooldown <= 0 && Math.hypot(car.x - sp.x, car.y - sp.y) < 48 && car.speed < 190) {
-                    sp.cooldown = 6;
-                    if (!spec.isPolice && !spec.isTank) {
-                        const randomPalette = [
-                            '#d23a2a',
-                            '#3f8f5e',
-                            '#2f6db5',
-                            '#e0a21b',
-                            '#e2559b',
-                            '#6b3fa0',
-                            '#3d8fb8'
-                        ];
-                        car.color = randomPalette[Math.floor(Math.random() * randomPalette.length)];
-                    }
-                    car.hp = car.maxHp;
-                    player.wanted = 0;
-                    audio.cash();
-                    showBigBanner('RESPRAYED!', 'FRESH PAINT, FULL REPAIR, ZERO HEAT', '#7fb2f0');
-                    updateHUD();
-                }
-            }
         } else {
             // On-Foot Movement
             let mx = (right ? 1 : 0) - (left ? 1 : 0);
@@ -311,12 +287,17 @@ export function update(dt) {
                 if (c !== mission.targetEntity && Math.hypot(c.x - player.x, c.y - player.y) > 1950) {
                     const spot = pickRoadSpawnNear(player.x, player.y, 820, 1350);
                     if (spot) {
-                        c.x = spot.x;
-                        c.y = spot.y;
-                        c.angle = spot.angle;
-                        c.roadDir = spot.dir;
-                        c.nextRoadDir = spot.dir;
-                        c.intersectKey = -1;
+                        // Re-roll the model for the district it lands in, so traffic shifts as you cross town
+                        const fresh = createCar(
+                            pickCarType(getDistrictAt(spot.x, spot.y)),
+                            spot.x,
+                            spot.y,
+                            spot.angle,
+                            'traffic'
+                        );
+                        delete c._grime;
+                        delete c._gs;
+                        Object.assign(c, fresh);
                         c.vx = Math.cos(spot.angle) * c.cruiseSpeed;
                         c.vy = Math.sin(spot.angle) * c.cruiseSpeed;
                     }
@@ -373,10 +354,13 @@ export function update(dt) {
                 const nxCol = dx / dist;
                 const nyCol = dy / dist;
                 const overlap = minDist - dist;
-                c.x -= nxCol * overlap * 0.5;
-                c.y -= nyCol * overlap * 0.5;
-                o.x += nxCol * overlap * 0.5;
-                o.y += nyCol * overlap * 0.5;
+                const cm = c.spec.mass || 1;
+                const om = o.spec.mass || 1;
+                const cShare = om / (cm + om); // the lighter car gets shoved more
+                c.x -= nxCol * overlap * cShare;
+                c.y -= nyCol * overlap * cShare;
+                o.x += nxCol * overlap * (1 - cShare);
+                o.y += nyCol * overlap * (1 - cShare);
 
                 const relV = Math.hypot(c.vx - o.vx, c.vy - o.vy);
                 if (relV > 140) {
@@ -386,16 +370,16 @@ export function update(dt) {
                     } else if (o.spec.isTank && o === player.inCar && c.hp > 0) {
                         destroyCar(c, true);
                     } else {
-                        c.hp -= relV * 0.04;
-                        o.hp -= relV * 0.04;
+                        c.hp -= relV * 0.08 * cShare;
+                        o.hp -= relV * 0.08 * (1 - cShare);
                     }
                 }
-                const avgVx = (c.vx + o.vx) * 0.5;
-                const avgVy = (c.vy + o.vy) * 0.5;
-                c.vx = avgVx - nxCol * 45;
-                c.vy = avgVy - nyCol * 45;
-                o.vx = avgVx + nxCol * 45;
-                o.vy = avgVy + nyCol * 45;
+                const avgVx = (c.vx * cm + o.vx * om) / (cm + om);
+                const avgVy = (c.vy * cm + o.vy * om) / (cm + om);
+                c.vx = avgVx - nxCol * 90 * cShare;
+                c.vy = avgVy - nyCol * 90 * cShare;
+                o.vx = avgVx + nxCol * 90 * (1 - cShare);
+                o.vy = avgVy + nyCol * 90 * (1 - cShare);
             }
         }
 
@@ -460,12 +444,7 @@ export function update(dt) {
     }
 
     // --- UPDATE PEDESTRIANS ---
-    const parkLoop = [
-        { x: 16.5 * TILE, y: 12.4 * TILE },
-        { x: 16.5 * TILE, y: 16.5 * TILE },
-        { x: 12.4 * TILE, y: 16.5 * TILE },
-        { x: 12.4 * TILE, y: 12.4 * TILE }
-    ];
+    const parkLoop = LANDMARKS.parkLoop;
 
     for (let i = peds.length - 1; i >= 0; i--) {
         const p = peds[i];
@@ -491,7 +470,7 @@ export function update(dt) {
                         const perpA = Math.atan2(c.vy, c.vx) + Math.PI * 0.5;
                         const perpB = perpA + Math.PI;
                         const tA = tileAtWorld(p.x + Math.cos(perpA) * 28, p.y + Math.sin(perpA) * 28);
-                        p.angle = tA === T_PAVEMENT || tA === T_GRASS ? perpA : perpB;
+                        p.angle = isSidewalkTile(tA) ? perpA : perpB;
                         break;
                     }
                 }
@@ -499,6 +478,10 @@ export function update(dt) {
         }
 
         const distP = Math.hypot(player.x - p.x, player.y - p.y);
+        if (p.role === 'civilian' && distP > 2600 && Math.random() < dt * 0.4) {
+            peds.splice(i, 1);
+            continue;
+        }
         const canSeePlayer = distP < 420 && hasLineOfSight(p.x, p.y, player.x, player.y);
 
         if (p.role === 'cop' && Math.floor(player.wanted) >= 1 && distP < 520 && player.deadTimer <= 0) {
@@ -577,9 +560,9 @@ export function update(dt) {
             // Pedestrians stay on sidewalks/parks, only entering roads at T_ROAD_X crosswalks when clear of cars!
             let canStep = false;
             if (!isSolidAt(nx, ny, 8) && !trunkBlocks(p.x, p.y, nx, ny, 8)) {
-                if (nt === T_PAVEMENT || nt === T_GRASS) {
+                if (isSidewalkTile(nt)) {
                     canStep = true;
-                } else if (p.panicTimer > 0 && nt !== T_BLDG && nt !== T_WATER) {
+                } else if (p.panicTimer > 0 && !isSolidTile(nt)) {
                     canStep = true;
                 } else if (nt === T_ROAD_X) {
                     // If already crossing, finish crossing; if stepping off curb, check oncoming traffic first
@@ -611,7 +594,7 @@ export function update(dt) {
     }
 
     // Keep city lively with ambient pedestrians
-    if (peds.length < 55 && Math.random() < dt * 2) {
+    if (peds.length < 75 && Math.random() < dt * 2) {
         spawnRandomPed(Math.floor(player.wanted) >= 2 && Math.random() < 0.25 ? 'cop' : 'civilian', true);
     }
 
@@ -744,7 +727,7 @@ export function update(dt) {
     // Update Missions & District Display
     if (game.state === 'play') {
         updateMission(dt);
-        updateDistrictName();
+        updateDistrictName(dt);
     }
 
     // --- DYNAMIC SPEED-ZOOM CAMERA ---

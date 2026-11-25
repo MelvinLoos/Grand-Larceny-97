@@ -11,7 +11,8 @@
     #touch-controls {
         display: block;
     }
-    #radio {
+    #radio,
+    #district-label {
         bottom: calc(190px + var(--safe-b));
     }
 }

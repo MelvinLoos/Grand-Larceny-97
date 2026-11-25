@@ -1,6 +1,7 @@
 import { audio } from './audio.js';
-import { TILE, WEAPONS } from './config.js';
-import { DISTRICTS, HAZARD, districtOf } from './palette.js';
+import { WEAPONS } from './config.js';
+import { DISTRICTS, getDistrictAt } from './districts.js';
+import { HAZARD } from './palette.js';
 import { floatingTexts, game, mission, player } from './state.js';
 
 export function addScore(pts, x, y, customLabel = null) {
@@ -80,19 +81,22 @@ export function hideRadio() {
     document.getElementById('hud').classList.remove('radio-on');
 }
 
-export function updateDistrictName() {
-    const name = DISTRICTS[districtOf(player.x / TILE, player.y / TILE)].name;
-    if (name === game.lastDistrict) return;
-    game.lastDistrict = name;
+// 1997-style "you are now in" banner: slides in bottom-right for 2.5s, at most one per 3s
+export function updateDistrictName(dt) {
+    game.districtCooldown = Math.max(0, game.districtCooldown - dt);
+    const idx = getDistrictAt(player.x, player.y);
+    if (idx === player.currentDistrict || game.districtCooldown > 0) return;
+    player.currentDistrict = idx;
+    game.districtCooldown = 3;
     const el = document.getElementById('district-label');
-    el.textContent = name;
+    el.textContent = DISTRICTS[idx].name;
     el.classList.add('show');
     document.getElementById('hud').classList.add('district-on');
     if (game.districtTimer) clearTimeout(game.districtTimer);
     game.districtTimer = setTimeout(() => {
         el.classList.remove('show');
         document.getElementById('hud').classList.remove('district-on');
-    }, 2600);
+    }, 2500);
 }
 
 export function updateHUD() {

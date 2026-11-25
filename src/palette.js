@@ -7,13 +7,6 @@ export const WATER = '#2f6db5';
 export const PARK = '#79a957';
 export const HAZARD = '#ffd400';
 export const ROUTE = '#d23a2a';
-export const DISTRICTS = {
-    downtown: { name: 'DOWNTOWN NEON BAY', roofs: ['#b8a58a', '#a89478', '#c9b99f'] },
-    park: { name: 'CENTRAL PARK PLAZA', roofs: ['#c4b49a', '#b3a283', '#d3c6ae'] },
-    uptown: { name: 'UPTOWN FINANCIAL', roofs: ['#7d8d9c', '#6b7b8b', '#94a3b0'] },
-    west: { name: 'WESTSIDE HEIGHTS', roofs: ['#a5553f', '#92472f', '#b56a50'] },
-    dock: { name: 'SOUTHEAST DOCKYARD', roofs: ['#8d8e88', '#7b7c76', '#9fa09a'] }
-};
 export const STREETS_H = [
     '',
     'FERRY ST',
@@ -23,7 +16,14 @@ export const STREETS_H = [
     'CANAL ST',
     'KING ST',
     'BAYSHORE BLVD',
-    'DOCK RD'
+    'DOCK RD',
+    'MERCHANT ST',
+    'NEON ROW',
+    'SALT ST',
+    'RAILYARD RD',
+    'CRANE AVE',
+    'BREAKWATER RD',
+    'LIGHTHOUSE ST'
 ];
 export const STREETS_V = [
     '',
@@ -34,26 +34,20 @@ export const STREETS_V = [
     '9TH AVE',
     '11TH AVE',
     'MARKET ST',
-    'PIER AVE'
+    'PIER AVE',
+    'LINDEN AVE',
+    'SYCAMORE AVE',
+    'ORCHARD ST',
+    'GANTRY AVE',
+    'TIDE ST',
+    'ANCHOR AVE',
+    'BEACON AVE'
 ];
-export function districtOf(tx, ty) {
-    if (tx >= 11 && tx <= 17 && ty >= 11 && ty <= 17) return 'park';
-    if (tx >= 21 && ty >= 21) return 'dock';
-    if (ty < 9) return 'uptown';
-    if (tx < 9) return 'west';
-    return 'downtown';
-}
 export function shade(hex, f) {
     const n = parseInt(hex.slice(1), 16);
     const c = (v) => Math.round(Math.min(255, v * f));
     return `rgb(${c(n >> 16)}, ${c((n >> 8) & 255)}, ${c(n & 255)})`;
 }
-export function buildingPalette(x, y) {
-    const roofs = DISTRICTS[districtOf(x, y)].roofs;
-    const roof = roofs[(x * 7 + y * 13) % roofs.length];
-    return { roof, wall: shade(roof, 0.8), dark: shade(roof, 0.62), win: PAPER };
-}
-
 // --- NPC LOOKS (hair / skin recoloured onto the key-colour sprite; shirt comes from ped.color) ---
 export const SKIN_TONES = ['#ffdbac', '#f1c9a0', '#e0ac69', '#c68642', '#8d5524', '#5c3a21'];
 export const HAIR_COLORS = ['#14130f', '#2b1b10', '#4a2e1a', '#7a4a24', '#a8431f', '#d9b25a', '#bdbdb5', '#c13a8a'];
@@ -69,7 +63,9 @@ export const SHIRT_COLORS = [
     '#a3e635'
 ];
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
-export function pedLook(role) {
-    const hair = role === 'boss' ? '#fef08a' : role === 'cop' ? pick(HAIR_COLORS.slice(0, 4)) : pick(HAIR_COLORS);
+export const PUNK_HAIR = ['#c13a8a', '#22e5ff', '#a3e635', '#14130f', '#ff2bd6'];
+export function pedLook(role, hairPool = null) {
+    const hair =
+        role === 'boss' ? '#fef08a' : role === 'cop' ? pick(HAIR_COLORS.slice(0, 4)) : pick(hairPool || HAIR_COLORS);
     return { hair, skin: pick(SKIN_TONES) };
 }
