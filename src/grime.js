@@ -274,6 +274,7 @@ export const GRIME = (() => {
     // Optional PNG overrides in src/assets/sprites/ (bundled at build time; absent files are simply not loaded).
     // ped_walk.png: 8 frames per row, 1+ rows (extra rows = line-boil variants), facing +X, grayscale/light
     //   figure is multiplied by the shirt colour. ped_dead.png: 3 frames per row, same rules.
+    // player_walk.png: pre-coloured (not tinted) on-foot player, N square frames in one row, facing +X.
     // tile_road|walk|grass|roof|water.png: one seamless texture each, alpha overlay.
     const ov = {};
     function loadOverrides() {
@@ -287,6 +288,9 @@ export const GRIME = (() => {
         load('ped_walk', (im) => {
             ov.walk = im;
             charCache.clear();
+        });
+        load('player_walk', (im) => {
+            ov.player = im;
         });
         load('ped_dead', (im) => {
             ov.dead = im;
@@ -346,6 +350,38 @@ export const GRIME = (() => {
         const b = (Math.floor(t * 8) + salt) % rows;
         g.drawImage(sh, f * cw, b * cw, cw, cw, -CELL / 2, -CELL / 2, CELL, CELL);
     }
+    // Pre-coloured player sprite; returns false (caller falls back to drawPed) until the PNG has loaded.
+    const PLAYER_SIZE = 30;
+    // Right-hand tip per frame in sprite px (frame is 32x32, +X forward), so the gun is gripped, not floating.
+    const PLAYER_HAND = [
+        [16.5, 27.5],
+        [17, 25.5],
+        [14.5, 24.5],
+        [16.5, 25.5]
+    ];
+    function drawPlayer(g, phase, moving, armed) {
+        const im = ov.player;
+        if (!im) return false;
+        const fh = im.height,
+            frames = Math.max(1, Math.round(im.width / fh));
+        const f = moving ? Math.floor(((((phase / 6.28318) % 1) + 1) % 1) * frames) : 0;
+        g.fillStyle = 'rgba(20,19,15,0.3)';
+        g.beginPath();
+        g.ellipse(2, 3, 9.5, 8, 0, 0, 6.283);
+        g.fill();
+        if (armed) {
+            // drawn first so the sprite's hand overlaps the grip
+            const k = PLAYER_SIZE / fh,
+                [hx, hy] = PLAYER_HAND[f % PLAYER_HAND.length];
+            g.fillStyle = '#27272a';
+            g.fillRect((hx - 0.5 - fh / 2) * k, (hy - 1.8 - fh / 2) * k, 10, 3.5);
+        }
+        g.save();
+        g.imageSmoothingEnabled = false;
+        g.drawImage(im, f * fh, 0, fh, fh, -PLAYER_SIZE / 2, -PLAYER_SIZE / 2, PLAYER_SIZE, PLAYER_SIZE);
+        g.restore();
+        return true;
+    }
     function drawCorpse(g, variant, shirt, head) {
         const sh = sheetFor(shirt, head, true);
         const cw = sh.width / 3,
@@ -353,5 +389,5 @@ export const GRIME = (() => {
         g.drawImage(sh, (variant % 3) * cw, (variant % rows) * cw, cw, cw, -CELL / 2, -CELL / 2, CELL, CELL);
     }
     loadOverrides();
-    return { road, walk, grass, roof, water, paper, drawPed, drawCorpse };
+    return { road, walk, grass, roof, water, paper, drawPed, drawPlayer, drawCorpse };
 })();

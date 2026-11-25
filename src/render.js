@@ -507,10 +507,15 @@ export function drawCharacter(
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
-    GRIME.drawPed(ctx, cycle, performance.now() * 0.001, salt, shirtColor, headColor, moving);
-    if (isPlayer && player.weaponIdx > 0) {
-        ctx.fillStyle = '#27272a';
-        ctx.fillRect(4, 2, 11, 3.5);
+    const armed = isPlayer && player.weaponIdx > 0;
+    if (isPlayer && GRIME.drawPlayer(ctx, cycle, moving, armed)) {
+        // gun drawn in the sprite's hand
+    } else {
+        GRIME.drawPed(ctx, cycle, performance.now() * 0.001, salt, shirtColor, headColor, moving);
+        if (armed) {
+            ctx.fillStyle = '#27272a';
+            ctx.fillRect(4, 2, 11, 3.5);
+        }
     }
     ctx.restore();
 }
