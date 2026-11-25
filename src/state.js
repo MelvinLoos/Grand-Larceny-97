@@ -5,7 +5,7 @@ export const ctx = canvas.getContext('2d');
 
 // Input state
 export const keys = {};
-export const mouse = { x: 0, y: 0, down: false, worldX: 0, worldY: 0 };
+export const mouse = { x: 0, y: 0, down: false, worldX: 0, worldY: 0, movedAt: 0 };
 // Analog touch stick: x/y = unit direction, mag = 0..1 after deadzone
 export const stick = { active: false, x: 0, y: 0, mag: 0 };
 

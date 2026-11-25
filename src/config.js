@@ -61,6 +61,8 @@ export const WEAPONS = [
 export const CAR_TYPES = {
     hellcrab: {
         name: 'HELLCRAB GTS',
+        sprite: 'sports',
+        tint: true,
         w: 30,
         l: 56,
         maxSpeed: 540,
@@ -76,6 +78,8 @@ export const CAR_TYPES = {
     },
     bumbler: {
         name: 'BUMBLER',
+        sprite: 'sedan',
+        tint: true,
         w: 29,
         l: 54,
         maxSpeed: 410,
@@ -91,6 +95,7 @@ export const CAR_TYPES = {
     },
     cabbie: {
         name: 'CABBIE TAXI',
+        sprite: 'taxi',
         w: 30,
         l: 55,
         maxSpeed: 430,
@@ -107,6 +112,8 @@ export const CAR_TYPES = {
     },
     blitz: {
         name: 'BLITZ V8',
+        sprite: 'muscle',
+        tint: true,
         w: 31,
         l: 58,
         maxSpeed: 500,
@@ -122,6 +129,7 @@ export const CAR_TYPES = {
     },
     van: {
         name: 'BOX VAN',
+        sprite: 'truck',
         w: 33,
         l: 62,
         maxSpeed: 360,
@@ -137,6 +145,7 @@ export const CAR_TYPES = {
     },
     hauler: {
         name: 'DOCK HAULER',
+        sprite: 'truck',
         w: 36,
         l: 72,
         maxSpeed: 330,
@@ -152,6 +161,7 @@ export const CAR_TYPES = {
     },
     police: {
         name: 'COP CRUISER',
+        sprite: 'police',
         w: 30,
         l: 56,
         maxSpeed: 525,
@@ -166,6 +176,7 @@ export const CAR_TYPES = {
     },
     tank: {
         name: 'BATTLE TANK',
+        sprite: 'tank_hull',
         w: 42,
         l: 68,
         maxSpeed: 260,

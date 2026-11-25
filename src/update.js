@@ -23,6 +23,7 @@ import { buzz } from './haptics.js';
 import { showPager, spawnFloatingText, updateDistrictName, updateHUD } from './hud.js';
 import { updateMission } from './missions.js';
 import { updateBays } from './shops.js';
+import { tankGeom } from './vehicles.js';
 import {
     bullets,
     camera,
@@ -280,7 +281,26 @@ export function update(dt) {
             // Tank main cannon!
             if (spec.isTank && (mouse.down || keys['ControlLeft'] || keys['Fire']) && player.fireTimer <= 0) {
                 player.fireTimer = 0.9;
-                fireWeapon(car.x + Math.cos(car.angle) * 36, car.y + Math.sin(car.angle) * 36, car.angle, 3, true);
+                const tg = tankGeom(car);
+                const tipX = car.x + Math.cos(car.angle) * tg.ring + Math.cos(car.turretAngle) * tg.barrel;
+                const tipY = car.y + Math.sin(car.angle) * tg.ring + Math.sin(car.turretAngle) * tg.barrel;
+                fireWeapon(tipX, tipY, car.turretAngle, 3, true);
+                // Muzzle flare: a few orange-yellow pixels off the barrel tip
+                for (let i = 0, n = 3 + ((Math.random() * 3) | 0); i < n; i++) {
+                    const a = car.turretAngle + (Math.random() - 0.5) * 0.7;
+                    const sp = 70 + Math.random() * 110;
+                    particles.push({
+                        x: tipX,
+                        y: tipY,
+                        vx: Math.cos(a) * sp + car.vx,
+                        vy: Math.sin(a) * sp + car.vy,
+                        size: 2 + ((Math.random() * 2) | 0),
+                        square: true,
+                        color: Math.random() < 0.5 ? '#ffd400' : '#ff8a2a',
+                        life: 0.14,
+                        maxLife: 0.14
+                    });
+                }
             }
 
             player.x = car.x;
@@ -347,6 +367,18 @@ export function update(dt) {
     for (let i = 0; i < cars.length; i++) {
         const c = cars[i];
         if (c.hp <= 0) continue;
+        if (c.doorT > 0) c.doorT -= dt;
+
+        // Tank turret: slews toward the cursor (recent mouse) else back onto the hull heading
+        if (c.spec.isTank) {
+            c.targetAngle =
+                c === player.inCar && performance.now() - mouse.movedAt < 3000
+                    ? Math.atan2(mouse.worldY - c.y, mouse.worldX - c.x)
+                    : c.angle;
+            const dA = normalizeAngle(c.targetAngle - c.turretAngle);
+            const step = 2.5 * dt;
+            c.turretAngle = normalizeAngle(c.turretAngle + (Math.abs(dA) <= step ? dA : Math.sign(dA) * step));
+        }
 
         // AI Traffic & Police Pursuit Logic
         if (c !== player.inCar && c.driver) {
@@ -492,11 +524,12 @@ export function update(dt) {
             c.burnTimer += dt;
             if (Math.random() < 0.35) {
                 particles.push({
-                    x: c.x + Math.cos(c.angle) * 18,
-                    y: c.y + Math.sin(c.angle) * 18,
+                    x: c.x + Math.cos(c.angle) * c.spec.l * 0.32 + (Math.random() - 0.5) * 6,
+                    y: c.y + Math.sin(c.angle) * c.spec.l * 0.32 + (Math.random() - 0.5) * 6,
                     vx: (Math.random() - 0.5) * 25,
                     vy: -20 - Math.random() * 25,
-                    size: 6 + Math.random() * 6,
+                    size: 2 + ((Math.random() * 2) | 0),
+                    square: true,
                     color: c.hp < c.maxHp * 0.18 ? '#ff8a2a' : '#52525b',
                     life: 0.45,
                     maxLife: 0.45

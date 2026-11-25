@@ -41,7 +41,7 @@ const OUTLINE = [20, 24, 20]; // #141814
 const CANOPY = {}; // palette -> 8 orientations of { img, shadow }
 const GROVES = []; // { img, shadow, pal }
 
-function cv(w, h) {
+export function cv(w, h) {
     const c = document.createElement('canvas');
     c.width = w;
     c.height = h;
@@ -57,12 +57,12 @@ function rng(seed) {
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
 }
-function hexRgb(h) {
+export function hexRgb(h) {
     const n = parseInt(h.slice(1), 16);
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-function loadImage(url, ms) {
+export function loadImage(url, ms) {
     return new Promise((resolve) => {
         const im = new Image();
         const t = setTimeout(() => resolve(null), ms);

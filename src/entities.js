@@ -1,7 +1,7 @@
 import { LANDMARKS, angleToRoadDir, pickRoadSpawnAnywhere, tileAtWorld } from './city.js';
 import { CAR_TYPES, MAP_SIZE, TILE, isSidewalkTile } from './config.js';
 import { DISTRICTS, getDistrictAt, pickWeighted } from './districts.js';
-import { PUNK_HAIR, pedLook, SHIRT_COLORS } from './palette.js';
+import { PUNK_HAIR, pedLook, SHIRT_COLORS, VEHICLE_PALETTE } from './palette.js';
 import { showPager, updateHUD } from './hud.js';
 import { bullets, camera, cars, decals, floatingTexts, particles, peds, pickups, player } from './state.js';
 
@@ -13,7 +13,14 @@ export function addDecal(type, x, y, angle = 0, size = 10, color = 'rgba(0,0,0,0
 // --- SPAWNING VEHICLES, PEDESTRIANS, PICKUPS ---
 export function createCar(typeKey, x, y, angle = 0, aiMode = 'traffic') {
     const spec = CAR_TYPES[typeKey];
-    const color = spec.colors[Math.floor(Math.random() * spec.colors.length)];
+    // Grey-mask civilians get a district paint (paletteID indexes VEHICLE_PALETTE); liveried cars keep their own
+    let paletteID = null;
+    let color;
+    if (spec.tint) {
+        const pal = DISTRICTS[getDistrictAt(x, y)].carPalette;
+        paletteID = pal[Math.floor(Math.random() * pal.length)];
+        color = VEHICLE_PALETTE[paletteID];
+    } else color = spec.colors[Math.floor(Math.random() * spec.colors.length)];
     const initDir = angleToRoadDir(angle);
     return {
         typeKey,
@@ -25,6 +32,10 @@ export function createCar(typeKey, x, y, angle = 0, aiMode = 'traffic') {
         speed: 0,
         angle,
         color,
+        paletteID,
+        turretAngle: angle, // tank only: where the cannon points, independent of the hull
+        targetAngle: angle,
+        doorT: 0, // seconds left on the door-flap animation
         hp: spec.hp,
         maxHp: spec.hp,
         aiMode, // 'traffic', 'parked', 'police', 'player', 'target'

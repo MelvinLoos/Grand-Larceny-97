@@ -170,6 +170,7 @@ export function setupEvents() {
         const rect = canvas.getBoundingClientRect();
         mouse.x = e.clientX - rect.left;
         mouse.y = e.clientY - rect.top;
+        mouse.movedAt = performance.now();
     });
 
     canvas.addEventListener('mousedown', (e) => {
@@ -179,6 +180,7 @@ export function setupEvents() {
             mouse.x = e.clientX - rect.left;
             mouse.y = e.clientY - rect.top;
             mouse.down = true;
+            mouse.movedAt = performance.now();
         }
     });
 

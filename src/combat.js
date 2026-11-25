@@ -65,6 +65,7 @@ export function toggleEnterExitVehicle() {
         }
         car.aiMode = 'parked';
         car.driver = false;
+        car.doorT = 0.5;
         player.inCar = null;
         hideRadio();
         updateHUD();
@@ -106,6 +107,7 @@ export function toggleEnterExitVehicle() {
 
         bestCar.aiMode = 'player';
         bestCar.driver = true;
+        bestCar.doorT = 0.5;
         player.inCar = bestCar;
         showRadio(bestCar.spec);
         audio.cash();

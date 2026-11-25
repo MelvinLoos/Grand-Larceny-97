@@ -69,3 +69,19 @@ export function pedLook(role, hairPool = null) {
         role === 'boss' ? '#fef08a' : role === 'cop' ? pick(HAIR_COLORS.slice(0, 4)) : pick(hairPool || HAIR_COLORS);
     return { hair, skin: pick(SKIN_TONES) };
 }
+
+// --- CAR PAINT: the base coats pre-baked onto the grey-mask civilian sprites (see vehicles.js) ---
+export const VEHICLE_PALETTE = [
+    '#c0332a', // 0 red
+    '#1f3a6e', // 1 navy
+    '#2e8b62', // 2 jade
+    '#a8431f', // 3 rust
+    '#d9a21f', // 4 ochre
+    '#7a3a8a', // 5 plum
+    '#2a8a96', // 6 teal
+    '#e8dfc4', // 7 cream
+    '#3a3c42', // 8 charcoal
+    '#5aa0d0', // 9 sky
+    '#6b7a2a', // 10 olive
+    '#7a1f33' // 11 burgundy
+];

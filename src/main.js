@@ -8,6 +8,7 @@ import * as city from './city.js';
 import { LANDMARKS, buildCity } from './city.js';
 import { populateWorld } from './entities.js';
 import { bakeFoliage, plantFoliage } from './foliage.js';
+import { bakeVehicles } from './vehicles.js';
 import { updateHUD } from './hud.js';
 import { render } from './render.js';
 import * as state from './state.js';
@@ -70,7 +71,7 @@ function gameLoop(timestamp) {
 // --- BOOTSTRAP (module scripts run after the document is parsed) ---
 async function init() {
     handleResize();
-    await bakeFoliage();
+    await Promise.all([bakeFoliage(), bakeVehicles()]);
     buildCity();
     populateWorld();
     plantFoliage();

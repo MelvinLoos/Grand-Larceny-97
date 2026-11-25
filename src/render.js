@@ -17,6 +17,7 @@ import { drawCanopy, drawFoliageGround } from './foliage.js';
 import { GRIME } from './grime.js';
 import { drawRadar } from './minimap.js';
 import { BAY_INFO } from './shops.js';
+import { bodyOf, doorFor, skinOf } from './vehicles.js';
 import { HAZARD, INK, PAPER, PARK, ROUTE, STREETS_H, STREETS_V, WATER, shade } from './palette.js';
 import {
     bays,
@@ -426,10 +427,11 @@ export function render() {
     }
 
     // 6. DRAW VEHICLES (With Drop Shadows, Headlights, Sirens, Turrets)
-    for (const c of cars) {
-        if (Math.abs(c.x - camera.x) > halfW || Math.abs(c.y - camera.y) > halfH) continue;
-        drawVehicle(c, nowSec);
-    }
+    const seen = cars.filter((c) => Math.abs(c.x - camera.x) <= halfW && Math.abs(c.y - camera.y) <= halfH);
+    ctx.imageSmoothingEnabled = false; // chunky sprite pixels at every zoom
+    for (const c of seen) drawVehicleShadow(c);
+    for (const c of seen) drawVehicle(c, nowSec);
+    ctx.imageSmoothingEnabled = true;
 
     // 7. DRAW BULLETS & PARTICLES
     for (const b of bullets) {
@@ -846,13 +848,15 @@ export function drawCharacterVector(x, y, angle, shirtColor, headColor, cycle = 
 export function carGrime(c) {
     if (c._grime) return c._grime;
     c._gs = c._gs || ((Math.random() * 1e9) | 0) + 1;
+    const skin = skinOf(c);
     const R = 2,
-        w = c.spec.w,
+        w = skin ? skin.dw : c.spec.w,
         l = c.spec.l,
         cv = document.createElement('canvas');
     cv.width = Math.ceil(l * R);
     cv.height = Math.ceil(w * R);
     const g = cv.getContext('2d');
+    g.imageSmoothingEnabled = false;
     let a = c._gs;
     const r = () => {
         a = (a + 0x6d2b79f5) >>> 0;
@@ -905,24 +909,19 @@ export function carGrime(c) {
         g.stroke();
     }
     g.restore();
+    if (skin) {
+        // Keep the grime inside the sprite's silhouette (sprite art is nose-up, the grime canvas nose-right)
+        g.save();
+        g.globalCompositeOperation = 'destination-in';
+        g.translate(l / 2, w / 2);
+        g.rotate(Math.PI / 2);
+        g.drawImage(skin.mask, -skin.dw / 2, -skin.dh / 2, skin.dw, skin.dh);
+        g.restore();
+    }
     return (c._grime = cv);
 }
 
-export function drawVehicle(c, nowSec) {
-    const w = c.spec.w;
-    const l = c.spec.l;
-
-    ctx.save();
-    ctx.translate(c.x, c.y);
-    ctx.rotate(c.angle);
-
-    // Drop shadow
-    ctx.fillStyle = 'rgba(20, 19, 15, 0.32)';
-    ctx.beginPath();
-    ctx.roundRect(-l * 0.5 + 4, -w * 0.5 + 5, l, w, 6);
-    ctx.fill();
-
-    // Headlight beams when occupied
+function drawBeams(c, l, w) {
     if (c.driver && c.hp > 0 && !c.spec.isTank) {
         const grad = ctx.createLinearGradient(l * 0.5, 0, l * 0.5 + 85, 0);
         grad.addColorStop(0, 'rgba(254, 240, 138, 0.28)');
@@ -936,6 +935,83 @@ export function drawVehicle(c, nowSec) {
         ctx.closePath();
         ctx.fill();
     }
+}
+
+// Car bomb: satchel on the roof; once armed it blinks red/orange, faster as the fuse runs down
+function drawCarBomb(c, nowSec, l) {
+    if (!c.hasBomb || c.hp <= 0) return;
+    const x = -l * 0.1;
+    ctx.fillStyle = INK;
+    ctx.fillRect(x, -5, 10, 10);
+    let col = '#5a1a1a';
+    let glow = false;
+    if (c.bombArmed) {
+        const s = Math.sin(nowSec * (16 + (5 - Math.min(5, c.bombTimer)) * 8));
+        col = s > 0 ? '#ff2a2a' : '#ff8a2a';
+        glow = s > 0;
+    }
+    ctx.fillStyle = col;
+    ctx.fillRect(x + 3, -2, 4, 4);
+    if (c.bombArmed) {
+        ctx.fillRect(x, -5, 2, 2);
+        ctx.fillRect(x + 8, 3, 2, 2);
+    }
+    if (glow) {
+        ctx.globalAlpha = 0.35;
+        ctx.beginPath();
+        ctx.arc(x + 5, 0, 16, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+}
+
+// Roof bomb, grime and dents, in the car frame (nose = +x)
+function drawCarTop(c, nowSec, l, w) {
+    drawCarBomb(c, nowSec, l);
+
+    // Grime: oil, rust and dents (static layer cached per car, dents grow with damage)
+    const gm = carGrime(c);
+    ctx.drawImage(gm, -l * 0.5, -w * 0.5, l, w);
+    const dents = Math.min(7, Math.floor((1 - Math.max(0, c.hp) / c.maxHp) * 8));
+    for (let i = 0; i < dents; i++) {
+        const h = (c._gs * (i + 3) * 2654435761) >>> 0;
+        const dx = ((h & 255) / 255 - 0.5) * l * 0.8,
+            dy = (((h >> 8) & 255) / 255 - 0.5) * w * 0.8,
+            dr = 3 + ((h >> 16) & 3);
+        ctx.fillStyle = 'rgba(20,19,15,0.28)';
+        ctx.beginPath();
+        ctx.ellipse(dx, dy, dr * 1.4, dr, (h & 7) * 0.4, 0, 6.283);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(236,230,210,0.55)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(dx, dy, dr * 1.1, 3.6, 5.3);
+        ctx.stroke();
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(dx - dr, dy + dr * 0.3);
+        ctx.lineTo(dx, dy - dr * 0.2);
+        ctx.lineTo(dx + dr, dy + dr * 0.4);
+        ctx.stroke();
+    }
+}
+
+function drawVehicleVector(c, nowSec) {
+    const w = c.spec.w;
+    const l = c.spec.l;
+
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(c.angle);
+
+    // Drop shadow
+    ctx.fillStyle = 'rgba(20, 19, 15, 0.32)';
+    ctx.beginPath();
+    ctx.roundRect(-l * 0.5 + 4, -w * 0.5 + 5, l, w, 6);
+    ctx.fill();
+
+    drawBeams(c, l, w);
 
     // Tires / Tank Treads
     ctx.fillStyle = INK;
@@ -1015,49 +1091,86 @@ export function drawVehicle(c, nowSec) {
         }
     }
 
-    // Car bomb: satchel on the roof, rapid red blink once armed
-    if (c.hasBomb && c.hp > 0) {
-        ctx.fillStyle = INK;
-        ctx.fillRect(-l * 0.1, -5, 10, 10);
-        const blink = c.bombArmed ? Math.floor(nowSec * (6 + (5 - Math.min(5, c.bombTimer)) * 4)) % 2 === 0 : false;
-        ctx.fillStyle = blink ? '#ff2a2a' : '#5a1a1a';
-        ctx.fillRect(-l * 0.1 + 3, -2, 4, 4);
-        if (blink) {
-            ctx.globalAlpha = 0.35;
-            ctx.beginPath();
-            ctx.arc(-l * 0.1 + 5, 0, 16, 0, Math.PI * 2);
-            ctx.fill();
+    drawCarTop(c, nowSec, l, w);
+
+    ctx.restore();
+}
+
+// Police lightbar on police.png, in sprite pixels
+const LIGHTBAR = { x0: 16, x1: 47, y: 61, h: 6 };
+
+// Pass 1 (ground): every car's shadow before any body, so a shadow never lands on a neighbouring car
+export function drawVehicleShadow(c) {
+    const skin = skinOf(c);
+    if (!skin) return;
+    ctx.save();
+    ctx.translate(c.x + 6, c.y + 6); // sun in the north-west, like the trees and peds
+    ctx.rotate(c.angle + Math.PI / 2);
+    ctx.drawImage(skin.shadow, -skin.dw / 2, -skin.dh / 2, skin.dw, skin.dh);
+    ctx.restore();
+    const t = skin.turret;
+    if (t) {
+        ctx.save();
+        ctx.translate(c.x + 6 + Math.cos(c.angle) * t.ring, c.y + 6 + Math.sin(c.angle) * t.ring);
+        ctx.rotate(c.turretAngle + Math.PI / 2);
+        ctx.drawImage(t.shadow, -t.ox, -t.oy, skin.dw, skin.dh);
+        ctx.restore();
+    }
+}
+
+// Pass 2 (cars): chassis, siren, grime, bomb, door flap, then the independently aimed turret
+export function drawVehicle(c, nowSec) {
+    const skin = skinOf(c);
+    if (!skin) return drawVehicleVector(c, nowSec);
+    const l = skin.dh;
+    const w = skin.dw;
+
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(c.angle);
+    if (c.driver && c.hp > 0 && !c.spec.isTank) drawBeams(c, l, w);
+
+    // Sprites are drawn nose-up, the car frame is nose-right
+    ctx.save();
+    ctx.rotate(Math.PI / 2);
+    ctx.drawImage(bodyOf(c, skin), -w / 2, -l / 2, w, l);
+    if (c.spec.isPolice && c.hp > 0 && c.sirenOn) {
+        const flash = Math.floor(nowSec * 10) % 2 === 0;
+        const k = skin.k;
+        const { x0, x1, y, h } = LIGHTBAR;
+        const mid = (x0 + x1) / 2;
+        for (const [a, b, left] of [
+            [x0, mid, true],
+            [mid, x1, false]
+        ]) {
+            ctx.fillStyle = flash === left ? '#d23a2a' : '#3b82f6';
+            ctx.fillRect((a - 32) * k, (y - 64) * k, (b - a) * k, h * k);
+            ctx.globalAlpha = 0.3;
+            ctx.fillRect((a - 32) * k - 2, (y - 64) * k - 2, (b - a) * k + 4, h * k + 4);
             ctx.globalAlpha = 1;
         }
     }
+    ctx.restore();
 
-    // Grime: oil, rust and dents (static layer cached per car, dents grow with damage)
-    const gm = carGrime(c);
-    ctx.drawImage(gm, -l * 0.5, -w * 0.5, l, w);
-    const dents = Math.min(7, Math.floor((1 - Math.max(0, c.hp) / c.maxHp) * 8));
-    for (let i = 0; i < dents; i++) {
-        const h = (c._gs * (i + 3) * 2654435761) >>> 0;
-        const dx = ((h & 255) / 255 - 0.5) * l * 0.8,
-            dy = (((h >> 8) & 255) / 255 - 0.5) * w * 0.8,
-            dr = 3 + ((h >> 16) & 3);
-        ctx.fillStyle = 'rgba(20,19,15,0.28)';
-        ctx.beginPath();
-        ctx.ellipse(dx, dy, dr * 1.4, dr, (h & 7) * 0.4, 0, 6.283);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(236,230,210,0.55)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.arc(dx, dy, dr * 1.1, 3.6, 5.3);
-        ctx.stroke();
-        ctx.strokeStyle = INK;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(dx - dr, dy + dr * 0.3);
-        ctx.lineTo(dx, dy - dr * 0.2);
-        ctx.lineTo(dx + dr, dy + dr * 0.4);
-        ctx.stroke();
+    drawCarTop(c, nowSec, l, w);
+
+    // Door flap swings open and shut at the driver's (left) hinge while jacking / entering / exiting
+    if (c.doorT > 0 && !c.spec.isTank) {
+        ctx.save();
+        ctx.translate(l * 0.12, -w / 2);
+        ctx.rotate(Math.sin(Math.PI * (1 - c.doorT / 0.5)) * 1.1);
+        ctx.drawImage(doorFor(skin.def.door || c.color), -12, -2.5);
+        ctx.restore();
     }
 
+    const t = skin.turret;
+    if (t) {
+        ctx.save();
+        ctx.translate(t.ring, 0);
+        ctx.rotate(c.turretAngle - c.angle + Math.PI / 2);
+        ctx.drawImage(c.hp > 0 ? t.plain : t.wreck, -t.ox, -t.oy, w, l);
+        ctx.restore();
+    }
     ctx.restore();
 }
 

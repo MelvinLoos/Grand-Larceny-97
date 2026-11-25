@@ -24,6 +24,7 @@ export const DISTRICTS = [
                 ['olive', 0.3]
             ]
         },
+        carPalette: [1, 8, 7, 9, 0, 6],
         traffic: { hellcrab: 3, cabbie: 3, police: 1.6, blitz: 1.2, bumbler: 1 },
         peds: { shirts: ['#1f2937', '#334155', '#e2e8f0', '#475569', '#64748b', '#0f172a'], suit: true }
     },
@@ -34,6 +35,7 @@ export const DISTRICTS = [
         bldg: { stories: [1, 2], roofs: ['#a5553f', '#b56a50', '#92472f'], win: PAPER, winAlpha: 0.5 },
         blocks: { standard: 0.5, L: 0.18, split: 0.1, plaza: 0.1, U: 0.12 },
         foliage: { sideChance: 0.45, bushRatio: 0.2, pal: null },
+        carPalette: [2, 9, 7, 4, 6, 10],
         traffic: { bumbler: 3, cabbie: 2, van: 1, blitz: 0.6, hellcrab: 0.3, police: 0.4 },
         peds: { shirts: null }
     },
@@ -58,6 +60,7 @@ export const DISTRICTS = [
                 ['oak', 0.15]
             ]
         },
+        carPalette: [5, 11, 8, 0, 6, 4],
         traffic: { blitz: 3, bumbler: 2, cabbie: 1, van: 0.6, hellcrab: 0.5, police: 0.5 },
         peds: { shirts: ['#14130f', '#7c2d92', '#be123c', '#0f766e', '#27272a', '#a21caf'], punk: true }
     },
@@ -76,6 +79,7 @@ export const DISTRICTS = [
                 ['sage', 0.2]
             ]
         },
+        carPalette: [3, 4, 10, 1, 8, 0],
         traffic: { hauler: 2.4, van: 3, bumbler: 2, cabbie: 0.4, blitz: 0.3, police: 0.4 },
         peds: { shirts: ['#f59e0b', '#fb923c', '#a3a3a3', '#65a30d', '#facc15'], dock: true }
     }

@@ -1,6 +1,7 @@
 import { audio } from './audio.js';
 import { DIR_VECS, isSolidAt, normalizeAngle } from './city.js';
 import { TILE } from './config.js';
+import { VEHICLE_PALETTE } from './palette.js';
 import { hideRadio, showBigBanner, spawnFloatingText, updateHUD } from './hud.js';
 import { bays, cars, exportBoard, particles, player } from './state.js';
 
@@ -19,7 +20,6 @@ const NEAR = 1.8 * TILE; // shutter rolls up when an eligible car gets this clos
 const SERVICE_TIME = 1.5;
 const ROLLOUT_TIME = 1.0;
 const SHUTTER_SPEED = 1 / 0.35;
-const PAINTS = ['#d23a2a', '#3f8f5e', '#2f6db5', '#e0a21b', '#e2559b', '#6b3fa0', '#3d8fb8', '#e2e8f0', '#14130f'];
 const MIST = ['#22e5ff', '#ff2bd6', '#ffd400', '#a3e635', '#ffffff'];
 
 // { ok } if the car may be served, otherwise { ok: false, msg }
@@ -60,10 +60,11 @@ function serve(b, car, chk) {
             spawnFloatingText('-$1,000', car.x, car.y - 30, '#ffd400');
         }
         car.hp = car.maxHp;
-        let c;
-        do c = PAINTS[Math.floor(Math.random() * PAINTS.length)];
-        while (c === car.color);
-        car.color = c;
+        let id;
+        do id = Math.floor(Math.random() * VEHICLE_PALETTE.length);
+        while (VEHICLE_PALETTE[id] === car.color);
+        car.paletteID = id;
+        car.color = VEHICLE_PALETTE[id];
         // Wanted heads go on probation: lie low for 5s or they all come back
         if (player.wanted > 0) {
             player.probationWanted = player.wanted;
