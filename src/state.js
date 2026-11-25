@@ -23,6 +23,8 @@ export const bullets = [];
 export const particles = [];
 export const pickups = [];
 export const floatingTexts = [];
+export const foliage = []; // trees, groves, bushes (see foliage.js)
+export const foliageGrid = new Map(); // tile index (ty * MAP_SIZE + tx) -> foliage on that tile
 
 // Camera
 export const camera = {

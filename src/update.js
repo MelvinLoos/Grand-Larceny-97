@@ -13,6 +13,7 @@ import {
     updatePoliceFlowField
 } from './city.js';
 import { damagePed, damagePlayer, destroyCar, findAimTarget, fireWeapon, triggerExplosion } from './combat.js';
+import { collideCarFoliage, steerAroundTrunks, trunkBlocks, updateFoliage } from './foliage.js';
 import { MAP_SIZE, TILE, T_BLDG, T_GRASS, T_PAVEMENT, T_ROAD_X, T_WATER, WEAPONS } from './config.js';
 import { addDecal, createCar, spawnRandomPed } from './entities.js';
 import { buzz } from './haptics.js';
@@ -251,8 +252,8 @@ export function update(dt) {
                 const walkSpeed = 165 * pace;
                 const nx = player.x + mx * walkSpeed * dt;
                 const ny = player.y + my * walkSpeed * dt;
-                if (!isSolidAt(nx, player.y, 11)) player.x = nx;
-                if (!isSolidAt(player.x, ny, 11)) player.y = ny;
+                if (!isSolidAt(nx, player.y, 11) && !trunkBlocks(player.x, player.y, nx, player.y, 11)) player.x = nx;
+                if (!isSolidAt(player.x, ny, 11) && !trunkBlocks(player.x, player.y, player.x, ny, 11)) player.y = ny;
                 player.angle = Math.atan2(my, mx);
                 player.walkCycle += dt * 12 * pace;
             }
@@ -358,6 +359,9 @@ export function update(dt) {
             c.vy *= -0.35;
         }
 
+        // Tree trunks (solid) & bushes (drive-through drag + leaf burst)
+        collideCarFoliage(c, dt);
+
         // Car-to-Car Collisions
         for (let j = i + 1; j < cars.length; j++) {
             const o = cars[j];
@@ -448,6 +452,8 @@ export function update(dt) {
         }
     }
 
+    updateFoliage(dt);
+
     if (player.inCar) {
         player.x = player.inCar.x;
         player.y = player.inCar.y;
@@ -517,12 +523,12 @@ export function update(dt) {
                     }
                 }
             }
-            p.angle = applyWallFeelers(p.x, p.y, moveAng, 28);
+            p.angle = steerAroundTrunks(p.x, p.y, applyWallFeelers(p.x, p.y, moveAng, 28));
             p.shootTimer -= dt;
             if (distP > 135 || !canSeePlayer) {
                 const nx = p.x + Math.cos(p.angle) * p.speed * dt;
                 const ny = p.y + Math.sin(p.angle) * p.speed * dt;
-                if (!isSolidAt(nx, ny, 8)) {
+                if (!isSolidAt(nx, ny, 8) && !trunkBlocks(p.x, p.y, nx, ny, 8)) {
                     p.x = nx;
                     p.y = ny;
                 }
@@ -534,11 +540,11 @@ export function update(dt) {
             }
         } else if ((p.role === 'boss' || p.role === 'guard') && distP < 400 && player.deadTimer <= 0) {
             const aimAng = Math.atan2(player.y - p.y, player.x - p.x);
-            p.angle = canSeePlayer ? aimAng : applyWallFeelers(p.x, p.y, aimAng, 30);
+            p.angle = steerAroundTrunks(p.x, p.y, canSeePlayer ? aimAng : applyWallFeelers(p.x, p.y, aimAng, 30));
             if (!canSeePlayer || distP > 190) {
                 const nx = p.x + Math.cos(p.angle) * p.speed * dt;
                 const ny = p.y + Math.sin(p.angle) * p.speed * dt;
-                if (!isSolidAt(nx, ny, 8)) {
+                if (!isSolidAt(nx, ny, 8) && !trunkBlocks(p.x, p.y, nx, ny, 8)) {
                     p.x = nx;
                     p.y = ny;
                 }
@@ -555,13 +561,14 @@ export function update(dt) {
                 p.waypointIdx = ((p.waypointIdx || 0) + 1) % parkLoop.length;
             }
             const nextWp = parkLoop[p.waypointIdx || 0];
-            p.angle = Math.atan2(nextWp.y - p.y, nextWp.x - p.x);
+            p.angle = steerAroundTrunks(p.x, p.y, Math.atan2(nextWp.y - p.y, nextWp.x - p.x));
             p.x += Math.cos(p.angle) * p.speed * dt;
             p.y += Math.sin(p.angle) * p.speed * dt;
         } else {
             // Normal sidewalk stroll, safe zebra-crosswalk crossing, or panic sprint
             if (p.panicTimer > 0) p.panicTimer -= dt;
             const spd = p.panicTimer > 0 ? 118 : p.speed;
+            p.angle = steerAroundTrunks(p.x, p.y, p.angle);
             const nx = p.x + Math.cos(p.angle) * spd * dt;
             const ny = p.y + Math.sin(p.angle) * spd * dt;
             const curT = tileAtWorld(p.x, p.y);
@@ -569,7 +576,7 @@ export function update(dt) {
 
             // Pedestrians stay on sidewalks/parks, only entering roads at T_ROAD_X crosswalks when clear of cars!
             let canStep = false;
-            if (!isSolidAt(nx, ny, 8)) {
+            if (!isSolidAt(nx, ny, 8) && !trunkBlocks(p.x, p.y, nx, ny, 8)) {
                 if (nt === T_PAVEMENT || nt === T_GRASS) {
                     canStep = true;
                 } else if (p.panicTimer > 0 && nt !== T_BLDG && nt !== T_WATER) {
@@ -714,6 +721,13 @@ export function update(dt) {
     // --- PARTICLES & FLOATING TEXTS ---
     for (let i = particles.length - 1; i >= 0; i--) {
         const pt = particles[i];
+        if (pt.drag) {
+            // Leaves: air drag + sideways flutter while settling
+            const k = Math.max(0, 1 - pt.drag * dt);
+            pt.vx *= k;
+            pt.vy *= k;
+            pt.x += Math.sin(pt.life * 9 + pt.phase) * pt.amp * dt;
+        }
         pt.x += pt.vx * dt;
         pt.y += pt.vy * dt;
         pt.life -= dt;

@@ -10,6 +10,7 @@ import {
     T_SPRAY,
     T_WATER
 } from './config.js';
+import { drawCanopy, drawFoliageGround } from './foliage.js';
 import { GRIME } from './grime.js';
 import { HAZARD, INK, PAPER, PARK, ROAD, ROUTE, STREETS_H, STREETS_V, WALK, WATER, shade } from './palette.js';
 import {
@@ -20,6 +21,7 @@ import {
     ctx,
     decals,
     floatingTexts,
+    foliageGrid,
     game,
     mapGrid,
     mission,
@@ -63,10 +65,13 @@ export function render() {
 
     // 1. DRAW GROUND TILES: the foldout street map, printed flat with ink casings
     const visibleBuildings = [];
+    const visibleFoliage = [];
     const nowMs = performance.now();
     for (let ty = minTY; ty <= maxTY; ty++) {
         for (let tx = minTX; tx <= maxTX; tx++) {
             const t = mapGrid[ty][tx];
+            const fl = foliageGrid.get(ty * MAP_SIZE + tx);
+            if (fl) visibleFoliage.push(...fl);
             const x = tx * TILE;
             const y = ty * TILE;
 
@@ -104,18 +109,6 @@ export function render() {
                 ctx.fillStyle = PARK;
                 ctx.fillRect(x, y, TILE + 1, TILE + 1);
                 ctx.drawImage(GRIME.grass[(tx * 3 + ty * 5) % 3], x, y, TILE + 1, TILE + 1);
-                ctx.fillStyle = '#5d8e43';
-                ctx.strokeStyle = INK;
-                ctx.lineWidth = 1.5;
-                for (let k = 0; k < 2; k++) {
-                    const h = (tx * 73 + ty * 151 + k * 97) % 1000;
-                    const cx = x + 26 + (h % 92),
-                        cy = y + 26 + ((h * 7) % 92);
-                    ctx.beginPath();
-                    ctx.arc(cx, cy, 14, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.stroke();
-                }
             } else if (t === T_PAVEMENT || t === T_BLDG) {
                 ctx.fillStyle = WALK;
                 ctx.fillRect(x, y, TILE + 1, TILE + 1);
@@ -217,6 +210,9 @@ export function render() {
         }
         ctx.restore();
     }
+
+    // 2b. FOLIAGE GROUND PASS: drop shadows + trunks (canopies are drawn with the buildings)
+    drawFoliageGround(ctx, visibleFoliage);
 
     // 3. DRAW RINGING PAYPHONES & PICKUPS
     const nowSec = performance.now() * 0.001;
@@ -350,6 +346,10 @@ export function render() {
     for (const pt of particles) {
         ctx.globalAlpha = Math.max(0, pt.life / pt.maxLife);
         ctx.fillStyle = pt.color;
+        if (pt.square) {
+            ctx.fillRect(Math.round(pt.x - pt.size / 2), Math.round(pt.y - pt.size / 2), pt.size, pt.size);
+            continue;
+        }
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
         ctx.fill();
@@ -379,7 +379,9 @@ export function render() {
     for (const b of visibleBuildings) {
         b.d = ((b.tx + 0.5) * TILE - vpX) ** 2 + ((b.ty + 0.5) * TILE - vpY) ** 2;
     }
-    visibleBuildings.sort((a, b) => b.d - a.d);
+    // Tree canopies join the same far-to-near painter's order (cars and peds pass underneath)
+    const props = visibleBuildings.concat(visibleFoliage.map((f) => ({ f, d: (f.x - vpX) ** 2 + (f.y - vpY) ** 2 })));
+    props.sort((a, b) => b.d - a.d);
 
     // Ground shadows first, so no shadow is ever stamped over a neighbouring building's wall or roof
     ctx.fillStyle = 'rgba(20, 19, 15, 0.22)';
@@ -388,7 +390,13 @@ export function render() {
         ctx.fillRect(s.x + 8, s.y + 10, TILE * camera.zoom, TILE * camera.zoom);
     }
 
-    for (const b of visibleBuildings) {
+    for (const b of props) {
+        if (b.f) {
+            ctx.imageSmoothingEnabled = false;
+            drawCanopy(ctx, b.f, vpSx, vpSy, hMul, shakeX, shakeY, nowSec);
+            ctx.imageSmoothingEnabled = true;
+            continue;
+        }
         const wx0 = b.tx * TILE;
         const wy0 = b.ty * TILE;
         const wx1 = wx0 + TILE;

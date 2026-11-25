@@ -7,6 +7,7 @@ import './styles/responsive.css';
 import { buildCity } from './city.js';
 import { TILE } from './config.js';
 import { populateWorld } from './entities.js';
+import { bakeFoliage, plantFoliage } from './foliage.js';
 import { updateHUD } from './hud.js';
 import { render } from './render.js';
 import { camera, game, view } from './state.js';
@@ -65,10 +66,12 @@ function gameLoop(timestamp) {
 }
 
 // --- BOOTSTRAP (module scripts run after the document is parsed) ---
-function init() {
+async function init() {
     handleResize();
+    await bakeFoliage();
     buildCity();
     populateWorld();
+    plantFoliage();
     setupEvents();
     updateHUD();
     document.getElementById('btn-start-game').focus({ preventScroll: true });
