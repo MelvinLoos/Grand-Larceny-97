@@ -1,0 +1,27 @@
+{
+    "name": "grand-larceny-97",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Grand Larceny '97 — an original top-down 2.5D crime and driving sandbox that runs in the browser.",
+    "type": "module",
+    "license": "MIT",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "lint": "eslint .",
+        "format": "prettier --write .",
+        "format:check": "prettier --check ."
+    },
+    "engines": {
+        "node": ">=20"
+    },
+    "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "eslint": "^10.15.0",
+        "globals": "^17.14.0",
+        "prettier": "^3.10.1",
+        "vite": "^8.3.8",
+        "vite-plugin-pwa": "^2.0.0"
+    }
+}

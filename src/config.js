@@ -1,0 +1,128 @@
+// --- CONFIGURATION & CONSTANTS ---
+export const TILE = 144; // Size of one city tile in world pixels
+export const MAP_SIZE = 32; // 32x32 city grid (4608 x 4608 world)
+export const WORLD_SIZE = TILE * MAP_SIZE;
+
+// Tile Types
+export const T_WATER = 0;
+export const T_GRASS = 1;
+export const T_PAVEMENT = 2;
+export const T_ROAD_H = 3;
+export const T_ROAD_V = 4;
+export const T_ROAD_X = 5;
+export const T_BLDG = 6;
+export const T_SPRAY = 7; // Spray-B-Gone Garage
+
+// Weapon Definitions
+export const WEAPONS = [
+    { id: 0, name: 'FIST', icon: 'i-fist', cooldown: 0.28, range: 42, damage: 25, auto: false },
+    { id: 1, name: 'PISTOL', icon: 'i-pistol', cooldown: 0.24, range: 460, damage: 34, auto: false, speed: 780 },
+    { id: 2, name: 'UZI SMG', icon: 'i-smg', cooldown: 0.09, range: 480, damage: 22, auto: true, speed: 840 },
+    {
+        id: 3,
+        name: 'ROCKET',
+        icon: 'i-rocket',
+        cooldown: 0.85,
+        range: 640,
+        damage: 250,
+        auto: false,
+        speed: 520,
+        explosive: true
+    }
+];
+
+// Vehicle Archetypes
+export const CAR_TYPES = {
+    hellcrab: {
+        name: 'HELLCRAB GTS',
+        w: 30,
+        l: 56,
+        maxSpeed: 540,
+        accel: 380,
+        grip: 0.91,
+        hp: 140,
+        colors: ['#d23a2a', '#e0a21b', '#2f6db5', '#e2672a'],
+        stripe: '#f4efe0',
+        value: 1200,
+        radio: { freq: '98.7', band: 'FM', name: 'CRASH FM', tag: 'All guitars. No brakes.' }
+    },
+    bumbler: {
+        name: 'BUMBLER',
+        w: 29,
+        l: 54,
+        maxSpeed: 410,
+        accel: 260,
+        grip: 0.93,
+        hp: 130,
+        colors: ['#7c8794', '#3d8fb8', '#3f8f5e', '#8a5aa8', '#b9772f'],
+        stripe: null,
+        value: 600,
+        radio: { freq: '101.1', band: 'FM', name: 'BEIGE 101', tag: 'Soft hits for sitting in traffic.' }
+    },
+    cabbie: {
+        name: 'CABBIE TAXI',
+        w: 30,
+        l: 55,
+        maxSpeed: 430,
+        accel: 290,
+        grip: 0.92,
+        hp: 145,
+        colors: ['#f2c21b'],
+        stripe: '#14130f',
+        taxiSign: true,
+        value: 800,
+        radio: { freq: '88.3', band: 'FM', name: 'THE METER', tag: 'Hip hop by the mile.' }
+    },
+    blitz: {
+        name: 'BLITZ V8',
+        w: 31,
+        l: 58,
+        maxSpeed: 500,
+        accel: 350,
+        grip: 0.87,
+        hp: 150,
+        colors: ['#b8322a', '#2f7d4a', '#6b3fa0', '#d98b1f'],
+        stripe: '#14130f',
+        value: 1000,
+        radio: { freq: '104.5', band: 'FM', name: 'RUSH 104', tag: 'Eurodance at illegal speeds.' }
+    },
+    van: {
+        name: 'BOX VAN',
+        w: 33,
+        l: 62,
+        maxSpeed: 360,
+        accel: 220,
+        grip: 0.94,
+        hp: 210,
+        colors: ['#e9e4d6', '#2b4a8a', '#4a4a46'],
+        stripe: null,
+        value: 750,
+        radio: { freq: '640', band: 'AM', name: 'TALK BACK 640', tag: 'Callers who should not be calling.' }
+    },
+    police: {
+        name: 'COP CRUISER',
+        w: 30,
+        l: 56,
+        maxSpeed: 525,
+        accel: 390,
+        grip: 0.92,
+        hp: 175,
+        colors: ['#1d2a44'],
+        isPolice: true,
+        value: 1500,
+        radio: { freq: '155.4', band: 'MHz', name: 'NBPD DISPATCH', tag: "Suspect vehicle is... wait, that's you." }
+    },
+    tank: {
+        name: 'BATTLE TANK',
+        w: 42,
+        l: 68,
+        maxSpeed: 260,
+        accel: 260,
+        grip: 0.97,
+        hp: 900,
+        colors: ['#56702f'],
+        isTank: true,
+        value: 5000,
+        radio: { freq: '27.1', band: 'CB', name: 'ARMY SURPLUS RADIO', tag: 'Requests by artillery only.' }
+    }
+};

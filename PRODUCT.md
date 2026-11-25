@@ -16,9 +16,9 @@ An original top-down 2.5D crime and driving sandbox that runs in the browser. Su
 A chaotic sandbox: emergent mayhem, escalating police chases, combos and score multipliers are the core of the game. Missions exist but play a supporting role.
 
 ## Capabilities and Constraints
-- Already in place (in `index.html`): walking and driving, hijacking and exiting vehicles, several vehicle types including police and a tank, weapon cycling, a wanted level that decays over time, police pursuit, missions started at payphones and tracked by pager, a score multiplier, repair/respray garages, hidden bonuses, a procedural Web Audio synth (`RetroAudio`), a horn and siren, and on-screen touch controls.
+- Already in place (in `src/`): walking and driving, hijacking and exiting vehicles, several vehicle types including police and a tank, weapon cycling, a wanted level that decays over time, police pursuit, missions started at payphones and tracked by pager, a score multiplier, repair/respray garages, hidden bonuses, a procedural Web Audio synth (`RetroAudio`), a horn and siren, and on-screen touch controls.
 - **Binding:** mobile touch controls must stay fully playable for every feature.
-- Current stack: a single `index.html` (inline CSS, canvas and JS, no build step, no external requests) plus self-hosted fonts in `assets/fonts/` (Archivo, Barlow Condensed). The user did not make the single-file layout or the absence of a build step binding.
+- Current stack: Vite + vanilla ES modules (`src/`), plain CSS (`src/styles/`), canvas rendering, self-hosted fonts in `src/assets/fonts/` (Archivo, Barlow Condensed), no external requests; deployed to GitHub Pages via GitHub Actions. The user did not make the build setup binding.
 - **Parody, not a copy:** a non-profit, nostalgic wink at 1997 top-down crime games. Genre mechanics and generic words (Cabbie, Police, Van, Battle Tank, Central Park, Dockyard) are fine. Distinctive names from Grand Theft Auto (its title, cities, model names, characters, catchphrases) are never used, and no name maps one-to-one onto one of theirs.
 
 ## Brand Commitments

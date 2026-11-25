@@ -1,0 +1,177 @@
+/* ---------- SMALL SCREENS ---------- */
+@media (max-width: 860px), (max-aspect-ratio: 1/1) {
+    #box-window {
+        left: 4%;
+        right: 4%;
+        top: max(190px, 23%);
+        bottom: calc(52px + 13%);
+        border-radius: 18px;
+    }
+    .box-copy {
+        left: 5%;
+        top: 4%;
+        width: 90%;
+        height: auto;
+    }
+    .logo .l1 {
+        font-size: 11.2vw;
+    }
+    .logo .l2 {
+        font-size: 13vw;
+    }
+    .roundel {
+        width: 18vw;
+        font-size: 7vw;
+        right: 0;
+        top: -2vw;
+    }
+    .tagline {
+        margin-top: 16px;
+        font-size: 20px;
+        max-width: none;
+    }
+    .blurbs,
+    .sysreq {
+        display: none;
+    }
+    .box-actions {
+        position: fixed;
+        left: 5%;
+        bottom: calc(52px + var(--safe-b) + 3.5%);
+        margin: 0;
+    }
+    #btn-start-game {
+        width: 136px;
+        height: 136px;
+        right: 5%;
+        bottom: calc(52px + 13% - 64px);
+    }
+    #btn-start-game .st-big {
+        font-size: 34px;
+    }
+    .box-strip {
+        height: calc(52px + var(--safe-b));
+        gap: 14px;
+        font-size: 14px;
+    }
+    .box-strip .ed {
+        font-size: 17px;
+    }
+    .box-strip .hide-sm,
+    .box-strip .fine {
+        display: none;
+    }
+    .spread {
+        grid-template-columns: 1fr;
+    }
+    .page {
+        padding: 26px 22px 16px;
+    }
+    .page.l,
+    .page.r {
+        box-shadow: none;
+    }
+    .page.l .folio {
+        display: none;
+    }
+    #manual {
+        place-items: start center;
+        padding: 12px;
+    }
+    .manual-actions {
+        justify-content: stretch;
+    }
+    .manual-actions .btn {
+        flex: 1;
+        justify-content: center;
+    }
+}
+@media (max-width: 520px) {
+    .st-status {
+        padding: 8px 10px 6px;
+        gap: 5px;
+    }
+    .meter-row {
+        gap: 6px;
+    }
+    .m-hp {
+        width: 70px;
+    }
+    .m-ar {
+        width: 30px;
+    }
+    #btn-weapon {
+        font-size: 15px;
+    }
+    .st-score {
+        padding: 3px 5px 3px 10px;
+        gap: 6px;
+    }
+    #hud-score {
+        font-size: 21px;
+    }
+    #hud-multiplier {
+        min-width: 26px;
+        height: 26px;
+        font-size: 12px;
+    }
+    .hud-btn {
+        width: 38px;
+        height: 38px;
+        font-size: 18px;
+    }
+    #hud-mission-timer {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        top: 112px;
+        max-width: none;
+        text-align: left;
+        font-size: 15px;
+    }
+    #pager-box {
+        top: 112px;
+        width: calc(100% - 24px);
+    }
+    #pager-message {
+        min-width: 0;
+        max-width: none;
+        flex: 1;
+        font-size: 17px;
+    }
+    #district-label {
+        top: 116px !important;
+        font-size: 13px;
+    }
+    #hud.district-on #hud-mission-timer,
+    #hud.radio-on #hud-mission-timer {
+        display: none;
+    }
+    #hud.paging #district-label,
+    #hud.paging #radio {
+        opacity: 0;
+    }
+    #radio {
+        top: 112px;
+        bottom: auto !important;
+        left: 12px;
+        right: 12px;
+        transform: translateY(-12px);
+        min-width: 0;
+    }
+    #radio.show {
+        transform: none;
+    }
+    #radio.mini {
+        opacity: 0;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

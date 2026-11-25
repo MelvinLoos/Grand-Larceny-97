@@ -1,0 +1,10 @@
+dist
+node_modules
+.agents
+.impeccable
+.playwright-mcp
+.tokenade
+package-lock.json
+skills-lock.json
+DESIGN.md
+PRODUCT.md

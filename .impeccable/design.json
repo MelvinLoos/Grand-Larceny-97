@@ -1,0 +1,663 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-25T15:37:53+00:00",
+  "title": "Design System: GRAND LARCENY '97",
+  "extensions": {
+    "colorMeta": {
+      "route-red": {
+        "role": "primary",
+        "displayName": "Route Red",
+        "canonical": "oklch(57.5% 0.191 30)",
+        "tonalRamp": [
+          "#220000",
+          "#4e0000",
+          "#7f0801",
+          "#b51609",
+          "#dc4837",
+          "#f87a68",
+          "#fdb4a8",
+          "#ffe9e5"
+        ]
+      },
+      "hazard-yellow": {
+        "role": "primary",
+        "displayName": "Hazard Yellow",
+        "canonical": "oklch(88.1% 0.181 94)",
+        "tonalRamp": [
+          "#110a00",
+          "#2e2400",
+          "#504100",
+          "#74600a",
+          "#9a8012",
+          "#c3a205",
+          "#eec600",
+          "#ffeeb6"
+        ]
+      },
+      "hazard-yellow-hi": {
+        "role": "primary",
+        "displayName": "Hazard Yellow Hi",
+        "canonical": "oklch(90.9% 0.163 97)",
+        "tonalRamp": [
+          "#110b00",
+          "#2d2500",
+          "#4e4200",
+          "#716100",
+          "#978200",
+          "#bfa40b",
+          "#e6c92a",
+          "#fff0aa"
+        ]
+      },
+      "water-blue": {
+        "role": "secondary",
+        "displayName": "Water Blue",
+        "canonical": "oklch(53.1% 0.130 254)",
+        "tonalRamp": [
+          "#000926",
+          "#00244e",
+          "#004181",
+          "#2362a9",
+          "#4a84cb",
+          "#76a8e6",
+          "#a9ccf8",
+          "#e4f0ff"
+        ]
+      },
+      "park-green": {
+        "role": "secondary",
+        "displayName": "Park Green",
+        "canonical": "oklch(68.1% 0.123 134)",
+        "tonalRamp": [
+          "#021000",
+          "#142c00",
+          "#294d03",
+          "#436f1b",
+          "#639240",
+          "#88b569",
+          "#b5d5a1",
+          "#e7f3e1"
+        ]
+      },
+      "radio-amber": {
+        "role": "secondary",
+        "displayName": "Radio Amber",
+        "canonical": "oklch(81.2% 0.170 76)",
+        "tonalRamp": [
+          "#160700",
+          "#352000",
+          "#593b01",
+          "#825804",
+          "#ac7608",
+          "#d89718",
+          "#ffbb4c",
+          "#ffebd1"
+        ]
+      },
+      "box-black": {
+        "role": "neutral",
+        "displayName": "Box Black",
+        "canonical": "oklch(15.9% 0.002 107)",
+        "tonalRamp": [
+          "#0b0b0a",
+          "#252524",
+          "#424241",
+          "#616160",
+          "#828281",
+          "#a5a5a4",
+          "#c9c9c8",
+          "#eeeeee"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(18.6% 0.008 95)",
+        "tonalRamp": [
+          "#0c0b08",
+          "#262521",
+          "#43423d",
+          "#62615c",
+          "#84827d",
+          "#a6a59f",
+          "#cac9c4",
+          "#efeeec"
+        ]
+      },
+      "silver": {
+        "role": "neutral",
+        "displayName": "Silver",
+        "canonical": "oklch(84.4% 0.008 261)",
+        "tonalRamp": [
+          "#090b0e",
+          "#232529",
+          "#404246",
+          "#5f6166",
+          "#808287",
+          "#a2a5aa",
+          "#c6c9ce",
+          "#edeef0"
+        ]
+      },
+      "silver-hi": {
+        "role": "neutral",
+        "displayName": "Silver Hi",
+        "canonical": "oklch(95.4% 0.003 248)",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#242527",
+          "#414244",
+          "#606163",
+          "#818284",
+          "#a3a5a7",
+          "#c7c9cb",
+          "#edeff1"
+        ]
+      },
+      "silver-lo": {
+        "role": "neutral",
+        "displayName": "Silver Lo",
+        "canonical": "oklch(60.2% 0.012 262)",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#23252a",
+          "#3f4248",
+          "#5e6168",
+          "#7e8289",
+          "#a2a5ab",
+          "#c7c9ce",
+          "#edeef0"
+        ]
+      },
+      "map-paper": {
+        "role": "neutral",
+        "displayName": "Map Paper",
+        "canonical": "oklch(92.4% 0.027 93)",
+        "tonalRamp": [
+          "#0f0b01",
+          "#2a2515",
+          "#474231",
+          "#666150",
+          "#888270",
+          "#aba592",
+          "#cfc9b6",
+          "#f3eee1"
+        ]
+      },
+      "paper-fold": {
+        "role": "neutral",
+        "displayName": "Paper Fold",
+        "canonical": "oklch(87.3% 0.033 92)",
+        "tonalRamp": [
+          "#100a00",
+          "#2b2511",
+          "#48422d",
+          "#68614c",
+          "#89826c",
+          "#aca58e",
+          "#d1c9b1",
+          "#f2eee4"
+        ]
+      },
+      "paper-ink": {
+        "role": "neutral",
+        "displayName": "Paper Ink",
+        "canonical": "oklch(39.2% 0.019 86)",
+        "tonalRamp": [
+          "#0d0b07",
+          "#28251c",
+          "#464137",
+          "#666155",
+          "#878276",
+          "#a9a59a",
+          "#ccc9c1",
+          "#efeeec"
+        ]
+      },
+      "paper-shade": {
+        "role": "neutral",
+        "displayName": "Paper Shade",
+        "canonical": "oklch(81.1% 0.042 92)",
+        "tonalRamp": [
+          "#100a00",
+          "#2c240a",
+          "#4a4127",
+          "#6a6146",
+          "#8b8266",
+          "#aea587",
+          "#d2c9ae",
+          "#f1eee5"
+        ]
+      },
+      "sidewalk": {
+        "role": "neutral",
+        "displayName": "Sidewalk",
+        "canonical": "oklch(88.3% 0.035 91)",
+        "tonalRamp": [
+          "#110a00",
+          "#2b2410",
+          "#49412c",
+          "#69614b",
+          "#8a826b",
+          "#ada58d",
+          "#d2c9b0",
+          "#f2eee3"
+        ]
+      },
+      "road": {
+        "role": "neutral",
+        "displayName": "Road Paper",
+        "canonical": "oklch(96.1% 0.022 93)",
+        "tonalRamp": [
+          "#0e0b03",
+          "#292519",
+          "#464235",
+          "#656153",
+          "#878274",
+          "#aaa596",
+          "#cec9ba",
+          "#f3eede"
+        ]
+      },
+      "roof-downtown": {
+        "role": "tertiary",
+        "displayName": "Downtown Ochre Roof",
+        "canonical": "oklch(79.6% 0.120 88)",
+        "tonalRamp": [
+          "#130900",
+          "#302300",
+          "#523f03",
+          "#785d08",
+          "#a07d10",
+          "#c4a041",
+          "#e4c67a",
+          "#f8eed4"
+        ],
+        "siblings": [
+          "#cfa64a",
+          "#e3c77c"
+        ]
+      },
+      "roof-uptown": {
+        "role": "tertiary",
+        "displayName": "Uptown Slate Roof",
+        "canonical": "oklch(76.6% 0.041 247)",
+        "tonalRamp": [
+          "#030c17",
+          "#142738",
+          "#304457",
+          "#4f6477",
+          "#6f859a",
+          "#91a8be",
+          "#baccdd",
+          "#e9eff5"
+        ],
+        "siblings": [
+          "#8ea7bf",
+          "#b3c6d8"
+        ]
+      },
+      "roof-westside": {
+        "role": "tertiary",
+        "displayName": "Westside Terracotta Roof",
+        "canonical": "oklch(71.6% 0.084 49)",
+        "tonalRamp": [
+          "#1b0300",
+          "#401700",
+          "#653213",
+          "#875234",
+          "#ab7354",
+          "#d09676",
+          "#e9bfa9",
+          "#faebe3"
+        ],
+        "siblings": [
+          "#c2805f",
+          "#dba88c"
+        ]
+      },
+      "roof-dockyard": {
+        "role": "tertiary",
+        "displayName": "Dockyard Concrete Roof",
+        "canonical": "oklch(72.6% 0.015 89)",
+        "tonalRamp": [
+          "#0d0b07",
+          "#28251d",
+          "#454239",
+          "#656158",
+          "#868278",
+          "#a9a59b",
+          "#ccc9c2",
+          "#efeeec"
+        ],
+        "siblings": [
+          "#99958b",
+          "#bcb8ae"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The logo only; italic, silver face, stepped six-step extrusion.",
+        "fontStyle": "italic"
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Shout banners; italic, uppercase, ink stroke and ink extrusion, slammed once.",
+        "fontStyle": "italic"
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Manual page headings and the PLAY sticker word; italic.",
+        "fontStyle": "italic"
+      },
+      "sign": {
+        "displayName": "Sign",
+        "purpose": "District sign, map signage, box-strip edition mark, multiplier roundel; italic caps.",
+        "fontStyle": "italic"
+      },
+      "lead": {
+        "displayName": "Lead",
+        "purpose": "Tagline."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Manual prose, box blurbs, controls and map key."
+      },
+      "numeral": {
+        "displayName": "Numeral",
+        "purpose": "Cash score and radio frequency; tabular."
+      },
+      "button": {
+        "displayName": "Button",
+        "purpose": "Uppercase action labels."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase tracked labels: HEAT, JOB, system requirements, touch captions."
+      }
+    },
+    "fonts": [
+      {
+        "family": "Archivo",
+        "source": "assets/fonts/archivo-*.woff2",
+        "axes": "wght 100-900, wdth 62-125, normal and italic"
+      },
+      {
+        "family": "Barlow Condensed",
+        "source": "assets/fonts/barlow-condensed-*.woff2",
+        "weights": [
+          400,
+          700
+        ]
+      }
+    ],
+    "shadows": [
+      {
+        "name": "sticker",
+        "value": "0 6px 16px rgba(20,19,15,.3)",
+        "purpose": "A sticker lying on the box or map (status, score, HUD buttons)."
+      },
+      {
+        "name": "device",
+        "value": "0 8px 22px rgba(0,0,0,.45)",
+        "purpose": "Pager and radio devices."
+      },
+      {
+        "name": "plate",
+        "value": "0 4px 12px rgba(0,0,0,.3)",
+        "purpose": "District sign and touch keys."
+      },
+      {
+        "name": "manual",
+        "value": "0 24px 60px rgba(0,0,0,.55)",
+        "purpose": "The manual spread lying over the city."
+      },
+      {
+        "name": "page-gutter",
+        "value": "inset -18px 0 22px -18px rgba(60,50,30,.45)",
+        "purpose": "Spine curve on the left page (mirrored on the right)."
+      },
+      {
+        "name": "logo-extrusion",
+        "value": "1px 1px 0 #a3a7ad, 2px 2px 0 #8b9097, 3px 3px 0 #6d7178, 4px 4px 0 #4c5056, 5px 5px 0 #33363a, 6px 6px 0 #1d1f22, 7px 10px 18px rgba(0,0,0,.6)",
+        "purpose": "Silver embossed extrusion on the logo only."
+      },
+      {
+        "name": "banner-extrusion",
+        "value": "2px 2px 0 #14130f, 4px 4px 0 #14130f, 6px 6px 0 #14130f, 8px 8px 0 #14130f, 10px 14px 24px rgba(0,0,0,.5)",
+        "purpose": "Ink extrusion on shout banners, with a 2px ink text stroke."
+      },
+      {
+        "name": "window-rim",
+        "value": "0 0 0 2px #2a2c2f, 0 0 0 5px #7d8188, 0 0 0 7px #c9ccd1, 0 0 0 9px #2a2c2f, 0 0 0 200vmax #0d0d0c",
+        "purpose": "Die-cut box window rim and the box black around it."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(.16, 1, .3, 1)",
+        "purpose": "The one easing: exponential ease-out for every slap, slam and open."
+      },
+      {
+        "name": "box-open",
+        "value": ".75s",
+        "purpose": "Die-cut window grows to full screen on PLAY."
+      },
+      {
+        "name": "sticker-slap",
+        "value": "transform .45s from scale(1.12) rotate(-3deg); stagger 80ms",
+        "purpose": "HUD stickers arriving."
+      },
+      {
+        "name": "badge-in",
+        "value": ".4s from scale(1.7) rotate(-20deg)",
+        "purpose": "A heat badge lighting."
+      },
+      {
+        "name": "banner-slam",
+        "value": "2.6s once: scale(1.6) rotate(-8deg) to scale(1) rotate(-4deg) at 9%, out from 82%",
+        "purpose": "Shout banners."
+      },
+      {
+        "name": "pager-led",
+        "value": ".3s steps(1) x6",
+        "purpose": "LED blinks a fixed count, then stops."
+      },
+      {
+        "name": "manual-open",
+        "value": ".45s from translateY(18px) rotate(-.6deg)",
+        "purpose": "Manual spread arriving."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "all durations .01ms",
+        "purpose": "prefers-reduced-motion: reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "short",
+        "value": "max-height: 760px",
+        "purpose": "Hide system requirements."
+      },
+      {
+        "name": "stack",
+        "value": "max-width: 860px or max-aspect-ratio: 1/1",
+        "purpose": "Box front stacks; manual goes single column."
+      },
+      {
+        "name": "touch",
+        "value": "pointer: coarse or max-width: 767px",
+        "purpose": "Touch pad shown; district sign and radio move up."
+      },
+      {
+        "name": "phone",
+        "value": "max-width: 520px",
+        "purpose": "Compact HUD; mission, pager, sign and radio share one slot."
+      }
+    ],
+    "canvasPrint": {
+      "strokeInk": "#14130f",
+      "outlineWidths": "1.5px detail, 2px roofs, 2.5px road casings, 5px pop-up text stroke, 6px garage frame",
+      "streetNameInk": "rgba(20,19,15,.42)",
+      "pavementInset": "rgba(20,19,15,.12)",
+      "waterRipple": "rgba(236,230,210,.30)",
+      "treeCanopy": "#5d8e43",
+      "armorBlue": "#5a8fd6",
+      "pagerLcd": "#a9b59a"
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single hazard action in a group, e.g. Back to the streets.",
+      "html": "<button class=\"ds-btn-primary\"><svg class=\"ds-ic\" viewBox=\"0 0 24 24\"><path d=\"M7 4.5v15l12-7.5z\" fill=\"currentColor\"/></svg>Back to the streets</button>",
+      "css": ".ds-btn-primary{height:50px;padding:0 22px;border:0;border-radius:10px;background:#ffd400;color:#14130f;font:700 19px/1 'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.05em;text-transform:uppercase;display:inline-flex;align-items:center;gap:10px;cursor:pointer}.ds-btn-primary:hover{background:#ffe14d}.ds-btn-primary:focus-visible{outline:3px solid #ffd400;outline-offset:3px}.ds-ic{width:20px;height:20px}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary actions on box black.",
+      "html": "<div class=\"ds-black\"><button class=\"ds-btn-ghost\">Restart city</button></div>",
+      "css": ".ds-black{background:#0d0d0c;padding:16px}.ds-btn-ghost{height:50px;padding:0 22px;border:0;border-radius:10px;background:none;color:#eef0f2;box-shadow:inset 0 0 0 2px #7d8188;font:700 19px/1 'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}.ds-btn-ghost:hover{box-shadow:inset 0 0 0 2px #eef0f2}.ds-btn-ghost:focus-visible{outline:3px solid #ffd400;outline-offset:3px}"
+    },
+    {
+      "name": "PLAY Price Sticker",
+      "kind": "custom",
+      "refersTo": "sticker-play",
+      "description": "The starburst price sticker that starts the game.",
+      "html": "<div class=\"ds-black\"><button class=\"ds-play\"><svg viewBox=\"0 0 100 100\"><polygon points=\"50,0 57.6,6.7 67.1,3 72,11.9 82.1,11.7 83.7,21.7 93.3,25 91.3,35 99.2,41.3 94,50 99.2,58.7 91.3,65 93.3,75 83.7,78.3 82.1,88.3 72,88.1 67.1,97 57.6,93.3 50,100 42.4,93.3 32.9,97 28,88.1 17.9,88.3 16.3,78.3 6.7,75 8.7,65 0.8,58.7 6,50 0.8,41.3 8.7,35 6.7,25 16.3,21.7 17.9,11.7 28,11.9 32.9,3 42.4,6.7\"/></svg><span><b>PLAY</b><small>PRESS ENTER</small></span></button></div>",
+      "css": ".ds-black{background:#0d0d0c;padding:24px}.ds-play{position:relative;width:168px;height:168px;border:0;background:none;cursor:pointer;transform:rotate(8deg);transition:transform .25s cubic-bezier(.16,1,.3,1);filter:drop-shadow(0 8px 12px rgba(0,0,0,.5))}.ds-play svg{position:absolute;inset:0;width:100%;height:100%}.ds-play polygon{fill:#ffd400;stroke:#14130f;stroke-width:1.5}.ds-play span{position:relative;display:grid;place-content:center;height:100%;color:#14130f;line-height:.95}.ds-play b{font:italic 900 40px 'Archivo','Arial Narrow',sans-serif;font-stretch:120%;letter-spacing:-.02em}.ds-play small{font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:.06em;margin-top:4px}.ds-play:hover{transform:rotate(2deg) scale(1.05)}.ds-play:active{transform:rotate(4deg) scale(.96)}.ds-play:focus-visible{outline:none}.ds-play:focus-visible polygon{stroke-width:4}"
+    },
+    {
+      "name": "Score Sticker",
+      "kind": "custom",
+      "refersTo": "sticker-score",
+      "description": "Cash total with the multiplier roundel, top-right of the HUD.",
+      "html": "<div class=\"ds-score\"><span class=\"ds-cash\">$0,012,450</span><span class=\"ds-mult\">×3</span></div>",
+      "css": ".ds-score{display:inline-flex;align-items:center;gap:10px;background:#ffd400;color:#14130f;border:2px solid #14130f;border-radius:10px;padding:3px 7px 3px 13px;box-shadow:0 6px 16px rgba(20,19,15,.3);transform:rotate(.8deg)}.ds-cash{font:700 32px/1.05 'Barlow Condensed',sans-serif;letter-spacing:.01em;font-variant-numeric:tabular-nums}.ds-mult{min-width:38px;height:38px;border-radius:50%;background:#14130f;color:#ffd400;display:grid;place-items:center;font:italic 900 17px 'Archivo',sans-serif}"
+    },
+    {
+      "name": "Status Sticker",
+      "kind": "card",
+      "refersTo": "sticker-status",
+      "description": "Health and armor meters, heat label, on map paper with an ink border.",
+      "html": "<div class=\"ds-status\"><div class=\"ds-row\"><div class=\"ds-meter\" style=\"width:118px\"><i style=\"width:70%;background:#d23a2a\"></i></div><div class=\"ds-meter\" style=\"width:58px\"><i style=\"width:40%;background:#5a8fd6\"></i></div></div><div class=\"ds-row\"><span class=\"ds-lbl\">Heat</span></div></div>",
+      "css": ".ds-status{display:inline-grid;gap:7px;background:#ece6d2;color:#14130f;border:2px solid #14130f;border-radius:12px;padding:9px 12px 7px;box-shadow:0 6px 16px rgba(20,19,15,.3);transform:rotate(-.6deg)}.ds-row{display:flex;gap:8px;align-items:center}.ds-meter{position:relative;height:10px;border-radius:3px;background:#cbc1a3;overflow:hidden;box-shadow:inset 0 0 0 1.5px #14130f}.ds-meter i{display:block;height:100%}.ds-meter::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 10px,#ece6d2 10px 12px)}.ds-lbl{font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#4a453a}"
+    },
+    {
+      "name": "HUD Button",
+      "kind": "button",
+      "refersTo": "hud-button",
+      "description": "Square paper sticker button (pause, sound).",
+      "html": "<button class=\"ds-hudbtn\" aria-label=\"Pause\"><svg viewBox=\"0 0 24 24\"><path d=\"M6 4.5h4.2v15H6zM13.8 4.5H18v15h-4.2z\" fill=\"currentColor\"/></svg></button>",
+      "css": ".ds-hudbtn{width:42px;height:42px;border-radius:10px;background:#ece6d2;color:#14130f;border:2px solid #14130f;display:grid;place-items:center;box-shadow:0 6px 16px rgba(20,19,15,.3);cursor:pointer}.ds-hudbtn svg{width:20px;height:20px}.ds-hudbtn:hover{background:#ffd400}.ds-hudbtn:focus-visible{outline:3px solid #ffd400;outline-offset:3px}"
+    },
+    {
+      "name": "Pager",
+      "kind": "custom",
+      "refersTo": "pager",
+      "description": "Black pager device with LED and sage LCD for mission messages.",
+      "html": "<div class=\"ds-pager\"><span class=\"ds-brand\">PAGE</span><span class=\"ds-led\"></span><div class=\"ds-lcd\">Mama Volta: get to the docks</div></div>",
+      "css": ".ds-pager{display:inline-flex;align-items:center;gap:10px;background:#0d0d0c;border-radius:14px;padding:8px 10px 8px 12px;box-shadow:0 8px 22px rgba(0,0,0,.45)}.ds-brand{font:italic 900 12px 'Archivo',sans-serif;color:#7d8188;writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:.08em}.ds-led{width:9px;height:9px;border-radius:50%;background:#ff4a32}.ds-lcd{background:#a9b59a;color:#1c2616;border-radius:6px;padding:7px 12px;font:700 19px/1.15 'Barlow Condensed',sans-serif;letter-spacing:.03em;text-transform:uppercase;box-shadow:inset 0 2px 4px rgba(0,0,0,.35)}"
+    },
+    {
+      "name": "District Sign",
+      "kind": "chip",
+      "refersTo": "district-sign",
+      "description": "Paper plate announcing the district entered.",
+      "html": "<div class=\"ds-sign\">SOUTHEAST DOCKYARD</div>",
+      "css": ".ds-sign{display:inline-block;background:#ece6d2;color:#14130f;border-radius:4px;padding:5px 12px;font:italic 800 15px 'Archivo',sans-serif;font-stretch:115%;letter-spacing:.14em;box-shadow:0 4px 12px rgba(0,0,0,.3)}"
+    },
+    {
+      "name": "Keycap",
+      "kind": "chip",
+      "refersTo": "keycap",
+      "description": "Manual keycaps in the controls list.",
+      "html": "<span class=\"ds-page\"><kbd class=\"ds-kbd\">W</kbd><kbd class=\"ds-kbd\">Enter</kbd></span>",
+      "css": ".ds-page{display:inline-flex;gap:5px;background:#ece6d2;padding:16px}.ds-kbd{font:700 15px 'Barlow Condensed',sans-serif;min-width:28px;height:28px;padding:0 7px;display:inline-grid;place-items:center;background:#fbf8ef;color:#14130f;border:1.5px solid #14130f;border-bottom-width:3.5px;border-radius:6px}"
+    },
+    {
+      "name": "Touch Pad Key",
+      "kind": "button",
+      "refersTo": "pad-button",
+      "description": "On-screen touch key; flips to solid hazard when pressed.",
+      "html": "<button class=\"ds-pad\"><svg viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"7\"/><path d=\"M12 2v5M12 17v5M2 12h5M17 12h5\"/></svg><span>FIRE</span></button>",
+      "css": ".ds-pad{width:68px;height:68px;border:0;border-radius:14px;background:rgba(13,13,12,.84);color:#ffd400;display:grid;place-items:center;align-content:center;gap:2px;box-shadow:0 4px 12px rgba(0,0,0,.35);cursor:pointer}.ds-pad svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}.ds-pad span{font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#ece6d2}.ds-pad:active{background:#ffd400;color:#14130f}.ds-pad:active span{color:#14130f}.ds-pad:focus-visible{outline:3px solid #ffd400;outline-offset:3px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Big Box on the Shelf",
+    "overview": "The game is the box it came in. The title screen is a 1997 big-box PC game front: box black, a silver extruded italic logo, a die-cut window showing the live city, and a hazard-yellow starburst price sticker that is the PLAY button. Pressing it grows the window to full screen, so the box opens into the game. The city is the foldout street map come alive: uncoated cream paper, ink casings on every road and roof, district roof tints, a grid of letters and numbers printed in the sea. HUD pieces are stickers slapped onto the box; pause is the printed manual, a two-page spread with keycaps and a map key.\n\nEverything is printed flat with ink outlines. Depth comes from print objects sitting on one another (a sticker on a box, a manual over the map), never from light. The system refuses dark glass panels over a neon arcade, scanlines, glow, CRT effects and emoji.\n\nMotion has three verbs. Stickers slap on (fast scale-down from 1.12 with a slight rotation, exponential ease-out). Banners slam in once and leave. The box window opens. Nothing loops for decoration.",
+    "keyCharacteristics": [
+      "Box black, silver-embossed italic display type, hazard-yellow sticker accents.",
+      "Uncoated map-paper cream carrying map inks: route red, water blue, park green, district tints.",
+      "Ink outlines (1.5 to 2px) on every printed object, in DOM and canvas alike.",
+      "Condensed manual text with tabular numerals for every number on screen.",
+      "Stickers sit slightly off-square (rotated -0.6deg to 8deg); print never sits perfectly true."
+    ],
+    "rules": [
+      {
+        "name": "The One Sticker Rule",
+        "body": "Hazard yellow is the only accent on any surface. If two things on screen are yellow, both are pressable, money, or the player.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Stocks Rule",
+        "body": "Every surface is box black or map paper. There is no third gray panel; a surface that is neither is a device (pager, radio) and is drawn as a black object.",
+        "section": "colors"
+      },
+      {
+        "name": "The Embossed Logo Rule",
+        "body": "Display type is italic, expanded and heavy, or it is not display type. Its depth is a stepped hard extrusion in silver (logo) or ink (banners), the printed emboss of a box front.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Every number on screen is Barlow Condensed with tabular numerals, so cash, ammo and timers never jitter.",
+        "section": "typography"
+      },
+      {
+        "name": "The Clear Windscreen Rule",
+        "body": "HUD never covers the play area's centre. New HUD pieces take a corner or an edge slot, and on phones they queue for a shared slot rather than stack.",
+        "section": "layout"
+      },
+      {
+        "name": "The Printed, Not Lit Rule",
+        "body": "No glow, no blur, no glass, no gradients standing in for light. A shadow says \"this object lies on top\"; it never says \"this emits\".",
+        "section": "elevation"
+      },
+      {
+        "name": "The Off-Square Rule",
+        "body": "Stickers and roundels sit a little rotated (-9deg to 8deg); manual pages and map print sit true. Rotation marks something stuck on, not printed in.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Map Key Rule",
+        "body": "A map ink means the same thing in the manual, the HUD and the city: yellow is the payphone and money, red is the target and damage, blue is the garage.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "**Do** print every surface on box black or map paper, outlined in ink (#14130f).",
+      "**Do** set display type in Archivo italic, heavy and expanded, and give it a stepped hard extrusion when it is a logo or banner.",
+      "**Do** use hazard yellow only for what is pressable, money, or the player.",
+      "**Do** slap stickers on with a fast scale-down and slight rotation on the exponential ease-out (cubic-bezier(.16, 1, .3, 1)).",
+      "**Do** give every new feature a touch key, and keep HUD pieces in corner or edge slots.",
+      "**Do** keep map inks consistent between the manual's key, the HUD and the canvas."
+    ],
+    "donts": [
+      "**Don't** use dark glass panels, backdrop blur, glow, scanlines, CRT curvature or emoji.",
+      "**Don't** loop animation for decoration; banners slam once, LEDs blink a set count and stop.",
+      "**Don't** introduce a second accent colour or a gray card surface.",
+      "**Don't** use pixel or terminal fonts (Press Start 2P, VT323) or a system display face.",
+      "**Don't** use distinctive names from the series this parodies; parody names only."
+    ]
+  }
+}

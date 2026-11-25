@@ -1,0 +1,300 @@
+/* ---------- BOX FRONT (title screen) ---------- */
+#box {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+}
+#box-window {
+    position: absolute;
+    left: 41%;
+    top: 6.5%;
+    right: 3%;
+    bottom: calc(64px + 7%);
+    border-radius: 22px;
+    box-shadow:
+        0 0 0 2px #2a2c2f,
+        0 0 0 5px var(--silver-lo),
+        0 0 0 7px var(--silver),
+        0 0 0 9px #2a2c2f,
+        0 0 0 200vmax var(--box);
+    transition:
+        top 0.75s var(--ease-out),
+        left 0.75s var(--ease-out),
+        right 0.75s var(--ease-out),
+        bottom 0.75s var(--ease-out),
+        border-radius 0.75s var(--ease-out);
+    pointer-events: none;
+}
+#box-window::after {
+    /* cellophane catching the light: one band, top-left corner only */
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(118deg, rgba(255, 255, 255, 0.16) 0 9%, rgba(255, 255, 255, 0) 9.4% 100%);
+    transition: opacity 0.3s;
+}
+.box-copy {
+    position: absolute;
+    left: 4%;
+    top: 6.5%;
+    width: 35%;
+    display: flex;
+    flex-direction: column;
+    height: calc(100% - 64px - 13%);
+    transition:
+        opacity 0.35s,
+        transform 0.5s var(--ease-out);
+}
+.logo {
+    margin: 0;
+    position: relative;
+    font-family: var(--display);
+    font-style: italic;
+    font-weight: 900;
+    font-stretch: 125%;
+    line-height: 0.86;
+    letter-spacing: -0.02em;
+    color: var(--silver-hi);
+    text-transform: uppercase;
+    text-shadow:
+        1px 1px 0 #a3a7ad,
+        2px 2px 0 #8b9097,
+        3px 3px 0 #6d7178,
+        4px 4px 0 #4c5056,
+        5px 5px 0 #33363a,
+        6px 6px 0 #1d1f22,
+        7px 10px 18px rgba(0, 0, 0, 0.6);
+}
+.logo .l1 {
+    display: block;
+    font-size: clamp(40px, 4.6vw, 74px);
+}
+.logo .l2 {
+    display: block;
+    font-size: clamp(44px, 5.3vw, 86px);
+}
+.roundel {
+    position: absolute;
+    right: -6px;
+    top: -14px;
+    width: clamp(64px, 6vw, 92px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--hazard);
+    color: var(--ink);
+    display: grid;
+    place-items: center;
+    transform: rotate(-9deg);
+    font-size: clamp(24px, 2.3vw, 36px);
+    text-shadow: none;
+    letter-spacing: -0.03em;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+.tagline {
+    margin: 28px 0 0;
+    font-weight: 700;
+    font-size: clamp(20px, 1.7vw, 27px);
+    color: var(--paper);
+    line-height: 1.15;
+    max-width: 22ch;
+}
+.blurbs {
+    list-style: none;
+    margin: 30px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 12px;
+    font-size: clamp(17px, 1.3vw, 21px);
+    line-height: 1.34;
+    color: var(--silver);
+    max-width: 34ch;
+}
+.blurbs li {
+    display: grid;
+    grid-template-columns: 12px 1fr;
+    gap: 12px;
+    align-items: baseline;
+}
+.blurbs li::before {
+    content: '';
+    width: 10px;
+    height: 10px;
+    background: var(--hazard);
+    transform: translateY(-1px) rotate(45deg);
+}
+.blurbs b {
+    color: var(--paper);
+    font-weight: 700;
+}
+.sysreq {
+    margin: 26px 0 0;
+    padding: 10px 14px 12px;
+    border: 1.5px solid var(--silver-lo);
+    border-radius: 4px;
+    max-width: 34ch;
+    font-size: 15px;
+    line-height: 1.35;
+    color: var(--silver);
+}
+.sysreq dt {
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-size: 13px;
+    color: var(--paper);
+    margin-bottom: 4px;
+}
+.sysreq dd {
+    margin: 0;
+}
+@media (max-height: 760px) {
+    .sysreq {
+        display: none;
+    }
+}
+.box-actions {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+}
+.link-btn {
+    font-weight: 700;
+    font-size: 19px;
+    color: var(--silver-hi);
+    text-decoration: underline;
+    text-decoration-color: var(--hazard);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 6px;
+    padding: 6px 0;
+}
+.link-btn:hover {
+    color: var(--hazard);
+}
+
+#btn-start-game {
+    position: absolute;
+    right: calc(3% + 28px);
+    bottom: calc(64px + 7% - 78px);
+    width: 168px;
+    height: 168px;
+    transform: rotate(8deg);
+    transition:
+        transform 0.25s var(--ease-out),
+        opacity 0.3s;
+    filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.5));
+    z-index: 2;
+}
+#btn-start-game svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+#btn-start-game .st-face {
+    fill: var(--hazard);
+    stroke: var(--ink);
+    stroke-width: 1.5;
+}
+#btn-start-game > span {
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: 100%;
+    color: var(--ink);
+    text-align: center;
+    line-height: 0.95;
+}
+#btn-start-game .st-big {
+    font-family: var(--display);
+    font-style: italic;
+    font-weight: 900;
+    font-stretch: 120%;
+    font-size: 40px;
+    letter-spacing: -0.02em;
+    display: block;
+}
+#btn-start-game .st-small {
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    display: block;
+    margin-top: 4px;
+}
+#btn-start-game:hover {
+    transform: rotate(2deg) scale(1.05);
+}
+#btn-start-game:active {
+    transform: rotate(4deg) scale(0.96);
+}
+#btn-start-game:focus-visible {
+    outline: none;
+}
+#btn-start-game:focus-visible .st-face {
+    stroke-width: 4;
+}
+
+.box-strip {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(64px + var(--safe-b));
+    padding: 0 4% var(--safe-b);
+    background: var(--hazard);
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: opacity 0.35s;
+}
+.box-strip .ed {
+    font-family: var(--display);
+    font-style: italic;
+    font-weight: 900;
+    font-stretch: 120%;
+    font-size: 21px;
+    letter-spacing: -0.01em;
+}
+.box-strip .dot {
+    width: 6px;
+    height: 6px;
+    background: var(--ink);
+    border-radius: 50%;
+}
+.box-strip .fine {
+    margin-left: auto;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 15px;
+    color: #3d3508;
+}
+
+#box.opening #box-window {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 0;
+}
+#box.opening #box-window::after {
+    opacity: 0;
+}
+#box.opening .box-copy {
+    opacity: 0;
+    transform: translateX(-40px);
+}
+#box.opening .box-strip {
+    opacity: 0;
+}
+#box.opening #btn-start-game {
+    opacity: 0;
+    transform: rotate(30deg) scale(0.6);
+}
