@@ -296,11 +296,12 @@ export function render() {
             p.y,
             p.angle,
             p.color,
-            p.role === 'boss' ? '#fef08a' : '#fed7aa',
+            p.skin || '#fed7aa',
             p._ph,
             false,
             mv > 0.05,
-            ((p.x * 7) | 0) & 3
+            ((p.x * 7) | 0) & 3,
+            p.hair
         );
         if (p.role === 'boss') {
             // Red boss arrow highlight
@@ -503,7 +504,8 @@ export function drawCharacter(
     cycle = 0,
     isPlayer = false,
     moving = true,
-    salt = 0
+    salt = 0,
+    hair = null
 ) {
     ctx.save();
     ctx.translate(x, y);
@@ -511,6 +513,8 @@ export function drawCharacter(
     const armed = isPlayer && player.weaponIdx > 0;
     if (isPlayer && GRIME.drawPlayer(ctx, cycle, moving, armed)) {
         // gun drawn in the sprite's hand
+    } else if (hair && GRIME.drawNpc(ctx, cycle, moving, shirtColor, hair, headColor)) {
+        // recoloured NPC sprite
     } else {
         GRIME.drawPed(ctx, cycle, performance.now() * 0.001, salt, shirtColor, headColor, moving);
         if (armed) {

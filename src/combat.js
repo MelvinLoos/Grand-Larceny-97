@@ -5,6 +5,7 @@ import { addDecal } from './entities.js';
 import { addScore, hideRadio, showBigBanner, showRadio, updateHUD } from './hud.js';
 import { buzz } from './haptics.js';
 import { addCrime } from './missions.js';
+import { pedLook } from './palette.js';
 import { bullets, camera, cars, decals, game, mission, particles, peds, player } from './state.js';
 
 // --- AIM ASSIST (touch) ---
@@ -84,6 +85,7 @@ export function toggleEnterExitVehicle() {
                 speed: 90,
                 color: bestCar.spec.isPolice ? '#1d4ed8' : '#f87171',
                 role: bestCar.spec.isPolice ? 'cop' : 'civilian',
+                ...pedLook(bestCar.spec.isPolice ? 'cop' : 'civilian'),
                 hp: 30,
                 panicTimer: 4,
                 shootTimer: 0.8
@@ -223,7 +225,7 @@ export function damagePed(ped, amount, byPlayer = true) {
     ped.hp -= amount;
     if (ped.hp <= 0) {
         addDecal('corpse', ped.x, ped.y, Math.random() * 6.28, (Math.random() * 3) | 0, ped.color);
-        decals[decals.length - 1].head = ped.role === 'boss' ? '#fef08a' : '#fed7aa';
+        decals[decals.length - 1].head = ped.skin || '#fed7aa';
     }
     addDecal('blood', ped.x, ped.y, 0, 7 + Math.random() * 5, 'rgba(185, 28, 28, 0.75)');
     if (ped.hp <= 0) {

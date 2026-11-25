@@ -1,5 +1,6 @@
 import { DIR_VECS, angleToRoadDir, getLaneCoord, tileAtWorld } from './city.js';
 import { CAR_TYPES, MAP_SIZE, TILE, T_GRASS, T_PAVEMENT } from './config.js';
+import { pedLook, SHIRT_COLORS } from './palette.js';
 import { showPager, updateHUD } from './hud.js';
 import { bullets, camera, cars, decals, floatingTexts, particles, peds, pickups, player } from './state.js';
 
@@ -124,6 +125,7 @@ export function populateWorld() {
             speed: 56,
             color: '#fb923c', // Bright Hallelujah orange!
             role: 'hallelujah',
+            ...pedLook('hallelujah'),
             leaderIdx: j === 0 ? -1 : j - 1,
             waypointIdx: 0,
             hp: 20,
@@ -166,14 +168,14 @@ export function spawnRandomPed(role = 'civilian', nearPlayer = false) {
         }
         const t = tileAtWorld(wx, wy);
         if (t === T_PAVEMENT || t === T_GRASS) {
-            const shirtColors = ['#60a5fa', '#f472b6', '#34d399', '#c084fc', '#ffd400', '#e2e8f0'];
             peds.push({
                 x: wx,
                 y: wy,
                 angle: Math.floor(Math.random() * 4) * (Math.PI * 0.5),
                 speed: role === 'cop' ? 115 : 46,
-                color: role === 'cop' ? '#1d4ed8' : shirtColors[Math.floor(Math.random() * shirtColors.length)],
+                color: role === 'cop' ? '#1d4ed8' : SHIRT_COLORS[Math.floor(Math.random() * SHIRT_COLORS.length)],
                 role,
+                ...pedLook(role),
                 hp: role === 'cop' ? 60 : role === 'boss' ? 120 : 25,
                 panicTimer: 0,
                 shootTimer: 0.6

@@ -137,6 +137,7 @@ export const GRIME = (() => {
         FR = 8,
         BOIL = 3;
     const charCache = new Map();
+    const npcCache = new Map();
     function wobblyPath(g, r, pts, jit) {
         g.beginPath();
         pts.forEach(([x, y], i) => {
@@ -275,6 +276,8 @@ export const GRIME = (() => {
     // ped_walk.png: 8 frames per row, 1+ rows (extra rows = line-boil variants), facing +X, grayscale/light
     //   figure is multiplied by the shirt colour. ped_dead.png: 3 frames per row, same rules.
     // player_walk.png: pre-coloured (not tinted) on-foot player, N square frames in one row, facing +X.
+    // npc_walk.png: colour-key NPC sheet (same layout): pure blue #0000ff = clothes, green #00ff00 = hair,
+    //   white #ffffff = skin; every other pixel (ink outline) is kept. Recoloured per NPC at runtime.
     // tile_road|walk|grass|roof|water.png: one seamless texture each, alpha overlay.
     const ov = {};
     function loadOverrides() {
@@ -291,6 +294,14 @@ export const GRIME = (() => {
         });
         load('player_walk', (im) => {
             ov.player = im;
+        });
+        load('npc_walk', (im) => {
+            const c = cv(im.width, im.height),
+                g = c.getContext('2d');
+            g.drawImage(im, 0, 0);
+            ov.npc = im;
+            ov.npcData = g.getImageData(0, 0, c.width, c.height);
+            npcCache.clear();
         });
         load('ped_dead', (im) => {
             ov.dead = im;
@@ -359,9 +370,8 @@ export const GRIME = (() => {
         [14.5, 24.5],
         [16.5, 25.5]
     ];
-    function drawPlayer(g, phase, moving, armed) {
-        const im = ov.player;
-        if (!im) return false;
+    // Frame pick + shadow + pixel-perfect draw shared by the player and NPC sheets; returns the frame index.
+    function drawSheet(g, im, phase, moving, hand) {
         const fh = im.height,
             frames = Math.max(1, Math.round(im.width / fh));
         const f = moving ? Math.floor(((((phase / 6.28318) % 1) + 1) % 1) * frames) : 0;
@@ -369,17 +379,58 @@ export const GRIME = (() => {
         g.beginPath();
         g.ellipse(2, 3, 9.5, 8, 0, 0, 6.283);
         g.fill();
-        if (armed) {
-            // drawn first so the sprite's hand overlaps the grip
-            const k = PLAYER_SIZE / fh,
-                [hx, hy] = PLAYER_HAND[f % PLAYER_HAND.length];
-            g.fillStyle = '#27272a';
-            g.fillRect((hx - 0.5 - fh / 2) * k, (hy - 1.8 - fh / 2) * k, 10, 3.5);
-        }
+        if (hand) hand(f, fh);
         g.save();
         g.imageSmoothingEnabled = false;
         g.drawImage(im, f * fh, 0, fh, fh, -PLAYER_SIZE / 2, -PLAYER_SIZE / 2, PLAYER_SIZE, PLAYER_SIZE);
         g.restore();
+    }
+    function drawPlayer(g, phase, moving, armed) {
+        const im = ov.player;
+        if (!im) return false;
+        drawSheet(
+            g,
+            im,
+            phase,
+            moving,
+            armed &&
+                ((f, fh) => {
+                    // drawn first so the sprite's hand overlaps the grip
+                    const k = PLAYER_SIZE / fh,
+                        [hx, hy] = PLAYER_HAND[f % PLAYER_HAND.length];
+                    g.fillStyle = '#27272a';
+                    g.fillRect((hx - 0.5 - fh / 2) * k, (hy - 1.8 - fh / 2) * k, 10, 3.5);
+                })
+        );
+        return true;
+    }
+    function hexRgb(h) {
+        const n = parseInt(h.slice(1), 16);
+        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+    // Key-colour sheet recoloured for one look; cached per shirt|hair|skin.
+    function npcSheet(shirt, hair, skin) {
+        const key = shirt + '|' + hair + '|' + skin;
+        let c = npcCache.get(key);
+        if (c) return c;
+        const src = ov.npcData,
+            d = new ImageData(new Uint8ClampedArray(src.data), src.width, src.height),
+            px = d.data,
+            map = { 255: hexRgb(shirt), 65280: hexRgb(hair), 16777215: hexRgb(skin) };
+        for (let i = 0; i < px.length; i += 4) {
+            if (!px[i + 3]) continue;
+            const m = map[(px[i] << 16) | (px[i + 1] << 8) | px[i + 2]];
+            if (m) [px[i], px[i + 1], px[i + 2]] = m;
+        }
+        c = cv(src.width, src.height);
+        c.getContext('2d').putImageData(d, 0, 0);
+        npcCache.set(key, c);
+        return c;
+    }
+    // Recoloured NPC sprite; returns false (caller falls back to drawPed) until the PNG has loaded.
+    function drawNpc(g, phase, moving, shirt, hair, skin) {
+        if (!ov.npcData) return false;
+        drawSheet(g, npcSheet(shirt, hair, skin), phase, moving);
         return true;
     }
     function drawCorpse(g, variant, shirt, head) {
@@ -389,5 +440,5 @@ export const GRIME = (() => {
         g.drawImage(sh, (variant % 3) * cw, (variant % rows) * cw, cw, cw, -CELL / 2, -CELL / 2, CELL, CELL);
     }
     loadOverrides();
-    return { road, walk, grass, roof, water, paper, drawPed, drawPlayer, drawCorpse };
+    return { road, walk, grass, roof, water, paper, drawPed, drawPlayer, drawNpc, drawCorpse };
 })();

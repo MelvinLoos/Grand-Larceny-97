@@ -13,6 +13,7 @@ import {
 } from './city.js';
 import { triggerWastedOrBusted } from './combat.js';
 import { MAP_SIZE, TILE, T_ROAD_H, T_ROAD_V, T_ROAD_X } from './config.js';
+import { pedLook } from './palette.js';
 import { cars, mapGrid, peds, player } from './state.js';
 
 // --- SMART TRAFFIC & POLICE DRIVING AI ---
@@ -315,6 +316,7 @@ export function updatePoliceCarAI(c, dt) {
                     speed: 118,
                     color: '#1d4ed8',
                     role: 'cop',
+                    ...pedLook('cop'),
                     hp: 65,
                     panicTimer: 0,
                     shootTimer: 0.5

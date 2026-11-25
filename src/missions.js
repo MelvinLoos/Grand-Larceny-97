@@ -1,6 +1,7 @@
 import { audio } from './audio.js';
 import { getLaneCoord } from './city.js';
 import { TILE } from './config.js';
+import { pedLook } from './palette.js';
 import { createCar } from './entities.js';
 import { addScore, showBigBanner, showPager, updateHUD } from './hud.js';
 import { cars, mission, payphones, peds, player } from './state.js';
@@ -43,6 +44,7 @@ export function startPayphoneMission(phone) {
             speed: 70,
             color: '#b8322a',
             role: 'boss',
+            ...pedLook('boss'),
             hp: 130,
             panicTimer: 0,
             shootTimer: 0.4
@@ -57,6 +59,7 @@ export function startPayphoneMission(phone) {
                 speed: 85,
                 color: '#7f1d1d',
                 role: 'guard',
+                ...pedLook('guard'),
                 hp: 65,
                 panicTimer: 0,
                 shootTimer: 0.5
