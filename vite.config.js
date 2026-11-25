@@ -44,7 +44,12 @@ export default defineConfig({
                     { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
                 ]
             },
-            workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2,webmanifest}'] }
+            workbox: {
+                globPatterns: ['**/*.{js,css,html,svg,png,woff2,webmanifest}'],
+                cleanupOutdatedCaches: true,
+                // Reloads open tabs when a new release takes over (public/sw-reload.js).
+                importScripts: ['sw-reload.js']
+            }
         })
     ]
 });

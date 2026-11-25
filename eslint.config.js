@@ -10,6 +10,10 @@ export default [
         rules: { 'no-unused-vars': ['warn', { args: 'none' }] }
     },
     {
+        files: ['public/sw-*.js'],
+        languageOptions: { ecmaVersion: 2022, sourceType: 'script', globals: globals.serviceworker }
+    },
+    {
         files: ['*.js'],
         languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: globals.node }
     }

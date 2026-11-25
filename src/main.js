@@ -15,6 +15,20 @@ import { update } from './update.js';
 
 const boxWindow = document.getElementById('box-window');
 
+// --- UPDATES: look for a new release on focus and every 15 min; the new
+// service worker then reloads the tab (public/sw-reload.js) ---
+if ('serviceWorker' in navigator) {
+    const checkForUpdate = () =>
+        navigator.serviceWorker
+            .getRegistration()
+            .then((reg) => reg?.update())
+            .catch(() => {});
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') checkForUpdate();
+    });
+    setInterval(checkForUpdate, 15 * 60 * 1000);
+}
+
 // --- AUTO QUALITY: step the render scale down if frames stay slow ---
 function adaptQuality(raw, dt) {
     if (game.state !== 'play' || game.dprCap <= 1 || !(raw > 0) || raw > 100) return;
