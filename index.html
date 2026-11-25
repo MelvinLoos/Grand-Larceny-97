@@ -1,0 +1,3152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GRAND THEFT AUTO '97 — Top-Down 2.5D Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gta-yellow: #facc15;
+            --gta-orange: #f97316;
+            --gta-red: #ef4444;
+            --gta-green: #22c55e;
+        }
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #090a0f;
+            color: #f8fafc;
+            font-family: 'VT323', monospace;
+            overflow: hidden;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+        }
+        .pixel-font {
+            font-family: 'Press Start 2P', monospace;
+        }
+        #canvas-wrapper {
+            position: relative;
+            flex: 1;
+            width: 100%;
+            overflow: hidden;
+            background: #111827;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
+        /* Subtle optional CRT scanlines */
+        .crt-overlay {
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%,
+                rgba(0, 0, 0, 0.22) 50%
+            );
+            background-size: 100% 4px;
+            box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.65);
+            z-index: 10;
+        }
+        .arcade-btn {
+            background: linear-gradient(180deg, #374151 0%, #1f2937 100%);
+            border: 2px solid #4b5563;
+            box-shadow: 0 3px 0 #0f172a;
+            transition: transform 0.08s ease, box-shadow 0.08s ease, border-color 0.15s;
+        }
+        .arcade-btn:hover {
+            border-color: #facc15;
+        }
+        .arcade-btn:active, .arcade-btn.active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 #0f172a;
+            border-color: #f97316;
+            background: linear-gradient(180deg, #4b5563 0%, #374151 100%);
+        }
+        .touch-pad-btn {
+            background: rgba(15, 23, 42, 0.72);
+            border: 2px solid rgba(250, 204, 21, 0.45);
+            backdrop-filter: blur(4px);
+            touch-action: none;
+        }
+        .touch-pad-btn:active {
+            background: rgba(250, 204, 21, 0.35);
+            border-color: #facc15;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { text-shadow: 0 0 8px rgba(250, 204, 21, 0.8), 3px 3px 0 #000; }
+            50% { text-shadow: 0 0 20px rgba(249, 115, 22, 1), 3px 3px 0 #000; }
+        }
+        .gta-title-glow {
+            animation: pulseGlow 2s infinite;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Control & Status Bar -->
+    <header class="w-full bg-zinc-950 border-b-2 border-zinc-800 px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 z-30">
+        <div class="flex items-center gap-3">
+            <span class="pixel-font text-xs sm:text-sm text-yellow-400 tracking-wider drop-shadow">GTA '97</span>
+            <span id="district-badge" class="bg-zinc-900 border border-zinc-700 text-amber-300 px-2 py-0.5 rounded text-sm sm:text-base tracking-wide">
+                SAN ANDREAS DOWNTOWN
+            </span>
+            <span id="radio-badge" class="hidden sm:inline-flex items-center gap-1.5 bg-zinc-900 border border-emerald-700/60 text-emerald-400 px-2 py-0.5 rounded text-sm">
+                <span>📻</span> <span id="radio-name">WALKING</span>
+            </span>
+        </div>
+
+        <div class="flex items-center gap-1.5 sm:gap-2">
+            <button id="btn-weapon" class="arcade-btn rounded px-2.5 py-1 text-xs sm:text-sm text-yellow-300 flex items-center gap-1.5" title="Switch Weapon (Q or 1-4)">
+                <span id="hud-weapon-icon">👊</span>
+                <span id="hud-weapon-name">FIST</span>
+                <span id="hud-weapon-ammo" class="text-zinc-400">∞</span>
+            </button>
+            <button id="btn-crt" class="arcade-btn rounded px-2.5 py-1 text-xs sm:text-sm text-zinc-200" title="Toggle CRT Scanlines">
+                📺 CRT
+            </button>
+            <button id="btn-sound" class="arcade-btn rounded px-2.5 py-1 text-xs sm:text-sm text-emerald-400" title="Toggle Retro Audio">
+                🔊 SFX ON
+            </button>
+            <button id="btn-help" class="arcade-btn rounded px-2.5 py-1 text-xs sm:text-sm text-amber-300" title="Controls & Missions Guide">
+                ❓ HELP
+            </button>
+            <button id="btn-restart" class="arcade-btn rounded px-2.5 py-1 text-xs sm:text-sm text-red-400" title="Respawn / Reset City">
+                ↻ RESET
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Game Viewport -->
+    <main id="canvas-wrapper">
+        <canvas id="gameCanvas"></canvas>
+        <div id="crt-layer" class="crt-overlay"></div>
+
+        <!-- Classic 1997 Top-Left / Top-Right Overlay HUD -->
+        <div class="pointer-events-none absolute top-3 left-3 right-3 flex justify-between items-start z-20">
+            <!-- Left: Lives, Health, Armor, Wanted Heads -->
+            <div class="flex flex-col gap-1.5 bg-black/70 border border-zinc-700/80 px-3 py-2 rounded-lg backdrop-blur-xs">
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-1 text-red-400 text-lg leading-none" title="Health">
+                        <span>❤️</span>
+                        <div class="w-20 sm:w-24 h-3 bg-zinc-800 rounded overflow-hidden border border-zinc-600">
+                            <div id="hud-health-bar" class="h-full bg-gradient-to-r from-red-600 to-rose-400 transition-all duration-150" style="width: 100%"></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 text-sky-400 text-lg leading-none" title="Armor">
+                        <span>🛡️</span>
+                        <div class="w-14 sm:w-16 h-3 bg-zinc-800 rounded overflow-hidden border border-zinc-600">
+                            <div id="hud-armor-bar" class="h-full bg-sky-400 transition-all duration-150" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Police Wanted Heads (Classic GTA 1 Style!) -->
+                <div class="flex items-center gap-1.5 min-h-[22px]">
+                    <span class="text-xs text-zinc-400 uppercase tracking-wider">WANTED:</span>
+                    <div id="hud-wanted" class="flex items-center gap-1 text-base leading-none">
+                        <span class="text-zinc-600 text-sm">CLEAR</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Classic Green Digital Score & Multiplier -->
+            <div class="bg-black/80 border-2 border-zinc-700 px-3 py-1.5 rounded-lg text-right shadow-lg">
+                <div class="flex items-center justify-end gap-2">
+                    <span id="hud-multiplier" class="pixel-font text-xs text-amber-400 bg-amber-950/80 border border-amber-600 px-1.5 py-0.5 rounded">x1</span>
+                    <span id="hud-score" class="pixel-font text-sm sm:text-lg text-emerald-400 tracking-widest">$0000000</span>
+                </div>
+                <div id="hud-mission-timer" class="hidden text-amber-300 text-base tracking-wide mt-0.5">
+                    MISSION: <span id="mission-text">ANSWER PAYPHONE</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pager / Mission Box (Top-Center, authentic GTA 1 Pager!) -->
+        <div id="pager-box" class="pointer-events-none absolute top-16 sm:top-4 left-1/2 -translate-x-1/2 z-20 transition-all duration-300 opacity-0 -translate-y-4">
+            <div class="bg-zinc-900 border-2 border-zinc-500 rounded-lg px-4 py-1.5 shadow-2xl flex items-center gap-2.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
+                <div class="bg-[#8bac0f] text-[#0f380f] px-3 py-1 rounded font-bold tracking-wider text-base sm:text-lg border border-[#306230] shadow-inner min-w-[220px] max-w-[82vw] text-center" id="pager-message">
+                    ANSWER THE RINGING PAYPHONES IN PLAZA!
+                </div>
+            </div>
+        </div>
+
+        <!-- Big Arcade Center Banner (WASTED / BUSTED / GOURANGA / MISSION COMPLETE) -->
+        <div id="big-banner" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center z-20 opacity-0 transition-opacity duration-200 px-4 text-center">
+            <div id="big-banner-title" class="pixel-font text-2xl sm:text-5xl text-yellow-400 gta-title-glow tracking-wider">GOURANGA!</div>
+            <div id="big-banner-sub" class="text-xl sm:text-2xl text-white bg-black/75 px-4 py-1 rounded mt-3 border border-yellow-500/50">BONUS $5,000</div>
+        </div>
+
+        <!-- Start / Help Modal (No alert/confirm used anywhere) -->
+        <div id="help-modal" class="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-40 p-4">
+            <div class="bg-zinc-950 border-2 border-yellow-500 rounded-xl max-w-xl w-full p-5 sm:p-6 shadow-2xl">
+                <div class="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
+                    <div>
+                        <h1 class="pixel-font text-lg sm:text-2xl text-yellow-400 gta-title-glow">GRAND THEFT AUTO '97</h1>
+                        <p class="text-zinc-400 text-base sm:text-lg">Authentic Top-Down 2.5D Perspective Engine</p>
+                    </div>
+                    <span class="bg-amber-500/20 border border-amber-500 text-amber-300 px-2.5 py-1 rounded text-sm">LIBERTY / SAN ANDREAS</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-base sm:text-lg mb-4">
+                    <div class="bg-zinc-900/90 border border-zinc-800 rounded-lg p-3">
+                        <div class="text-yellow-400 font-bold mb-1">🕹️ CONTROLS</div>
+                        <ul class="text-zinc-300 space-y-0.5 text-base">
+                            <li><span class="text-amber-300">W/A/S/D or Arrows:</span> Move / Steer</li>
+                            <li><span class="text-amber-300">ENTER or F:</span> Hijack / Exit Vehicle</li>
+                            <li><span class="text-amber-300">SPACE:</span> Handbrake Drift (Car) / Shoot</li>
+                            <li><span class="text-amber-300">CLICK or CTRL:</span> Fire Weapon</li>
+                            <li><span class="text-amber-300">Q or 1-4:</span> Cycle Weapons</li>
+                            <li><span class="text-amber-300">H:</span> Car Horn / Toggle Police Siren</li>
+                        </ul>
+                    </div>
+                    <div class="bg-zinc-900/90 border border-zinc-800 rounded-lg p-3">
+                        <div class="text-emerald-400 font-bold mb-1">☎️ FEATURES & SECRETS</div>
+                        <ul class="text-zinc-300 space-y-0.5 text-base">
+                            <li>• Follow <span class="text-yellow-300">Yellow Arrows</span> to ringing Payphones for Missions!</li>
+                            <li>• Visit <span class="text-fuchsia-400">PAY 'N' SPRAY</span> garages to clear Cops & repair damage.</li>
+                            <li>• Spot the orange <span class="text-orange-400">Joggers</span> in Central Park for a <span class="text-yellow-300">GOURANGA!</span></li>
+                            <li>• Find the hidden <span class="text-lime-400">Battle Tank</span> in the SE Dockyard!</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3">
+                    <button id="btn-start-game" class="arcade-btn w-full sm:w-auto px-6 py-2.5 rounded-lg pixel-font text-xs sm:text-sm text-yellow-300 border-yellow-500">
+                        ▶ ENTER THE STREETS
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile / Tablet On-Screen Touch Controls -->
+        <div id="touch-controls" class="md:hidden absolute bottom-3 left-3 right-3 flex justify-between items-end z-30 pointer-events-none">
+            <!-- D-Pad -->
+            <div class="grid grid-cols-3 gap-1.5 pointer-events-auto">
+                <div></div>
+                <button data-key="ArrowUp" class="touch-pad-btn w-12 h-12 rounded-lg flex items-center justify-center text-xl text-yellow-300">▲</button>
+                <div></div>
+                <button data-key="ArrowLeft" class="touch-pad-btn w-12 h-12 rounded-lg flex items-center justify-center text-xl text-yellow-300">◀</button>
+                <button data-key="ArrowDown" class="touch-pad-btn w-12 h-12 rounded-lg flex items-center justify-center text-xl text-yellow-300">▼</button>
+                <button data-key="ArrowRight" class="touch-pad-btn w-12 h-12 rounded-lg flex items-center justify-center text-xl text-yellow-300">▶</button>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="grid grid-cols-2 gap-2 pointer-events-auto">
+                <button id="touch-car" class="touch-pad-btn px-3 h-12 rounded-lg flex items-center justify-center text-sm font-bold text-emerald-300">🚗 CAR</button>
+                <button id="touch-horn" class="touch-pad-btn px-3 h-12 rounded-lg flex items-center justify-center text-sm font-bold text-sky-300">📯 HORN</button>
+                <button data-key="Space" class="touch-pad-btn px-3 h-12 rounded-lg flex items-center justify-center text-sm font-bold text-amber-300">💨 BRAKE</button>
+                <button data-key="Fire" class="touch-pad-btn px-3 h-12 rounded-lg flex items-center justify-center text-sm font-bold text-red-400">🔥 FIRE</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Quick Legend Bar (Desktop) -->
+    <footer class="hidden md:flex w-full bg-zinc-950 border-t-2 border-zinc-800 px-4 py-1 items-center justify-between text-sm text-zinc-400 z-30">
+        <div class="flex items-center gap-4">
+            <span><strong class="text-yellow-400">[WASD / ARROWS]</strong> Drive & Walk</span>
+            <span><strong class="text-yellow-400">[ENTER / F]</strong> Hijack / Exit Car</span>
+            <span><strong class="text-yellow-400">[SPACE]</strong> Handbrake / Shoot</span>
+            <span><strong class="text-yellow-400">[CLICK / CTRL]</strong> Fire</span>
+            <span><strong class="text-yellow-400">[Q]</strong> Weapon</span>
+            <span><strong class="text-yellow-400">[H]</strong> Horn/Siren</span>
+        </div>
+        <div id="footer-coords" class="text-zinc-500">
+            PAY 'N' SPRAY ($1,000) CLEARS COPS • FOLLOW ARROWS TO PAYPHONES
+        </div>
+    </footer>
+
+    <script>
+        /**
+         * ============================================================================
+         * GRAND THEFT AUTO '97 — TOP-DOWN 2.5D BROWSER ENGINE
+         * Complete single-file replica featuring:
+         * - 2.5D Perspective-Extruded City Blocks with sorted walls & detailed roofs
+         * - Dynamic Speed-Zoom Camera (classic DMA Design feel)
+         * - Arcade Vehicle Physics, Handbrake Drifts, Skidmarks, Hijacking
+         * - Weapons (Fists, Pistol, Machine Gun, Rocket Launcher), Pickups, Tank
+         * - Pedestrians, Gouranga Joggers, Police Wanted Heads & Road Pursuit AI
+         * - Ringing Payphone Missions + Pay 'n' Spray Respray Garages
+         * - Procedural Web Audio SFX & Retro Car Radio Stations
+         * ============================================================================
+         */
+
+        // --- CONFIGURATION & CONSTANTS ---
+        const TILE = 144;                // Size of one city tile in world pixels
+        const MAP_SIZE = 32;             // 32x32 city grid (4608 x 4608 world)
+        const WORLD_SIZE = TILE * MAP_SIZE;
+
+        // Tile Types
+        const T_WATER    = 0;
+        const T_GRASS    = 1;
+        const T_PAVEMENT = 2;
+        const T_ROAD_H   = 3;
+        const T_ROAD_V   = 4;
+        const T_ROAD_X   = 5;
+        const T_BLDG     = 6;
+        const T_SPRAY    = 7; // Pay 'n' Spray Garage
+
+        // Weapon Definitions
+        const WEAPONS = [
+            { id: 0, name: 'FIST',     icon: '👊', cooldown: 0.28, range: 42,  damage: 25, auto: false },
+            { id: 1, name: 'PISTOL',   icon: '🔫', cooldown: 0.24, range: 460, damage: 34, auto: false, speed: 780 },
+            { id: 2, name: 'UZI SMG',  icon: '💥', cooldown: 0.09, range: 480, damage: 22, auto: true,  speed: 840 },
+            { id: 3, name: 'ROCKET',   icon: '🚀', cooldown: 0.85, range: 640, damage: 250,auto: false, speed: 520, explosive: true }
+        ];
+
+        // Vehicle Archetypes (Classic GTA 1 Legends!)
+        const CAR_TYPES = {
+            beast: {
+                name: 'BEAST GTS', w: 30, l: 56, maxSpeed: 540, accel: 380, grip: 0.91, hp: 140,
+                colors: ['#ef4444', '#eab308', '#3b82f6', '#f97316'], stripe: '#ffffff', radio: 'HEAD RADIO 98.4 FM', value: 1200
+            },
+            mundano: {
+                name: 'MUNDANO', w: 29, l: 54, maxSpeed: 410, accel: 260, grip: 0.93, hp: 130,
+                colors: ['#64748b', '#0ea5e9', '#10b981', '#a855f7', '#d97706'], stripe: null, radio: 'BROOKLYN UNDERGROUND', value: 600
+            },
+            cabbie: {
+                name: 'CABBIE TAXI', w: 30, l: 55, maxSpeed: 430, accel: 290, grip: 0.92, hp: 145,
+                colors: ['#facc15'], stripe: '#111827', taxiSign: true, radio: 'NCT-FM HIP HOP', value: 800
+            },
+            stallion: {
+                name: 'STALLION V8', w: 31, l: 58, maxSpeed: 500, accel: 350, grip: 0.87, hp: 150,
+                colors: ['#dc2626', '#16a34a', '#9333ea', '#f59e0b'], stripe: '#18181b', radio: 'IT\'S UNLEASHED FM', value: 1000
+            },
+            van: {
+                name: 'RUMPO VAN', w: 33, l: 62, maxSpeed: 360, accel: 220, grip: 0.94, hp: 210,
+                colors: ['#e2e8f0', '#1e3a8a', '#3f3f46'], stripe: null, radio: 'FERGUS BUCKNER FM', value: 750
+            },
+            police: {
+                name: 'COP CRUISER', w: 30, l: 56, maxSpeed: 525, accel: 390, grip: 0.92, hp: 175,
+                colors: ['#1e293b'], isPolice: true, radio: 'POLICE DISPATCH BAND', value: 1500
+            },
+            tank: {
+                name: 'RHINO TANK', w: 42, l: 68, maxSpeed: 260, accel: 260, grip: 0.97, hp: 900,
+                colors: ['#3f6212'], isTank: true, radio: 'HEAVY METAL ARMOR FM', value: 5000
+            }
+        };
+
+        // --- RETRO WEB AUDIO SYNTHESIZER ---
+        class RetroAudio {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+                this.radioTimer = 0;
+                this.radioStep = 0;
+                this.sirenPhase = 0;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            toggle() {
+                this.enabled = !this.enabled;
+                this.init();
+                return this.enabled;
+            }
+
+            playTone(freq, endFreq, duration, type = 'square', gainVal = 0.08) {
+                if (!this.enabled || !this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, now);
+                    if (endFreq !== freq) {
+                        osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), now + duration);
+                    }
+                    gain.gain.setValueAtTime(gainVal, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + duration);
+                } catch (e) {
+                    // Ignore audio context edge cases
+                }
+            }
+
+            playNoise(duration, filterFreq = 900, gainVal = 0.12) {
+                if (!this.enabled || !this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = Math.random() * 2 - 1;
+                    }
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(filterFreq, now);
+
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(gainVal, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    noise.start(now);
+                } catch (e) {}
+            }
+
+            shoot(weaponId) {
+                if (weaponId === 0) {
+                    this.playTone(150, 60, 0.08, 'triangle', 0.08);
+                } else if (weaponId === 1) {
+                    this.playNoise(0.11, 1800, 0.14);
+                    this.playTone(320, 90, 0.09, 'sawtooth', 0.07);
+                } else if (weaponId === 2) {
+                    this.playNoise(0.07, 2200, 0.11);
+                    this.playTone(400, 120, 0.06, 'square', 0.06);
+                } else {
+                    this.playNoise(0.28, 700, 0.16);
+                    this.playTone(180, 55, 0.25, 'sawtooth', 0.1);
+                }
+            }
+
+            explosion() {
+                this.playNoise(0.55, 420, 0.26);
+                this.playTone(110, 28, 0.48, 'sawtooth', 0.16);
+            }
+
+            cash() {
+                this.playTone(880, 1320, 0.09, 'square', 0.07);
+                setTimeout(() => this.playTone(1320, 1760, 0.12, 'square', 0.07), 65);
+            }
+
+            phoneRing() {
+                this.playTone(1100, 1350, 0.07, 'square', 0.035);
+            }
+
+            horn(isPolice = false) {
+                if (isPolice) {
+                    this.playTone(680, 960, 0.22, 'sawtooth', 0.09);
+                } else {
+                    this.playTone(340, 340, 0.18, 'sawtooth', 0.09);
+                    this.playTone(425, 425, 0.18, 'sawtooth', 0.07);
+                }
+            }
+
+            screech() {
+                this.playTone(920 + Math.random() * 160, 780, 0.06, 'triangle', 0.025);
+            }
+
+            updateMusicAndSirens(dt, inCar, carType, hasSirenNearby) {
+                if (!this.enabled || !this.ctx) return;
+
+                // Police siren pulse
+                if (hasSirenNearby) {
+                    this.sirenPhase += dt;
+                    if (this.sirenPhase > 0.38) {
+                        this.sirenPhase = 0;
+                        const hi = (Math.floor(performance.now() / 380) % 2 === 0);
+                        this.playTone(hi ? 780 : 580, hi ? 820 : 550, 0.32, 'triangle', 0.035);
+                    }
+                }
+
+                // Retro 1997 Funky Bassline Car Radio when driving!
+                if (inCar) {
+                    this.radioTimer += dt;
+                    if (this.radioTimer >= 0.21) {
+                        this.radioTimer = 0;
+                        const groove = [110, 110, 146.8, 110, 164.8, 146.8, 130.8, 98];
+                        const note = groove[this.radioStep % groove.length];
+                        const mult = carType === 'beast' ? 1.25 : (carType === 'tank' ? 0.75 : 1.0);
+                        this.playTone(note * mult, note * mult * 0.98, 0.13, 'sawtooth', 0.028);
+                        if (this.radioStep % 2 === 1) {
+                            this.playNoise(0.03, 4500, 0.018); // crisp hi-hat
+                        }
+                        this.radioStep++;
+                    }
+                }
+            }
+        }
+
+        const audio = new RetroAudio();
+
+        // --- GLOBAL GAME STATE ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let viewW = 800;
+        let viewH = 600;
+
+        // Input state
+        const keys = {};
+        const mouse = { x: 0, y: 0, down: false, worldX: 0, worldY: 0 };
+
+        // World Map & Building metadata
+        const mapGrid = [];
+        const bldgMeta = []; // Height, color palette, roof detail per tile
+        const sprayShops = [];
+        const payphones = [];
+
+        // Entities
+        let decals = [];       // Tire marks, blood splats, scorch craters
+        let cars = [];
+        let peds = [];
+        let bullets = [];
+        let particles = [];
+        let pickups = [];
+        let floatingTexts = [];
+
+        // Camera
+        const camera = {
+            x: WORLD_SIZE * 0.5,
+            y: WORLD_SIZE * 0.5,
+            zoom: 1.0,
+            targetZoom: 1.0,
+            shake: 0
+        };
+
+        // Player Object
+        const player = {
+            x: 0,
+            y: 0,
+            vx: 0,
+            vy: 0,
+            angle: 0,
+            hp: 100,
+            maxHp: 100,
+            armor: 25,
+            score: 0,
+            multiplier: 1,
+            wanted: 0,
+            wantedDecay: 0,
+            inCar: null,
+            weaponIdx: 1,
+            ammo: [Infinity, 99, 150, 8],
+            fireTimer: 0,
+            deadTimer: 0,
+            deadReason: '',
+            walkCycle: 0
+        };
+
+        // Active Payphone Mission State
+        const mission = {
+            active: false,
+            stage: 0,
+            type: '',
+            title: '',
+            targetX: 0,
+            targetY: 0,
+            targetEntity: null,
+            timer: 0,
+            completedCount: 0
+        };
+
+        // --- CITY GENERATION ---
+        function buildCity() {
+            sprayShops.length = 0;
+            payphones.length = 0;
+
+            for (let y = 0; y < MAP_SIZE; y++) {
+                mapGrid[y] = [];
+                bldgMeta[y] = [];
+                for (let x = 0; x < MAP_SIZE; x++) {
+                    bldgMeta[y][x] = null;
+
+                    // Outer island ocean border
+                    if (x === 0 || y === 0 || x === MAP_SIZE - 1 || y === MAP_SIZE - 1) {
+                        mapGrid[y][x] = T_WATER;
+                        continue;
+                    }
+                    // North & West Beach/Promenade edge (x=30 & y=30 complete the outer ring road so no dead ends exist!)
+                    if (x === 1 || y === 1) {
+                        mapGrid[y][x] = T_PAVEMENT;
+                        continue;
+                    }
+
+                    // Major avenues every 4 tiles
+                    const isRoadX = (x % 4 === 2);
+                    const isRoadY = (y % 4 === 2);
+
+                    if (isRoadX && isRoadY) {
+                        mapGrid[y][x] = T_ROAD_X;
+                    } else if (isRoadY) {
+                        mapGrid[y][x] = T_ROAD_H;
+                    } else if (isRoadX) {
+                        mapGrid[y][x] = T_ROAD_V;
+                    } else {
+                        // Central Park block (tiles 11..17, 11..17 excluding roads)
+                        if (x >= 11 && x <= 17 && y >= 11 && y <= 17) {
+                            mapGrid[y][x] = (x === 11 || x === 17 || y === 11 || y === 17) ? T_PAVEMENT : T_GRASS;
+                        }
+                        // SE Dockyard openconcrete yard (for hidden Tank!)
+                        else if (x >= 23 && x <= 29 && y >= 23 && y <= 29 && !(x === 25 && y === 25)) {
+                            mapGrid[y][x] = T_PAVEMENT;
+                        }
+                        else {
+                            // Sidewalk margins vs Building cores
+                            // Inside each 3x3 block between roads (offsets 3, 0, 1 mod 4 -> i.e. 3,4,5; 7,8,9; etc.)
+                            const bx = (x - 3) % 4; // 0, 1, 2 inside a city block
+                            const by = (y - 3) % 4;
+
+                            // Keep corners or random plazas walkable, make core buildings
+                            if ((bx === 1 && by === 1) || ((x + y * 3) % 5 !== 0 && (bx === 1 || by === 1))) {
+                                mapGrid[y][x] = T_BLDG;
+                                const palettes = [
+                                    { wall: '#334155', dark: '#1e293b', roof: '#475569', win: '#fef08a' },
+                                    { wall: '#44403c', dark: '#292524', roof: '#57534e', win: '#bae6fd' },
+                                    { wall: '#3f2e2e', dark: '#291d1d', roof: '#5c4033', win: '#fde68a' },
+                                    { wall: '#1e3a5f', dark: '#112239', roof: '#2b4c7e', win: '#e0f2fe' },
+                                    { wall: '#3b3054', dark: '#231c35', roof: '#4e416d', win: '#fbcfe8' }
+                                ];
+                                const pal = palettes[(x * 7 + y * 13) % palettes.length];
+                                // Taller skyscrapers downtown (near top-left/center), warehouses near docks
+                                const distCenter = Math.hypot(x - 10, y - 10);
+                                const heightFactor = distCenter < 7 ? 0.58 : 0.34;
+                                bldgMeta[y][x] = {
+                                    h: heightFactor + ((x * 17 + y * 31) % 5) * 0.08,
+                                    ...pal,
+                                    style: (x * 3 + y * 7) % 4
+                                };
+                            } else {
+                                mapGrid[y][x] = T_PAVEMENT;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Place 3 Pay 'n' Spray Garages right next to avenues
+            const sprayCoords = [
+                { tx: 7, ty: 6 },
+                { tx: 21, ty: 10 },
+                { tx: 11, ty: 23 }
+            ];
+            for (const sc of sprayCoords) {
+                mapGrid[sc.ty][sc.tx] = T_SPRAY;
+                bldgMeta[sc.ty][sc.tx] = null;
+                sprayShops.push({
+                    tx: sc.tx,
+                    ty: sc.ty,
+                    x: (sc.tx + 0.5) * TILE,
+                    y: (sc.ty + 0.5) * TILE,
+                    cooldown: 0
+                });
+            }
+
+            // Place Ringing Payphones around Central Park Plaza & Downtown
+            const phoneTiles = [
+                { tx: 13, ty: 11, label: 'CENTRAL PARK NORTH PHONE' },
+                { tx: 11, ty: 15, label: 'WEST PLAZA PAYPHONE' },
+                { tx: 19, ty: 9,  label: 'MIDTOWN PAYPHONE' }
+            ];
+            for (const pt of phoneTiles) {
+                mapGrid[pt.ty][pt.tx] = T_PAVEMENT;
+                bldgMeta[pt.ty][pt.tx] = null;
+                payphones.push({
+                    x: (pt.tx + 0.5) * TILE,
+                    y: (pt.ty + 0.5) * TILE,
+                    ringPhase: Math.random() * 6,
+                    label: pt.label
+                });
+            }
+        }
+
+        // --- HELPER UTILITIES ---
+        function tileAtWorld(wx, wy) {
+            const tx = Math.floor(wx / TILE);
+            const ty = Math.floor(wy / TILE);
+            if (tx < 0 || ty < 0 || tx >= MAP_SIZE || ty >= MAP_SIZE) return T_WATER;
+            return mapGrid[ty][tx];
+        }
+
+        function isSolidAt(wx, wy, radius = 12) {
+            const pts = [
+                [wx - radius, wy - radius],
+                [wx + radius, wy - radius],
+                [wx - radius, wy + radius],
+                [wx + radius, wy + radius]
+            ];
+            for (const [px, py] of pts) {
+                const t = tileAtWorld(px, py);
+                if (t === T_BLDG || t === T_WATER) return true;
+            }
+            return false;
+        }
+
+        // --- ROAD LANE & AI NAVIGATION HELPERS ---
+        const LANE_OFFSET = 31; // Centers vehicles inside each 62px asphalt lane (between 10px curb and 72px divider)
+        // Cardinal directions: 0 = East (+X), 1 = South (+Y), 2 = West (-X), 3 = North (-Y)
+        const DIR_VECS = [
+            { dx: 1,  dy: 0,  ang: 0 },
+            { dx: 0,  dy: 1,  ang: Math.PI * 0.5 },
+            { dx: -1, dy: 0,  ang: Math.PI },
+            { dx: 0,  dy: -1, ang: -Math.PI * 0.5 }
+        ];
+
+        function isRoadTileType(t) {
+            return t === T_ROAD_H || t === T_ROAD_V || t === T_ROAD_X;
+        }
+
+        function isRoadCell(tx, ty) {
+            if (tx < 0 || ty < 0 || tx >= MAP_SIZE || ty >= MAP_SIZE) return false;
+            return isRoadTileType(mapGrid[ty][tx]);
+        }
+
+        function normalizeAngle(a) {
+            return Math.atan2(Math.sin(a), Math.cos(a));
+        }
+
+        function angleToRoadDir(angle) {
+            const norm = ((Math.round(angle / (Math.PI * 0.5)) % 4) + 4) % 4;
+            return norm; // 0: East, 1: South, 2: West, 3: North
+        }
+
+        // Returns the right-hand traffic lane coordinate for a given tile & cardinal direction
+        function getLaneCoord(tileIdx, dir) {
+            const center = (tileIdx + 0.5) * TILE;
+            if (dir === 0) return center + LANE_OFFSET; // Eastbound -> South half of road
+            if (dir === 2) return center - LANE_OFFSET; // Westbound -> North half of road
+            if (dir === 1) return center - LANE_OFFSET; // Southbound -> West half of road
+            return center + LANE_OFFSET;                // Northbound -> East half of road
+        }
+
+        // Line-of-sight raycast so cops/enemies don't shoot into brick walls or drive blindly into blocks
+        function hasLineOfSight(x1, y1, x2, y2) {
+            const dist = Math.hypot(x2 - x1, y2 - y1);
+            const steps = Math.max(2, Math.ceil(dist / 36));
+            for (let i = 1; i < steps; i++) {
+                const t = i / steps;
+                const sx = x1 + (x2 - x1) * t;
+                const sy = y1 + (y2 - y1) * t;
+                const tile = tileAtWorld(sx, sy);
+                if (tile === T_BLDG || tile === T_WATER) return false;
+            }
+            return true;
+        }
+
+        // Weighted Grid Flow-Field for Police Pursuit (strongly prefers roads over sidewalks!)
+        const policeFlowDist = Array.from({ length: MAP_SIZE }, () => new Float32Array(MAP_SIZE).fill(9999));
+        let policeFlowTimer = 0;
+
+        function updatePoliceFlowField() {
+            for (let y = 0; y < MAP_SIZE; y++) {
+                policeFlowDist[y].fill(9999);
+            }
+            const ptx = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(player.x / TILE)));
+            const pty = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(player.y / TILE)));
+            if (mapGrid[pty][ptx] === T_BLDG || mapGrid[pty][ptx] === T_WATER) return;
+
+            const queue = [{ tx: ptx, ty: pty, cost: 0 }];
+            policeFlowDist[pty][ptx] = 0;
+
+            while (queue.length > 0) {
+                // Pop lowest-cost node (tiny 32x32 grid)
+                let bestIdx = 0;
+                for (let i = 1; i < queue.length; i++) {
+                    if (queue[i].cost < queue[bestIdx].cost) bestIdx = i;
+                }
+                const cur = queue[bestIdx];
+                queue[bestIdx] = queue[queue.length - 1];
+                queue.pop();
+
+                if (cur.cost > policeFlowDist[cur.ty][cur.tx]) continue;
+
+                for (const dv of DIR_VECS) {
+                    const ntx = cur.tx + dv.dx;
+                    const nty = cur.ty + dv.dy;
+                    if (ntx < 1 || nty < 1 || ntx >= MAP_SIZE - 1 || nty >= MAP_SIZE - 1) continue;
+                    const nt = mapGrid[nty][ntx];
+                    if (nt === T_BLDG || nt === T_WATER) continue;
+
+                    // Roads cost 1; pavement/grass cost 4.5 so police cruisers stick to avenues until final approach!
+                    const stepCost = isRoadTileType(nt) ? 1.0 : 4.5;
+                    const nextCost = cur.cost + stepCost;
+                    if (nextCost < policeFlowDist[nty][ntx]) {
+                        policeFlowDist[nty][ntx] = nextCost;
+                        queue.push({ tx: ntx, ty: nty, cost: nextCost });
+                    }
+                }
+            }
+        }
+
+        // Picks a clean right-hand lane spawn point at a desired distance band from (cx, cy)
+        function pickRoadSpawnNear(cx, cy, minDist, maxDist) {
+            for (let tries = 0; tries < 28; tries++) {
+                const ang = Math.random() * Math.PI * 2;
+                const dist = minDist + Math.random() * (maxDist - minDist);
+                const tx = Math.floor((cx + Math.cos(ang) * dist) / TILE);
+                const ty = Math.floor((cy + Math.sin(ang) * dist) / TILE);
+                if (!isRoadCell(tx, ty)) continue;
+
+                const t = mapGrid[ty][tx];
+                let dir = 0;
+                if (t === T_ROAD_H) {
+                    dir = Math.random() < 0.5 ? 0 : 2;
+                } else if (t === T_ROAD_V) {
+                    dir = Math.random() < 0.5 ? 1 : 3;
+                } else {
+                    const validDirs = [0, 1, 2, 3].filter(d => isRoadCell(tx + DIR_VECS[d].dx, ty + DIR_VECS[d].dy));
+                    if (validDirs.length === 0) continue;
+                    dir = validDirs[Math.floor(Math.random() * validDirs.length)];
+                }
+
+                const sx = (dir === 1 || dir === 3) ? getLaneCoord(tx, dir) : (tx + 0.5) * TILE;
+                const sy = (dir === 0 || dir === 2) ? getLaneCoord(ty, dir) : (ty + 0.5) * TILE;
+
+                // Ensure no immediate overlap with existing cars
+                let clear = true;
+                for (const other of cars) {
+                    if (Math.hypot(other.x - sx, other.y - sy) < 85) {
+                        clear = false;
+                        break;
+                    }
+                }
+                if (clear) {
+                    return { x: sx, y: sy, dir, angle: DIR_VECS[dir].ang };
+                }
+            }
+            return null;
+        }
+
+        // Adjusts a steering angle using left/right feeler whiskers to avoid walls & water
+        function applyWallFeelers(x, y, desiredAngle, lookDist = 64) {
+            if (!isSolidAt(x + Math.cos(desiredAngle) * lookDist, y + Math.sin(desiredAngle) * lookDist, 14)) {
+                return desiredAngle;
+            }
+            const offsets = [0.42, -0.42, 0.85, -0.85, 1.3, -1.3];
+            for (const off of offsets) {
+                const testAng = desiredAngle + off;
+                if (!isSolidAt(x + Math.cos(testAng) * lookDist, y + Math.sin(testAng) * lookDist, 14)) {
+                    return testAng;
+                }
+            }
+            return desiredAngle + Math.PI * 0.5;
+        }
+
+        function addScore(pts, x, y, customLabel = null) {
+            const total = Math.round(pts * player.multiplier);
+            player.score += total;
+            if (x !== undefined && y !== undefined) {
+                spawnFloatingText(customLabel ? `${customLabel} +$${total}` : `+$${total}`, x, y, '#4ade80');
+            }
+            updateHUD();
+        }
+
+        function spawnFloatingText(text, x, y, color = '#facc15', scale = 1) {
+            floatingTexts.push({
+                text, x, y,
+                vy: -42,
+                life: 1.35,
+                maxLife: 1.35,
+                color,
+                scale
+            });
+        }
+
+        let pagerTimeout = null;
+        function showPager(msg) {
+            const box = document.getElementById('pager-box');
+            const textEl = document.getElementById('pager-message');
+            textEl.textContent = msg;
+            box.classList.remove('opacity-0', '-translate-y-4');
+            box.classList.add('opacity-100', 'translate-y-0');
+            if (pagerTimeout) clearTimeout(pagerTimeout);
+            pagerTimeout = setTimeout(() => {
+                box.classList.remove('opacity-100', 'translate-y-0');
+                box.classList.add('opacity-0', '-translate-y-4');
+            }, 5200);
+        }
+
+        let bannerTimeout = null;
+        function showBigBanner(title, sub = '', color = '#facc15') {
+            const wrap = document.getElementById('big-banner');
+            const titleEl = document.getElementById('big-banner-title');
+            const subEl = document.getElementById('big-banner-sub');
+            titleEl.textContent = title;
+            titleEl.style.color = color;
+            subEl.textContent = sub;
+            subEl.style.display = sub ? 'block' : 'none';
+            wrap.classList.remove('opacity-0');
+            wrap.classList.add('opacity-100');
+            if (bannerTimeout) clearTimeout(bannerTimeout);
+            bannerTimeout = setTimeout(() => {
+                wrap.classList.remove('opacity-100');
+                wrap.classList.add('opacity-0');
+            }, 2600);
+        }
+
+        function addDecal(type, x, y, angle = 0, size = 10, color = 'rgba(0,0,0,0.45)') {
+            decals.push({ type, x, y, angle, size, color });
+            if (decals.length > 420) decals.shift();
+        }
+
+        // --- SPAWNING VEHICLES, PEDESTRIANS, PICKUPS ---
+        function createCar(typeKey, x, y, angle = 0, aiMode = 'traffic') {
+            const spec = CAR_TYPES[typeKey];
+            const color = spec.colors[Math.floor(Math.random() * spec.colors.length)];
+            const initDir = angleToRoadDir(angle);
+            return {
+                typeKey,
+                spec,
+                x, y,
+                vx: 0, vy: 0,
+                speed: 0,
+                angle,
+                color,
+                hp: spec.hp,
+                maxHp: spec.hp,
+                aiMode, // 'traffic', 'parked', 'police', 'player', 'target'
+                sirenOn: !!spec.isPolice && aiMode === 'police',
+                driver: aiMode !== 'parked',
+                burnTimer: 0,
+                turnCooldown: 0,
+                roadDir: initDir,
+                nextRoadDir: initDir,
+                intersectKey: -1,
+                cruiseSpeed: Math.min(245, spec.maxSpeed * (0.44 + Math.random() * 0.08)),
+                honkCooldown: 0,
+                stuckTimer: 0,
+                reverseTimer: 0,
+                deployedCop: false
+            };
+        }
+
+        function populateWorld() {
+            cars = [];
+            peds = [];
+            bullets = [];
+            particles = [];
+            pickups = [];
+            decals = [];
+            floatingTexts = [];
+
+            // Spawn Player in Central Park Plaza
+            player.x = 13.5 * TILE;
+            player.y = 11.7 * TILE;
+            player.vx = 0;
+            player.vy = 0;
+            player.hp = 100;
+            player.armor = 50;
+            player.wanted = 0;
+            player.inCar = null;
+            player.deadTimer = 0;
+            player.weaponIdx = 1;
+            player.ammo = [Infinity, 99, 150, 8];
+
+            // Parked Beast GTS & Stallion V8 neatly on Central Park North Plaza (off active traffic lanes!)
+            cars.push(createCar('beast', 14.35 * TILE, 11.32 * TILE, 0, 'parked'));
+            cars.push(createCar('stallion', 11.35 * TILE, 11.35 * TILE, Math.PI * 0.5, 'parked'));
+
+            // Secret Rhino Battle Tank in SE Dockyard!
+            cars.push(createCar('tank', 27.5 * TILE, 27.5 * TILE, -Math.PI * 0.5, 'parked'));
+
+            // Populate Traffic Cars cleanly aligned inside right-hand lanes
+            const trafficKeys = ['mundano', 'cabbie', 'stallion', 'beast', 'van', 'mundano', 'cabbie'];
+            const roadIndices = [2, 6, 10, 14, 18, 22, 26, 30];
+            for (let i = 0; i < 40; i++) {
+                const roadIdx = roadIndices[Math.floor(Math.random() * roadIndices.length)];
+                const horiz = Math.random() < 0.5;
+                // Spawn mid-block (avoid spawning directly inside intersections)
+                const segBase = roadIndices[Math.floor(Math.random() * (roadIndices.length - 1))];
+                const posAlong = (segBase + 1.2 + Math.random() * 1.6) * TILE;
+                const forward = Math.random() < 0.5;
+
+                let dir, cx, cy;
+                if (horiz) {
+                    dir = forward ? 0 : 2;
+                    cx = posAlong;
+                    cy = getLaneCoord(roadIdx, dir);
+                } else {
+                    dir = forward ? 1 : 3;
+                    cx = getLaneCoord(roadIdx, dir);
+                    cy = posAlong;
+                }
+
+                if (Math.hypot(cx - player.x, cy - player.y) > 240) {
+                    // Ensure cars don't spawn overlapping each other
+                    let overlap = false;
+                    for (const existing of cars) {
+                        if (Math.hypot(existing.x - cx, existing.y - cy) < 85) {
+                            overlap = true;
+                            break;
+                        }
+                    }
+                    if (!overlap) {
+                        const tk = Math.random() < 0.12 ? 'police' : trafficKeys[i % trafficKeys.length];
+                        cars.push(createCar(tk, cx, cy, DIR_VECS[dir].ang, 'traffic'));
+                    }
+                }
+            }
+
+            // Spawn Regular Pedestrians
+            for (let i = 0; i < 65; i++) {
+                spawnRandomPed();
+            }
+
+            // Spawn Iconic GTA 1 "GOURANGA!" Orange Joggers in a synchronized conga line in Central Park!
+            const jogStartX = 12.6 * TILE;
+            const jogStartY = 12.4 * TILE;
+            for (let j = 0; j < 7; j++) {
+                peds.push({
+                    x: jogStartX - j * 22,
+                    y: jogStartY,
+                    angle: 0,
+                    speed: 56,
+                    color: '#fb923c', // Bright Hare Krishna / Gouranga orange!
+                    role: 'gouranga',
+                    leaderIdx: j === 0 ? -1 : j - 1,
+                    waypointIdx: 0,
+                    hp: 20,
+                    panicTimer: 0,
+                    shootTimer: 0
+                });
+            }
+
+            // Spawn Weapon, Health, Armor & Bribe Pickups across alleys and parks
+            const pickupSpots = [
+                { x: 14.5 * TILE, y: 14.5 * TILE, kind: 'uzi',    icon: '💥', color: '#facc15' },
+                { x: 9.5 * TILE,  y: 9.5 * TILE,  kind: 'armor',  icon: '🛡️', color: '#38bdf8' },
+                { x: 19.5 * TILE, y: 15.5 * TILE, kind: 'rocket', icon: '🚀', color: '#f97316' },
+                { x: 7.5 * TILE,  y: 19.5 * TILE, kind: 'health', icon: '❤️', color: '#ef4444' },
+                { x: 24.5 * TILE, y: 24.5 * TILE, kind: 'rocket', icon: '🚀', color: '#f97316' },
+                { x: 15.5 * TILE, y: 7.5 * TILE,  kind: 'bribe',  icon: '⭐', color: '#a855f7' },
+                { x: 21.5 * TILE, y: 21.5 * TILE, kind: 'health', icon: '❤️', color: '#ef4444' }
+            ];
+            for (const p of pickupSpots) {
+                pickups.push({ ...p, timer: 0 });
+            }
+
+            camera.x = player.x;
+            camera.y = player.y;
+            updateHUD();
+            showPager('RINGING PAYPHONES HAVE JOBS! PRESS [ENTER] NEAR A CAR TO STEAL IT!');
+        }
+
+        function spawnRandomPed(role = 'civilian', nearPlayer = false) {
+            for (let tries = 0; tries < 20; tries++) {
+                let wx, wy;
+                if (nearPlayer) {
+                    const ang = Math.random() * Math.PI * 2;
+                    const dist = 520 + Math.random() * 380;
+                    wx = player.x + Math.cos(ang) * dist;
+                    wy = player.y + Math.sin(ang) * dist;
+                } else {
+                    wx = (2 + Math.random() * (MAP_SIZE - 4)) * TILE;
+                    wy = (2 + Math.random() * (MAP_SIZE - 4)) * TILE;
+                }
+                const t = tileAtWorld(wx, wy);
+                if (t === T_PAVEMENT || t === T_GRASS) {
+                    const shirtColors = ['#60a5fa', '#f472b6', '#34d399', '#c084fc', '#facc15', '#e2e8f0'];
+                    peds.push({
+                        x: wx,
+                        y: wy,
+                        angle: Math.floor(Math.random() * 4) * (Math.PI * 0.5),
+                        speed: role === 'cop' ? 115 : 46,
+                        color: role === 'cop' ? '#1d4ed8' : shirtColors[Math.floor(Math.random() * shirtColors.length)],
+                        role,
+                        hp: role === 'cop' ? 60 : (role === 'boss' ? 120 : 25),
+                        panicTimer: 0,
+                        shootTimer: 0.6
+                    });
+                    return peds[peds.length - 1];
+                }
+            }
+            return null;
+        }
+
+        // --- WANTED SYSTEM ---
+        function addCrime(amount) {
+            player.wanted = Math.min(4, player.wanted + amount);
+            player.wantedDecay = 18;
+            updateHUD();
+        }
+
+        // --- PAYPHONE MISSIONS ---
+        function startPayphoneMission(phone) {
+            audio.cash();
+            const mIdx = mission.completedCount % 3;
+            mission.active = true;
+
+            if (mIdx === 0) {
+                // Mission 1: Hot Car Delivery (parked cleanly on Westside Plaza pavement)
+                mission.type = 'steal_deliver';
+                mission.stage = 1;
+                const hotCar = createCar('beast', 7.5 * TILE, 17.5 * TILE, 0, 'parked');
+                hotCar.color = '#ec4899'; // Neon Pink Boss GTS
+                cars.push(hotCar);
+                mission.targetEntity = hotCar;
+                mission.targetX = hotCar.x;
+                mission.targetY = hotCar.y;
+                mission.title = 'STEAL THE PINK BEAST GTS IN WESTSIDE!';
+                showPager('EL BURRO: STEAL THE PINK BEAST GTS & BRING IT TO EAST DOCKS!');
+            } else if (mIdx === 1) {
+                // Mission 2: Take Out Rival Syndicate Boss + Guards (on Uptown Plaza sidewalk)
+                mission.type = 'assassinate';
+                mission.stage = 1;
+                const bx = 21.5 * TILE;
+                const by = 7.5 * TILE;
+                const boss = {
+                    x: bx, y: by, angle: 0, speed: 70,
+                    color: '#dc2626', role: 'boss', hp: 130, panicTimer: 0, shootTimer: 0.4
+                };
+                peds.push(boss);
+                // Two bodyguards
+                for (let g = -1; g <= 1; g += 2) {
+                    peds.push({
+                        x: bx + g * 35, y: by + 25, angle: 0, speed: 85,
+                        color: '#7f1d1d', role: 'guard', hp: 65, panicTimer: 0, shootTimer: 0.5
+                    });
+                }
+                mission.targetEntity = boss;
+                mission.targetX = bx;
+                mission.targetY = by;
+                mission.title = 'ELIMINATE THE RIVAL CAPO IN UPTOWN!';
+                showPager('UNCLE FU: THE RIVAL CAPO IS IN UPTOWN. WASTE HIM!');
+            } else {
+                // Mission 3: Armored Van Destruction (cruising cleanly in eastbound lane)
+                mission.type = 'destroy_car';
+                mission.stage = 1;
+                const armored = createCar('van', 18.5 * TILE, getLaneCoord(22, 0), 0, 'traffic');
+                armored.color = '#eab308';
+                armored.hp = 260;
+                armored.maxHp = 260;
+                cars.push(armored);
+                mission.targetEntity = armored;
+                mission.targetX = armored.x;
+                mission.targetY = armored.y;
+                mission.title = 'BLOW UP THE GOLD ARMORED VAN!';
+                player.ammo[3] += 5; // Bonus rockets!
+                showPager('SAMUEL DEEVER: BLOW UP THE GOLD ARMORED VAN! (+5 ROCKETS)');
+            }
+            updateHUD();
+        }
+
+        function updateMission(dt) {
+            // Ringing payphone check when not in a mission
+            if (!mission.active) {
+                for (const ph of payphones) {
+                    ph.ringPhase += dt * 5;
+                    const dist = Math.hypot(player.x - ph.x, player.y - ph.y);
+                    if (dist < 420 && Math.floor(ph.ringPhase) % 8 === 0 && Math.random() < 0.06) {
+                        audio.phoneRing();
+                    }
+                    if (!player.inCar && dist < 44 && player.deadTimer <= 0) {
+                        startPayphoneMission(ph);
+                        break;
+                    }
+                }
+                return;
+            }
+
+            // Active Mission Logic
+            if (mission.type === 'steal_deliver') {
+                const car = mission.targetEntity;
+                if (!car || car.hp <= 0) {
+                    mission.active = false;
+                    showBigBanner('MISSION FAILED!', 'THE TARGET VEHICLE WAS DESTROYED', '#ef4444');
+                    updateHUD();
+                    return;
+                }
+                if (mission.stage === 1) {
+                    mission.targetX = car.x;
+                    mission.targetY = car.y;
+                    if (player.inCar === car) {
+                        mission.stage = 2;
+                        mission.targetX = 25.5 * TILE;
+                        mission.targetY = 25.5 * TILE;
+                        mission.title = 'DELIVER CAR TO SE DOCKS DROP-OFF!';
+                        addCrime(1.2);
+                        showPager('COPS SPOTTED YOU! DELIVER IT TO THE SE DOCKYARD CRANE!');
+                        updateHUD();
+                    }
+                } else if (mission.stage === 2) {
+                    if (player.inCar === car && Math.hypot(car.x - mission.targetX, car.y - mission.targetY) < 95) {
+                        completeMission(10000);
+                    }
+                }
+            } else if (mission.type === 'assassinate') {
+                const boss = mission.targetEntity;
+                if (!boss || boss.hp <= 0) {
+                    completeMission(15000);
+                } else {
+                    mission.targetX = boss.x;
+                    mission.targetY = boss.y;
+                }
+            } else if (mission.type === 'destroy_car') {
+                const van = mission.targetEntity;
+                if (!van || van.hp <= 0) {
+                    completeMission(20000);
+                } else {
+                    mission.targetX = van.x;
+                    mission.targetY = van.y;
+                }
+            }
+        }
+
+        function completeMission(reward) {
+            mission.active = false;
+            mission.completedCount++;
+            player.multiplier = Math.min(9, player.multiplier + 1);
+            addScore(reward, player.x, player.y - 30, 'MISSION');
+            audio.cash();
+            showBigBanner('MISSION COMPLETE!', `+$${reward * player.multiplier} • MULTIPLIER x${player.multiplier}`, '#4ade80');
+            showPager('NICE WORK KID! ANSWER ANOTHER PAYPHONE FOR MORE WORK!');
+            updateHUD();
+        }
+
+        // --- ENTER / EXIT VEHICLE ---
+        function toggleEnterExitVehicle() {
+            if (player.deadTimer > 0) return;
+            audio.init();
+
+            if (player.inCar) {
+                // Exit current vehicle
+                const car = player.inCar;
+                const sideAngle = car.angle - Math.PI * 0.5;
+                const exitX = car.x + Math.cos(sideAngle) * (car.spec.w * 0.9 + 14);
+                const exitY = car.y + Math.sin(sideAngle) * (car.spec.w * 0.9 + 14);
+
+                if (!isSolidAt(exitX, exitY, 10)) {
+                    player.x = exitX;
+                    player.y = exitY;
+                } else {
+                    player.x = car.x;
+                    player.y = car.y;
+                }
+                car.aiMode = 'parked';
+                car.driver = false;
+                player.inCar = null;
+                updateHUD();
+                return;
+            }
+
+            // Look for closest car within hijack range
+            let bestCar = null;
+            let bestDist = 72;
+            for (const c of cars) {
+                if (c.hp <= 0) continue;
+                const d = Math.hypot(c.x - player.x, c.y - player.y);
+                if (d < bestDist) {
+                    bestDist = d;
+                    bestCar = c;
+                }
+            }
+
+            if (bestCar) {
+                // Pull out existing AI driver!
+                if (bestCar.driver && bestCar.aiMode !== 'parked') {
+                    const ejectAng = bestCar.angle - Math.PI * 0.5;
+                    peds.push({
+                        x: bestCar.x + Math.cos(ejectAng) * 32,
+                        y: bestCar.y + Math.sin(ejectAng) * 32,
+                        angle: ejectAng,
+                        speed: 90,
+                        color: bestCar.spec.isPolice ? '#1d4ed8' : '#f87171',
+                        role: bestCar.spec.isPolice ? 'cop' : 'civilian',
+                        hp: 30,
+                        panicTimer: 4,
+                        shootTimer: 0.8
+                    });
+                    addCrime(bestCar.spec.isPolice ? 1.2 : 0.45);
+                    addScore(150, bestCar.x, bestCar.y - 20, bestCar.spec.name);
+                } else {
+                    spawnFloatingText(bestCar.spec.name, bestCar.x, bestCar.y - 24, '#facc15');
+                }
+
+                bestCar.aiMode = 'player';
+                bestCar.driver = true;
+                player.inCar = bestCar;
+                audio.cash();
+                updateHUD();
+            }
+        }
+
+        // --- WEAPONS & EXPLOSIONS ---
+        function fireWeapon(x, y, angle, weaponIdx, fromPlayer = true) {
+            const w = WEAPONS[weaponIdx];
+            audio.shoot(weaponIdx);
+
+            if (weaponIdx === 0) {
+                // Melee Punch
+                const hitX = x + Math.cos(angle) * 28;
+                const hitY = y + Math.sin(angle) * 28;
+                for (const p of peds) {
+                    if (Math.hypot(p.x - hitX, p.y - hitY) < 26) {
+                        damagePed(p, w.damage, fromPlayer);
+                    }
+                }
+                return;
+            }
+
+            const spread = weaponIdx === 2 ? (Math.random() - 0.5) * 0.14 : 0.02 * (Math.random() - 0.5);
+            const finalAng = angle + spread;
+            bullets.push({
+                x: x + Math.cos(finalAng) * 20,
+                y: y + Math.sin(finalAng) * 20,
+                vx: Math.cos(finalAng) * w.speed,
+                vy: Math.sin(finalAng) * w.speed,
+                damage: w.damage,
+                explosive: !!w.explosive,
+                fromPlayer,
+                life: w.range / w.speed
+            });
+
+            // Muzzle flash particle
+            particles.push({
+                x: x + Math.cos(finalAng) * 22,
+                y: y + Math.sin(finalAng) * 22,
+                vx: 0, vy: 0,
+                size: weaponIdx === 3 ? 12 : 7,
+                color: '#fef08a',
+                life: 0.07, maxLife: 0.07
+            });
+
+            if (fromPlayer) {
+                // Alert nearby pedestrians
+                for (const p of peds) {
+                    if (Math.hypot(p.x - x, p.y - y) < 340 && p.role === 'civilian') {
+                        p.panicTimer = 5;
+                        p.angle = Math.atan2(p.y - y, p.x - x);
+                    }
+                }
+            }
+        }
+
+        function triggerExplosion(x, y, radius = 125, fromPlayer = true) {
+            audio.explosion();
+            camera.shake = Math.max(camera.shake, 18);
+            addDecal('crater', x, y, Math.random() * 6.28, radius * 0.42, 'rgba(15, 15, 15, 0.72)');
+
+            // Fireball particles
+            for (let i = 0; i < 32; i++) {
+                const a = Math.random() * Math.PI * 2;
+                const spd = 40 + Math.random() * 260;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(a) * spd,
+                    vy: Math.sin(a) * spd,
+                    size: 10 + Math.random() * 18,
+                    color: i % 3 === 0 ? '#fef08a' : (i % 2 === 0 ? '#f97316' : '#dc2626'),
+                    life: 0.35 + Math.random() * 0.45,
+                    maxLife: 0.8
+                });
+            }
+
+            // Damage nearby peds
+            for (const p of peds) {
+                const d = Math.hypot(p.x - x, p.y - y);
+                if (d < radius) {
+                    damagePed(p, (1 - d / radius) * 220, fromPlayer);
+                }
+            }
+
+            // Chain-react nearby cars!
+            for (const c of cars) {
+                if (c.hp <= 0) continue;
+                const d = Math.hypot(c.x - x, c.y - y);
+                if (d < radius * 1.1) {
+                    c.hp -= (1 - d / (radius * 1.15)) * 210;
+                    if (c.hp <= 0) destroyCar(c, fromPlayer);
+                }
+            }
+
+            // Damage player if on foot nearby
+            if (!player.inCar && player.deadTimer <= 0) {
+                const dp = Math.hypot(player.x - x, player.y - y);
+                if (dp < radius) {
+                    damagePlayer((1 - dp / radius) * 95);
+                }
+            }
+        }
+
+        function destroyCar(car, byPlayer = true) {
+            car.hp = 0;
+            car.color = '#27272a';
+            if (player.inCar === car) {
+                player.inCar = null;
+                damagePlayer(85);
+            }
+            if (byPlayer) {
+                addScore(car.spec.value, car.x, car.y, 'BOOM!');
+                addCrime(car.spec.isPolice ? 1.5 : 0.7);
+            }
+            setTimeout(() => {
+                triggerExplosion(car.x, car.y, 130, byPlayer);
+            }, 60);
+        }
+
+        function damagePed(ped, amount, byPlayer = true) {
+            ped.hp -= amount;
+            addDecal('blood', ped.x, ped.y, 0, 7 + Math.random() * 5, 'rgba(185, 28, 28, 0.75)');
+            if (ped.hp <= 0) {
+                if (byPlayer) {
+                    const pts = ped.role === 'cop' ? 500 : (ped.role === 'boss' ? 2500 : 100);
+                    addScore(pts, ped.x, ped.y);
+                    addCrime(ped.role === 'cop' ? 1.1 : 0.35);
+
+                    // Check GOURANGA! (Did player wipe out all orange joggers?)
+                    if (ped.role === 'gouranga') {
+                        const remaining = peds.filter(other => other !== ped && other.role === 'gouranga' && other.hp > 0);
+                        if (remaining.length === 0) {
+                            addScore(5000, ped.x, ped.y - 25, 'GOURANGA!');
+                            showBigBanner('GOURANGA!', 'ALL JOGGERS SPLATTERED! +$5,000 BONUS', '#f97316');
+                            audio.cash();
+                        }
+                    }
+                }
+            } else {
+                ped.panicTimer = 6;
+            }
+        }
+
+        function damagePlayer(amount) {
+            if (player.deadTimer > 0) return;
+            if (player.armor > 0) {
+                const absorbed = Math.min(player.armor, amount * 0.75);
+                player.armor -= absorbed;
+                amount -= absorbed;
+            }
+            player.hp = Math.max(0, player.hp - amount);
+            camera.shake = Math.max(camera.shake, 7);
+            updateHUD();
+
+            if (player.hp <= 0) {
+                triggerWastedOrBusted('WASTED!');
+            }
+        }
+
+        function triggerWastedOrBusted(reason) {
+            player.deadTimer = 3.2;
+            player.deadReason = reason;
+            player.inCar = null;
+            player.multiplier = 1;
+            player.wanted = 0;
+            if (mission.active) {
+                mission.active = false;
+            }
+            const sub = reason === 'BUSTED!'
+                ? 'Hauled to the Precinct — Weapons Confiscated!'
+                : 'Patching you up at San Andreas General Hospital...';
+            showBigBanner(reason, sub, reason === 'BUSTED!' ? '#38bdf8' : '#ef4444');
+            updateHUD();
+        }
+
+        // --- SMART TRAFFIC & POLICE DRIVING AI ---
+        function driveAICarToward(c, targetX, targetY, desiredSpeed, dt) {
+            // Unstick reversing maneuver if wedged against an obstacle
+            if (c.reverseTimer > 0) {
+                c.reverseTimer -= dt;
+                c.angle += 1.9 * dt;
+                const revSpd = -115;
+                c.vx += (Math.cos(c.angle) * revSpd - c.vx) * 6 * dt;
+                c.vy += (Math.sin(c.angle) * revSpd - c.vy) * 6 * dt;
+                c.speed = Math.hypot(c.vx, c.vy);
+                return;
+            }
+
+            let desiredAng = Math.atan2(targetY - c.y, targetX - c.x);
+            if (c.aiMode === 'police' || !isRoadTileType(tileAtWorld(c.x, c.y))) {
+                desiredAng = applyWallFeelers(c.x, c.y, desiredAng, 68);
+            }
+
+            const diff = normalizeAngle(desiredAng - c.angle);
+            const maxTurn = (c.aiMode === 'police' ? 4.2 : 3.8) * dt;
+            c.angle += Math.max(-maxTurn, Math.min(maxTurn, diff * 4.5));
+
+            // Slow down proportionally on sharp turns so vehicles don't swing wide onto sidewalks
+            const cornerFactor = Math.max(0.45, 1 - Math.abs(diff) * 0.55);
+            const finalTargetSpd = desiredSpeed * cornerFactor;
+
+            const fx = Math.cos(c.angle);
+            const fy = Math.sin(c.angle);
+            const rx = -fy;
+            const ry = fx;
+
+            let fwd = c.vx * fx + c.vy * fy;
+            let lat = c.vx * rx + c.vy * ry;
+
+            const accelRate = finalTargetSpd < fwd ? 6.5 : 3.8;
+            fwd += (finalTargetSpd - fwd) * accelRate * dt;
+            lat *= 0.78; // High lateral tire grip keeps AI cleanly inside lanes!
+
+            c.vx = fx * fwd + rx * lat;
+            c.vy = fy * fwd + ry * lat;
+            c.speed = Math.hypot(c.vx, c.vy);
+
+            // Detect if stuck trying to move forward against a wall or pileup
+            if (desiredSpeed > 60 && c.speed < 18) {
+                c.stuckTimer += dt;
+                if (c.stuckTimer > (c.aiMode === 'police' ? 0.95 : 2.2)) {
+                    c.stuckTimer = 0;
+                    c.reverseTimer = 0.65;
+                }
+            } else {
+                c.stuckTimer = Math.max(0, c.stuckTimer - dt * 2);
+            }
+        }
+
+        function updateTrafficCarAI(c, dt) {
+            c.honkCooldown = Math.max(0, c.honkCooldown - dt);
+            const tx = Math.floor(c.x / TILE);
+            const ty = Math.floor(c.y / TILE);
+            const curTile = tileAtWorld(c.x, c.y);
+
+            let targetX, targetY;
+            let desiredSpeed = c.cruiseSpeed;
+
+            if (!isRoadTileType(curTile)) {
+                // Knocked off-road onto sidewalk/grass -> smoothly recover to closest road tile!
+                let bestDist = Infinity;
+                let bestRX = c.x + Math.cos(c.angle) * 60;
+                let bestRY = c.y + Math.sin(c.angle) * 60;
+                let foundDir = c.roadDir;
+
+                for (let dy = -3; dy <= 3; dy++) {
+                    for (let dx = -3; dx <= 3; dx++) {
+                        const rtx = tx + dx;
+                        const rty = ty + dy;
+                        if (!isRoadCell(rtx, rty)) continue;
+                        const rcx = (rtx + 0.5) * TILE;
+                        const rcy = (rty + 0.5) * TILE;
+                        const d = Math.hypot(rcx - c.x, rcy - c.y);
+                        if (d < bestDist) {
+                            bestDist = d;
+                            bestRX = rcx;
+                            bestRY = rcy;
+                            const rt = mapGrid[rty][rtx];
+                            if (rt === T_ROAD_H) foundDir = Math.cos(c.angle) >= 0 ? 0 : 2;
+                            else if (rt === T_ROAD_V) foundDir = Math.sin(c.angle) >= 0 ? 1 : 3;
+                        }
+                    }
+                }
+                c.roadDir = foundDir;
+                c.nextRoadDir = foundDir;
+                c.intersectKey = -1;
+                targetX = bestRX;
+                targetY = bestRY;
+                desiredSpeed = 115; // Cautious recovery speed back onto asphalt
+            } else {
+                // Ensure direction matches straight avenue orientation
+                if (curTile === T_ROAD_H && (c.roadDir === 1 || c.roadDir === 3)) {
+                    c.roadDir = Math.cos(c.angle) >= 0 ? 0 : 2;
+                    c.nextRoadDir = c.roadDir;
+                } else if (curTile === T_ROAD_V && (c.roadDir === 0 || c.roadDir === 2)) {
+                    c.roadDir = Math.sin(c.angle) >= 0 ? 1 : 3;
+                    c.nextRoadDir = c.roadDir;
+                }
+
+                if (curTile === T_ROAD_X) {
+                    const iKey = tx * 100 + ty;
+                    if (c.intersectKey !== iKey) {
+                        c.intersectKey = iKey;
+                        const reverseDir = (c.roadDir + 2) % 4;
+                        const validDirs = [0, 1, 2, 3].filter(
+                            d => d !== reverseDir && isRoadCell(tx + DIR_VECS[d].dx, ty + DIR_VECS[d].dy)
+                        );
+                        if (validDirs.length === 0) {
+                            c.nextRoadDir = reverseDir;
+                        } else if (validDirs.includes(c.roadDir) && Math.random() < 0.58) {
+                            // 58% chance to continue straight down the avenue if open
+                            c.nextRoadDir = c.roadDir;
+                        } else {
+                            c.nextRoadDir = validDirs[Math.floor(Math.random() * validDirs.length)];
+                        }
+                    }
+
+                    // Wait until reaching the proper outgoing right-hand lane alignment before turning!
+                    if (c.nextRoadDir !== c.roadDir) {
+                        desiredSpeed *= 0.74;
+                        const isRightTurn = ((c.roadDir + 1) % 4) === c.nextRoadDir;
+                        const leadDist = isRightTurn ? 26 : 18;
+
+                        if (c.roadDir === 0 || c.roadDir === 2) {
+                            const outLaneX = getLaneCoord(tx, c.nextRoadDir);
+                            const distToTurn = (c.roadDir === 0) ? (outLaneX - c.x) : (c.x - outLaneX);
+                            if (distToTurn <= leadDist) {
+                                c.roadDir = c.nextRoadDir;
+                            }
+                        } else {
+                            const outLaneY = getLaneCoord(ty, c.nextRoadDir);
+                            const distToTurn = (c.roadDir === 1) ? (outLaneY - c.y) : (c.y - outLaneY);
+                            if (distToTurn <= leadDist) {
+                                c.roadDir = c.nextRoadDir;
+                            }
+                        }
+                    }
+                } else {
+                    c.intersectKey = -1;
+                    // Look ahead to next tile: if approaching an intersection, pre-slow slightly if congested
+                    const nextTX = tx + DIR_VECS[c.roadDir].dx;
+                    const nextTY = ty + DIR_VECS[c.roadDir].dy;
+                    if (isRoadCell(nextTX, nextTY) && mapGrid[nextTY][nextTX] === T_ROAD_X) {
+                        const interX = (nextTX + 0.5) * TILE;
+                        const interY = (nextTY + 0.5) * TILE;
+                        if (Math.hypot(interX - c.x, interY - c.y) < 115) {
+                            // Yield to cross-traffic already inside the intersection!
+                            for (const other of cars) {
+                                if (other === c || other.hp <= 0) continue;
+                                if (Math.hypot(other.x - interX, other.y - interY) < 62 && other.speed > 45) {
+                                    const dot = Math.cos(c.angle) * Math.cos(other.angle) + Math.sin(c.angle) * Math.sin(other.angle);
+                                    if (dot < 0.5) {
+                                        desiredSpeed = 0;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Compute smooth lane-center lookahead waypoint 62px ahead along roadDir
+                const lookAhead = 62;
+                if (c.roadDir === 0) {
+                    targetX = c.x + lookAhead;
+                    targetY = getLaneCoord(ty, 0);
+                } else if (c.roadDir === 2) {
+                    targetX = c.x - lookAhead;
+                    targetY = getLaneCoord(ty, 2);
+                } else if (c.roadDir === 1) {
+                    targetX = getLaneCoord(tx, 1);
+                    targetY = c.y + lookAhead;
+                } else {
+                    targetX = getLaneCoord(tx, 3);
+                    targetY = c.y - lookAhead;
+                }
+            }
+
+            // Forward Traffic & Pedestrian Spacing Sensor
+            const fx = Math.cos(c.angle);
+            const fy = Math.sin(c.angle);
+
+            for (const other of cars) {
+                if (other === c) continue;
+                const dx = other.x - c.x;
+                const dy = other.y - c.y;
+                const fwdDist = dx * fx + dy * fy;
+                const latDist = Math.abs(-dx * fy + dy * fx);
+
+                if (fwdDist > 0 && fwdDist < 130 && latDist < 26) {
+                    if (fwdDist < 62) {
+                        desiredSpeed = 0;
+                        if (other === player.inCar && c.honkCooldown <= 0 && Math.hypot(c.x - player.x, c.y - player.y) < 420) {
+                            c.honkCooldown = 4 + Math.random() * 3;
+                            audio.horn(false);
+                        }
+                    } else {
+                        const otherFwd = Math.max(0, other.vx * fx + other.vy * fy);
+                        desiredSpeed = Math.min(desiredSpeed, otherFwd * 0.88);
+                    }
+                }
+            }
+
+            // Brake for pedestrians & on-foot player in crosswalks
+            if (!player.inCar && player.deadTimer <= 0) {
+                const dx = player.x - c.x;
+                const dy = player.y - c.y;
+                const fwdDist = dx * fx + dy * fy;
+                const latDist = Math.abs(-dx * fy + dy * fx);
+                if (fwdDist > 0 && fwdDist < 85 && latDist < 24) {
+                    desiredSpeed = 0;
+                    if (c.honkCooldown <= 0) {
+                        c.honkCooldown = 3.5;
+                        audio.horn(false);
+                    }
+                }
+            }
+
+            for (const p of peds) {
+                const dx = p.x - c.x;
+                const dy = p.y - c.y;
+                const fwdDist = dx * fx + dy * fy;
+                const latDist = Math.abs(-dx * fy + dy * fx);
+                if (fwdDist > 0 && fwdDist < 78 && latDist < 22) {
+                    desiredSpeed = 0;
+                    break;
+                }
+            }
+
+            driveAICarToward(c, targetX, targetY, desiredSpeed, dt);
+        }
+
+        function updatePoliceCarAI(c, dt) {
+            const distToPlayer = Math.hypot(player.x - c.x, player.y - c.y);
+            const clearSight = distToPlayer < 420 && hasLineOfSight(c.x, c.y, player.x, player.y);
+
+            let targetX = player.x;
+            let targetY = player.y;
+
+            if (!clearSight) {
+                // Navigate city avenues via the road-weighted flow-field!
+                const tx = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(c.x / TILE)));
+                const ty = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(c.y / TILE)));
+                let bestCost = policeFlowDist[ty][tx];
+                let bestDir = c.roadDir;
+
+                for (let d = 0; d < 4; d++) {
+                    const ntx = tx + DIR_VECS[d].dx;
+                    const nty = ty + DIR_VECS[d].dy;
+                    if (ntx < 0 || nty < 0 || ntx >= MAP_SIZE || nty >= MAP_SIZE) continue;
+                    const cost = policeFlowDist[nty][ntx];
+                    if (cost < bestCost) {
+                        bestCost = cost;
+                        bestDir = d;
+                    }
+                }
+
+                c.roadDir = bestDir;
+                const ntx = tx + DIR_VECS[bestDir].dx;
+                const nty = ty + DIR_VECS[bestDir].dy;
+                if (isRoadCell(ntx, nty)) {
+                    // Stay in fast right-hand lane while en route down avenues
+                    targetX = (bestDir === 1 || bestDir === 3) ? getLaneCoord(ntx, bestDir) : (ntx + 0.5) * TILE;
+                    targetY = (bestDir === 0 || bestDir === 2) ? getLaneCoord(nty, bestDir) : (nty + 0.5) * TILE;
+                } else {
+                    targetX = (ntx + 0.5) * TILE;
+                    targetY = (nty + 0.5) * TILE;
+                }
+            } else if (player.inCar && distToPlayer > 120) {
+                // Lead fast getaway cars slightly to intercept!
+                targetX = player.x + player.inCar.vx * 0.32;
+                targetY = player.y + player.inCar.vy * 0.32;
+            }
+
+            const pursuitSpeed = clearSight ? (distToPlayer > 110 ? 370 : 240) : 335;
+            driveAICarToward(c, targetX, targetY, pursuitSpeed, dt);
+
+            // Deploy an armed officer on foot if player is on foot in a park/plaza nearby, or bust directly if right next to cruiser!
+            if (!player.inCar && player.deadTimer <= 0) {
+                if (distToPlayer < 52 && c.speed < 190) {
+                    triggerWastedOrBusted('BUSTED!');
+                } else if (!c.deployedCop && distToPlayer < 165 && clearSight && Math.floor(player.wanted) >= 2) {
+                    c.deployedCop = true;
+                    const sideAng = c.angle + Math.PI * 0.5;
+                    const ox = c.x + Math.cos(sideAng) * 30;
+                    const oy = c.y + Math.sin(sideAng) * 30;
+                    if (!isSolidAt(ox, oy, 8)) {
+                        peds.push({
+                            x: ox, y: oy, angle: Math.atan2(player.y - oy, player.x - ox),
+                            speed: 118, color: '#1d4ed8', role: 'cop', hp: 65, panicTimer: 0, shootTimer: 0.5
+                        });
+                    }
+                }
+            }
+        }
+
+        // --- MAIN SIMULATION LOOP ---
+        function update(dt) {
+            // Respawn handling after WASTED / BUSTED
+            if (player.deadTimer > 0) {
+                player.deadTimer -= dt;
+                if (player.deadTimer <= 0) {
+                    player.hp = 100;
+                    player.armor = 25;
+                    player.x = 13.5 * TILE;
+                    player.y = 11.7 * TILE;
+                    if (player.deadReason === 'BUSTED!') {
+                        player.ammo = [Infinity, 50, 0, 0];
+                        player.weaponIdx = 1;
+                    }
+                    showPager('BACK ON THE STREETS! GRAB A RIDE & MAKE SOME CASH!');
+                    updateHUD();
+                }
+            }
+
+            // Wanted Level Decay & Police Spawning
+            if (player.wanted > 0 && player.wanted < 2) {
+                player.wantedDecay -= dt;
+                if (player.wantedDecay <= 0) {
+                    player.wanted = Math.max(0, Math.floor(player.wanted) - 1);
+                    player.wantedDecay = 15;
+                    updateHUD();
+                }
+            }
+
+            if (Math.floor(player.wanted) >= 1) {
+                policeFlowTimer -= dt;
+                if (policeFlowTimer <= 0) {
+                    policeFlowTimer = 0.25;
+                    updatePoliceFlowField();
+                }
+            }
+
+            const activePoliceCars = cars.filter(c => c.spec.isPolice && c.hp > 0 && Math.hypot(c.x - player.x, c.y - player.y) < 1250);
+            if (Math.floor(player.wanted) > activePoliceCars.length && Math.random() < dt * 1.1) {
+                const spot = pickRoadSpawnNear(player.x, player.y, 580, 920);
+                if (spot) {
+                    const copCar = createCar('police', spot.x, spot.y, spot.angle, 'police');
+                    copCar.sirenOn = true;
+                    cars.push(copCar);
+                }
+            }
+
+            // --- PLAYER CONTROLS ---
+            player.fireTimer = Math.max(0, player.fireTimer - dt);
+
+            const up    = keys['KeyW'] || keys['ArrowUp'];
+            const down  = keys['KeyS'] || keys['ArrowDown'];
+            const left  = keys['KeyA'] || keys['ArrowLeft'];
+            const right = keys['KeyD'] || keys['ArrowRight'];
+            const brake = keys['Space'];
+            const fireInput = mouse.down || keys['ControlLeft'] || keys['ControlRight'] || keys['Fire'] || (!player.inCar && brake);
+
+            if (player.deadTimer <= 0) {
+                if (player.inCar) {
+                    // Driving Physics
+                    const car = player.inCar;
+                    const spec = car.spec;
+
+                    const forwardX = Math.cos(car.angle);
+                    const forwardY = Math.sin(car.angle);
+                    const rightX = -forwardY;
+                    const rightY = forwardX;
+
+                    let forwardSpeed = car.vx * forwardX + car.vy * forwardY;
+                    let lateralSpeed = car.vx * rightX + car.vy * rightY;
+
+                    if (up) {
+                        forwardSpeed += spec.accel * dt;
+                    } else if (down) {
+                        forwardSpeed -= spec.accel * 0.8 * dt;
+                    } else {
+                        forwardSpeed *= (1 - 1.6 * dt);
+                    }
+
+                    // Handbrake drift!
+                    if (brake) {
+                        forwardSpeed *= (1 - 3.2 * dt);
+                        lateralSpeed *= 0.965;
+                        if (Math.hypot(car.vx, car.vy) > 130) {
+                            addDecal('skid', car.x - forwardX * 18 + rightX * 10, car.y - forwardY * 18 + rightY * 10, car.angle, 6);
+                            addDecal('skid', car.x - forwardX * 18 - rightX * 10, car.y - forwardY * 18 - rightY * 10, car.angle, 6);
+                            if (Math.random() < 0.35) audio.screech();
+                        }
+                    } else {
+                        lateralSpeed *= spec.grip;
+                        if (Math.abs(lateralSpeed) > 75) {
+                            addDecal('skid', car.x - forwardX * 18 + rightX * 10, car.y - forwardY * 18 + rightY * 10, car.angle, 5);
+                            addDecal('skid', car.x - forwardX * 18 - rightX * 10, car.y - forwardY * 18 - rightY * 10, car.angle, 5);
+                        }
+                    }
+
+                    forwardSpeed = Math.max(-spec.maxSpeed * 0.42, Math.min(spec.maxSpeed, forwardSpeed));
+
+                    // Steering scales smoothly with vehicle movement (Tank can pivot in place!)
+                    const steerFactor = spec.isTank
+                        ? 2.2
+                        : Math.min(1, Math.abs(forwardSpeed) / 95) * (forwardSpeed >= -5 ? 1 : -1) * 3.1;
+                    if (left) car.angle -= steerFactor * dt;
+                    if (right) car.angle += steerFactor * dt;
+
+                    car.vx = Math.cos(car.angle) * forwardSpeed + (-Math.sin(car.angle)) * lateralSpeed;
+                    car.vy = Math.sin(car.angle) * forwardSpeed + (Math.cos(car.angle)) * lateralSpeed;
+                    car.speed = Math.hypot(car.vx, car.vy);
+
+                    // Tank main cannon!
+                    if (spec.isTank && (mouse.down || keys['ControlLeft'] || keys['Fire']) && player.fireTimer <= 0) {
+                        player.fireTimer = 0.9;
+                        fireWeapon(car.x + Math.cos(car.angle) * 36, car.y + Math.sin(car.angle) * 36, car.angle, 3, true);
+                    }
+
+                    player.x = car.x;
+                    player.y = car.y;
+                    player.angle = car.angle;
+
+                    // Check Pay 'n' Spray Garage!
+                    for (const sp of sprayShops) {
+                        sp.cooldown = Math.max(0, sp.cooldown - dt);
+                        if (sp.cooldown <= 0 && Math.hypot(car.x - sp.x, car.y - sp.y) < 48 && car.speed < 190) {
+                            sp.cooldown = 6;
+                            if (!spec.isPolice && !spec.isTank) {
+                                const randomPalette = ['#ef4444', '#22c55e', '#3b82f6', '#eab308', '#ec4899', '#a855f7', '#06b6d4'];
+                                car.color = randomPalette[Math.floor(Math.random() * randomPalette.length)];
+                            }
+                            car.hp = car.maxHp;
+                            player.wanted = 0;
+                            audio.cash();
+                            showBigBanner('RESPRAYED!', 'VEHICLE REPAIRED & WANTED LEVEL CLEARED!', '#e879f9');
+                            updateHUD();
+                        }
+                    }
+                } else {
+                    // On-Foot Movement
+                    let mx = (right ? 1 : 0) - (left ? 1 : 0);
+                    let my = (down ? 1 : 0) - (up ? 1 : 0);
+                    const len = Math.hypot(mx, my);
+                    if (len > 0) {
+                        mx /= len;
+                        my /= len;
+                        const walkSpeed = 165;
+                        const nx = player.x + mx * walkSpeed * dt;
+                        const ny = player.y + my * walkSpeed * dt;
+                        if (!isSolidAt(nx, player.y, 11)) player.x = nx;
+                        if (!isSolidAt(player.x, ny, 11)) player.y = ny;
+                        player.angle = Math.atan2(my, mx);
+                        player.walkCycle += dt * 12;
+                    }
+
+                    // Aim toward mouse when firing with mouse
+                    if (mouse.down) {
+                        player.angle = Math.atan2(mouse.worldY - player.y, mouse.worldX - player.x);
+                    }
+
+                    // Shooting on foot
+                    if (fireInput && player.fireTimer <= 0) {
+                        const w = WEAPONS[player.weaponIdx];
+                        if (player.ammo[player.weaponIdx] > 0) {
+                            if (player.ammo[player.weaponIdx] !== Infinity) {
+                                player.ammo[player.weaponIdx]--;
+                            }
+                            player.fireTimer = w.cooldown;
+                            fireWeapon(player.x, player.y, player.angle, player.weaponIdx, true);
+                            if (player.ammo[player.weaponIdx] === 0) {
+                                player.weaponIdx = 0;
+                            }
+                            updateHUD();
+                        }
+                    }
+                }
+            }
+
+            // --- UPDATE VEHICLES & COLLISIONS ---
+            let anySirenNear = false;
+            for (let i = 0; i < cars.length; i++) {
+                const c = cars[i];
+                if (c.hp <= 0) continue;
+
+                // AI Traffic & Police Pursuit Logic
+                if (c !== player.inCar && c.driver) {
+                    if (c.spec.isPolice && Math.floor(player.wanted) >= 1) {
+                        c.aiMode = 'police';
+                        c.sirenOn = true;
+                    } else if (c.aiMode === 'police' && Math.floor(player.wanted) === 0) {
+                        c.aiMode = 'traffic';
+                        c.sirenOn = false;
+                    }
+
+                    if (c.aiMode === 'police') {
+                        updatePoliceCarAI(c, dt);
+                    } else if (c.aiMode === 'traffic') {
+                        updateTrafficCarAI(c, dt);
+
+                        // Recycle far-away traffic cars onto nearby avenues so streets around player stay lively
+                        if (c !== mission.targetEntity && Math.hypot(c.x - player.x, c.y - player.y) > 1950) {
+                            const spot = pickRoadSpawnNear(player.x, player.y, 820, 1350);
+                            if (spot) {
+                                c.x = spot.x;
+                                c.y = spot.y;
+                                c.angle = spot.angle;
+                                c.roadDir = spot.dir;
+                                c.nextRoadDir = spot.dir;
+                                c.intersectKey = -1;
+                                c.vx = Math.cos(spot.angle) * c.cruiseSpeed;
+                                c.vy = Math.sin(spot.angle) * c.cruiseSpeed;
+                            }
+                        }
+                    }
+                } else if (c !== player.inCar) {
+                    // Parked car friction
+                    c.vx *= (1 - 4 * dt);
+                    c.vy *= (1 - 4 * dt);
+                }
+
+                // Integrate position & wall bounce
+                const nx = c.x + c.vx * dt;
+                const ny = c.y + c.vy * dt;
+                const rad = c.spec.w * 0.52;
+
+                if (!isSolidAt(nx, c.y, rad)) {
+                    c.x = nx;
+                } else {
+                    if (Math.abs(c.vx) > 190) {
+                        c.hp -= Math.abs(c.vx) * 0.06;
+                        if (c === player.inCar) camera.shake = Math.max(camera.shake, 5);
+                    }
+                    c.vx *= -0.35;
+                }
+
+                if (!isSolidAt(c.x, ny, rad)) {
+                    c.y = ny;
+                } else {
+                    if (Math.abs(c.vy) > 190) {
+                        c.hp -= Math.abs(c.vy) * 0.06;
+                        if (c === player.inCar) camera.shake = Math.max(camera.shake, 5);
+                    }
+                    c.vy *= -0.35;
+                }
+
+                // Car-to-Car Collisions
+                for (let j = i + 1; j < cars.length; j++) {
+                    const o = cars[j];
+                    const dx = o.x - c.x;
+                    const dy = o.y - c.y;
+                    const dist = Math.hypot(dx, dy);
+                    const minDist = (c.spec.w + o.spec.w) * 0.78;
+                    if (dist > 0 && dist < minDist) {
+                        const nxCol = dx / dist;
+                        const nyCol = dy / dist;
+                        const overlap = minDist - dist;
+                        c.x -= nxCol * overlap * 0.5;
+                        c.y -= nyCol * overlap * 0.5;
+                        o.x += nxCol * overlap * 0.5;
+                        o.y += nyCol * overlap * 0.5;
+
+                        const relV = Math.hypot(c.vx - o.vx, c.vy - o.vy);
+                        if (relV > 140) {
+                            // Rhino Tank crushes cars instantly!
+                            if (c.spec.isTank && c === player.inCar && o.hp > 0) {
+                                destroyCar(o, true);
+                            } else if (o.spec.isTank && o === player.inCar && c.hp > 0) {
+                                destroyCar(c, true);
+                            } else {
+                                c.hp -= relV * 0.04;
+                                o.hp -= relV * 0.04;
+                            }
+                        }
+                        const avgVx = (c.vx + o.vx) * 0.5;
+                        const avgVy = (c.vy + o.vy) * 0.5;
+                        c.vx = avgVx - nxCol * 45;
+                        c.vy = avgVy - nyCol * 45;
+                        o.vx = avgVx + nxCol * 45;
+                        o.vy = avgVy + nyCol * 45;
+                    }
+                }
+
+                // Running over Pedestrians!
+                const carSpd = Math.hypot(c.vx, c.vy);
+                if (carSpd > 75) {
+                    for (const p of peds) {
+                        if (p.hp <= 0) continue;
+                        if (Math.hypot(p.x - c.x, p.y - c.y) < c.spec.w * 0.78) {
+                            damagePed(p, 150, c === player.inCar);
+                            if (c === player.inCar) {
+                                audio.playTone(120, 55, 0.08, 'sawtooth', 0.08);
+                            }
+                        }
+                    }
+                    // AI Car hitting Player on foot
+                    if (!player.inCar && player.deadTimer <= 0 && Math.hypot(player.x - c.x, player.y - c.y) < c.spec.w * 0.72) {
+                        damagePlayer(carSpd * 0.12);
+                        player.x += (c.vx / carSpd) * 26;
+                        player.y += (c.vy / carSpd) * 26;
+                    }
+                }
+
+                // Smoke & Fire when vehicle is heavily damaged
+                if (c.hp < c.maxHp * 0.38 && c.hp > 0) {
+                    c.burnTimer += dt;
+                    if (Math.random() < 0.35) {
+                        particles.push({
+                            x: c.x + Math.cos(c.angle) * 18,
+                            y: c.y + Math.sin(c.angle) * 18,
+                            vx: (Math.random() - 0.5) * 25,
+                            vy: -20 - Math.random() * 25,
+                            size: 6 + Math.random() * 6,
+                            color: c.hp < c.maxHp * 0.18 ? '#f97316' : '#52525b',
+                            life: 0.45, maxLife: 0.45
+                        });
+                    }
+                    if (c.hp < c.maxHp * 0.15) {
+                        c.hp -= dt * 9; // Catching fire!
+                    }
+                }
+
+                if (c.hp <= 0) {
+                    destroyCar(c, c === player.inCar);
+                }
+
+                if (c.sirenOn && Math.hypot(c.x - player.x, c.y - player.y) < 700) {
+                    anySirenNear = true;
+                }
+            }
+
+            if (player.inCar) {
+                player.x = player.inCar.x;
+                player.y = player.inCar.y;
+            }
+
+            // --- UPDATE PEDESTRIANS ---
+            const parkLoop = [
+                { x: 16.5 * TILE, y: 12.4 * TILE },
+                { x: 16.5 * TILE, y: 16.5 * TILE },
+                { x: 12.4 * TILE, y: 16.5 * TILE },
+                { x: 12.4 * TILE, y: 12.4 * TILE }
+            ];
+
+            for (let i = peds.length - 1; i >= 0; i--) {
+                const p = peds[i];
+                if (p.hp <= 0) {
+                    peds.splice(i, 1);
+                    continue;
+                }
+
+                // Reflexively dodge fast oncoming cars!
+                if (p.role === 'civilian' || p.role === 'gouranga') {
+                    for (const c of cars) {
+                        if (c.hp <= 0) continue;
+                        const cSpd = Math.hypot(c.vx, c.vy);
+                        if (cSpd < 135) continue;
+                        const dx = p.x - c.x;
+                        const dy = p.y - c.y;
+                        const d = Math.hypot(dx, dy);
+                        if (d < 120) {
+                            const approachDot = (dx * c.vx + dy * c.vy) / (d * cSpd);
+                            if (approachDot > 0.78) {
+                                p.panicTimer = 2.8;
+                                // Dive perpendicular to oncoming vehicle toward nearest sidewalk
+                                const perpA = Math.atan2(c.vy, c.vx) + Math.PI * 0.5;
+                                const perpB = perpA + Math.PI;
+                                const tA = tileAtWorld(p.x + Math.cos(perpA) * 28, p.y + Math.sin(perpA) * 28);
+                                p.angle = (tA === T_PAVEMENT || tA === T_GRASS) ? perpA : perpB;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                const distP = Math.hypot(player.x - p.x, player.y - p.y);
+                const canSeePlayer = distP < 420 && hasLineOfSight(p.x, p.y, player.x, player.y);
+
+                if (p.role === 'cop' && Math.floor(player.wanted) >= 1 && distP < 520 && player.deadTimer <= 0) {
+                    let moveAng = Math.atan2(player.y - p.y, player.x - p.x);
+                    if (!canSeePlayer) {
+                        // Follow flow-field around building corners!
+                        const ptx = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(p.x / TILE)));
+                        const pty = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(p.y / TILE)));
+                        let bestCost = policeFlowDist[pty][ptx];
+                        for (const dv of DIR_VECS) {
+                            const ntx = ptx + dv.dx;
+                            const nty = pty + dv.dy;
+                            if (ntx >= 0 && nty >= 0 && ntx < MAP_SIZE && nty < MAP_SIZE && policeFlowDist[nty][ntx] < bestCost) {
+                                bestCost = policeFlowDist[nty][ntx];
+                                moveAng = Math.atan2((nty + 0.5) * TILE - p.y, (ntx + 0.5) * TILE - p.x);
+                            }
+                        }
+                    }
+                    p.angle = applyWallFeelers(p.x, p.y, moveAng, 28);
+                    p.shootTimer -= dt;
+                    if (distP > 135 || !canSeePlayer) {
+                        const nx = p.x + Math.cos(p.angle) * p.speed * dt;
+                        const ny = p.y + Math.sin(p.angle) * p.speed * dt;
+                        if (!isSolidAt(nx, ny, 8)) { p.x = nx; p.y = ny; }
+                    }
+                    if (canSeePlayer && p.shootTimer <= 0 && distP < 340) {
+                        p.shootTimer = 0.85;
+                        p.angle = Math.atan2(player.y - p.y, player.x - p.x);
+                        fireWeapon(p.x, p.y, p.angle, 1, false);
+                    }
+                } else if ((p.role === 'boss' || p.role === 'guard') && distP < 400 && player.deadTimer <= 0) {
+                    const aimAng = Math.atan2(player.y - p.y, player.x - p.x);
+                    p.angle = canSeePlayer ? aimAng : applyWallFeelers(p.x, p.y, aimAng, 30);
+                    if (!canSeePlayer || distP > 190) {
+                        const nx = p.x + Math.cos(p.angle) * p.speed * dt;
+                        const ny = p.y + Math.sin(p.angle) * p.speed * dt;
+                        if (!isSolidAt(nx, ny, 8)) { p.x = nx; p.y = ny; }
+                    }
+                    p.shootTimer -= dt;
+                    if (canSeePlayer && p.shootTimer <= 0) {
+                        p.shootTimer = 0.55;
+                        fireWeapon(p.x, p.y, aimAng, 2, false);
+                    }
+                } else if (p.role === 'gouranga' && p.panicTimer <= 0) {
+                    // Synchronized Central Park jogger conga patrol!
+                    const wp = parkLoop[p.waypointIdx || 0];
+                    if (Math.hypot(wp.x - p.x, wp.y - p.y) < 20) {
+                        p.waypointIdx = ((p.waypointIdx || 0) + 1) % parkLoop.length;
+                    }
+                    const nextWp = parkLoop[p.waypointIdx || 0];
+                    p.angle = Math.atan2(nextWp.y - p.y, nextWp.x - p.x);
+                    p.x += Math.cos(p.angle) * p.speed * dt;
+                    p.y += Math.sin(p.angle) * p.speed * dt;
+                } else {
+                    // Normal sidewalk stroll, safe zebra-crosswalk crossing, or panic sprint
+                    if (p.panicTimer > 0) p.panicTimer -= dt;
+                    const spd = p.panicTimer > 0 ? 118 : p.speed;
+                    const nx = p.x + Math.cos(p.angle) * spd * dt;
+                    const ny = p.y + Math.sin(p.angle) * spd * dt;
+                    const curT = tileAtWorld(p.x, p.y);
+                    const nt = tileAtWorld(nx, ny);
+
+                    // Pedestrians stay on sidewalks/parks, only entering roads at T_ROAD_X crosswalks when clear of cars!
+                    let canStep = false;
+                    if (!isSolidAt(nx, ny, 8)) {
+                        if (nt === T_PAVEMENT || nt === T_GRASS) {
+                            canStep = true;
+                        } else if (p.panicTimer > 0 && nt !== T_BLDG && nt !== T_WATER) {
+                            canStep = true;
+                        } else if (nt === T_ROAD_X) {
+                            // If already crossing, finish crossing; if stepping off curb, check oncoming traffic first
+                            if (curT === T_ROAD_X) {
+                                canStep = true;
+                            } else {
+                                let roadClear = true;
+                                for (const c of cars) {
+                                    if (c.hp > 0 && c.speed > 40 && Math.hypot(c.x - nx, c.y - ny) < 135) {
+                                        roadClear = false;
+                                        break;
+                                    }
+                                }
+                                canStep = roadClear && Math.random() < 0.35;
+                            }
+                        } else if (isRoadTileType(curT) && isRoadTileType(nt)) {
+                            // If somehow mid-road, walk shortest way off road
+                            canStep = true;
+                        }
+                    }
+
+                    if (canStep) {
+                        p.x = nx;
+                        p.y = ny;
+                    } else {
+                        p.angle += Math.PI * (0.5 + Math.floor(Math.random() * 2) * 0.5);
+                    }
+                }
+            }
+
+            // Keep city lively with ambient pedestrians
+            if (peds.length < 55 && Math.random() < dt * 2) {
+                spawnRandomPed(Math.floor(player.wanted) >= 2 && Math.random() < 0.25 ? 'cop' : 'civilian', true);
+            }
+
+            // --- UPDATE BULLETS ---
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const b = bullets[i];
+                b.x += b.vx * dt;
+                b.y += b.vy * dt;
+                b.life -= dt;
+
+                let hit = false;
+                if (isSolidAt(b.x, b.y, 3)) {
+                    hit = true;
+                }
+
+                // Check Ped hits
+                if (!hit) {
+                    for (const p of peds) {
+                        if (Math.hypot(p.x - b.x, p.y - b.y) < 14) {
+                            if (!b.explosive) damagePed(p, b.damage, b.fromPlayer);
+                            hit = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Check Car hits
+                if (!hit) {
+                    for (const c of cars) {
+                        if (c.hp <= 0 || (b.fromPlayer && c === player.inCar)) continue;
+                        if (Math.hypot(c.x - b.x, c.y - b.y) < c.spec.w * 0.75) {
+                            if (!b.explosive) {
+                                c.hp -= b.damage;
+                                if (c.hp <= 0) destroyCar(c, b.fromPlayer);
+                            }
+                            hit = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Check Player hit from enemy bullets
+                if (!hit && !b.fromPlayer && player.deadTimer <= 0) {
+                    if (player.inCar) {
+                        if (Math.hypot(player.inCar.x - b.x, player.inCar.y - b.y) < 26) {
+                            player.inCar.hp -= b.damage * 0.5;
+                            hit = true;
+                        }
+                    } else if (Math.hypot(player.x - b.x, player.y - b.y) < 13) {
+                        damagePlayer(b.damage * 0.45);
+                        hit = true;
+                    }
+                }
+
+                if (b.explosive) {
+                    particles.push({
+                        x: b.x, y: b.y, vx: 0, vy: 0,
+                        size: 5, color: '#cbd5e1', life: 0.2, maxLife: 0.2
+                    });
+                }
+
+                if (hit || b.life <= 0) {
+                    if (b.explosive) {
+                        triggerExplosion(b.x, b.y, 135, b.fromPlayer);
+                    }
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // --- PICKUPS ---
+            for (const pk of pickups) {
+                if (pk.timer > 0) {
+                    pk.timer -= dt;
+                    continue;
+                }
+                if (Math.hypot(player.x - pk.x, player.y - pk.y) < 28) {
+                    pk.timer = 25; // Respawns after 25s
+                    audio.cash();
+                    if (pk.kind === 'health') {
+                        player.hp = 100;
+                        spawnFloatingText('MAX HEALTH!', pk.x, pk.y, '#ef4444');
+                    } else if (pk.kind === 'armor') {
+                        player.armor = 100;
+                        spawnFloatingText('BODY ARMOR!', pk.x, pk.y, '#38bdf8');
+                    } else if (pk.kind === 'uzi') {
+                        player.ammo[2] += 120;
+                        player.weaponIdx = 2;
+                        spawnFloatingText('UZI SMG +120!', pk.x, pk.y, '#facc15');
+                    } else if (pk.kind === 'rocket') {
+                        player.ammo[3] += 6;
+                        player.weaponIdx = 3;
+                        spawnFloatingText('ROCKETS +6!', pk.x, pk.y, '#f97316');
+                    } else if (pk.kind === 'bribe') {
+                        player.wanted = Math.max(0, player.wanted - 2);
+                        spawnFloatingText('COP BRIBE!', pk.x, pk.y, '#c084fc');
+                    }
+                    updateHUD();
+                }
+            }
+
+            // --- PARTICLES & FLOATING TEXTS ---
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const pt = particles[i];
+                pt.x += pt.vx * dt;
+                pt.y += pt.vy * dt;
+                pt.life -= dt;
+                if (pt.life <= 0) particles.splice(i, 1);
+            }
+
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                const ft = floatingTexts[i];
+                ft.y += ft.vy * dt;
+                ft.life -= dt;
+                if (ft.life <= 0) floatingTexts.splice(i, 1);
+            }
+
+            // Update Missions & District Display
+            updateMission(dt);
+            updateDistrictName();
+
+            // --- DYNAMIC GTA 1 SPEED-ZOOM CAMERA ---
+            const currentSpeed = player.inCar ? player.inCar.speed : 0;
+            // Zooms out smoothly when driving fast so you can spot intersections ahead!
+            camera.targetZoom = player.inCar
+                ? Math.max(0.60, 0.94 - (currentSpeed / 560) * 0.34)
+                : 1.06;
+            camera.zoom += (camera.targetZoom - camera.zoom) * 3.5 * dt;
+
+            // Camera looks slightly ahead of fast vehicles (authentic GTA 1 camera lead!)
+            const leadX = player.inCar ? player.inCar.vx * 0.28 : 0;
+            const leadY = player.inCar ? player.inCar.vy * 0.28 : 0;
+            camera.x += (player.x + leadX - camera.x) * 6.5 * dt;
+            camera.y += (player.y + leadY - camera.y) * 6.5 * dt;
+            camera.shake = Math.max(0, camera.shake - dt * 32);
+
+            // Update mouse world position
+            mouse.worldX = camera.x + (mouse.x - viewW * 0.5) / camera.zoom;
+            mouse.worldY = camera.y + (mouse.y - viewH * 0.5) / camera.zoom;
+
+            // Update Radio & Siren Audio
+            audio.updateMusicAndSirens(
+                dt,
+                !!player.inCar,
+                player.inCar ? player.inCar.typeKey : null,
+                anySirenNear || (player.inCar && player.inCar.sirenOn)
+            );
+        }
+
+        function updateDistrictName() {
+            const badge = document.getElementById('district-badge');
+            let name = 'DOWNTOWN LIBERTY';
+            const tx = player.x / TILE;
+            const ty = player.y / TILE;
+            if (tx >= 11 && tx <= 17 && ty >= 11 && ty <= 17) name = 'CENTRAL PARK PLAZA';
+            else if (tx >= 21 && ty >= 21) name = 'SOUTHEAST DOCKYARD';
+            else if (ty < 9) name = 'UPTOWN FINANCIAL';
+            else if (tx < 9) name = 'WESTSIDE HEIGHTS';
+            if (badge.textContent !== name) badge.textContent = name;
+        }
+
+        function updateHUD() {
+            document.getElementById('hud-score').textContent = '$' + String(player.score).padStart(7, '0');
+            document.getElementById('hud-multiplier').textContent = 'x' + player.multiplier;
+            document.getElementById('hud-health-bar').style.width = `${Math.max(0, player.hp)}%`;
+            document.getElementById('hud-armor-bar').style.width = `${Math.max(0, player.armor)}%`;
+
+            const w = WEAPONS[player.weaponIdx];
+            document.getElementById('hud-weapon-icon').textContent = w.icon;
+            document.getElementById('hud-weapon-name').textContent = w.name;
+            document.getElementById('hud-weapon-ammo').textContent = player.ammo[player.weaponIdx] === Infinity ? '∞' : player.ammo[player.weaponIdx];
+
+            // Radio Station Display
+            const radioName = document.getElementById('radio-name');
+            radioName.textContent = player.inCar ? player.inCar.spec.radio : 'ON FOOT';
+
+            // Classic GTA 1 Flashing Cop Heads Wanted Meter
+            const wantedEl = document.getElementById('hud-wanted');
+            const level = Math.floor(player.wanted);
+            if (level <= 0) {
+                wantedEl.innerHTML = '<span class="text-zinc-500 text-sm">CLEAR</span>';
+            } else {
+                let html = '';
+                for (let i = 0; i < 4; i++) {
+                    html += i < level
+                        ? '<span class="animate-pulse drop-shadow">👮</span>'
+                        : '<span class="opacity-20">👮</span>';
+                }
+                wantedEl.innerHTML = html;
+            }
+
+            // Mission Objective HUD
+            const mWrap = document.getElementById('hud-mission-timer');
+            const mText = document.getElementById('mission-text');
+            if (mission.active) {
+                mWrap.classList.remove('hidden');
+                mText.textContent = mission.title;
+            } else {
+                mWrap.classList.add('hidden');
+            }
+        }
+
+        // --- 2.5D PERSPECTIVE RENDERER (EXACT 1997 GTA 1 LOOK!) ---
+        function worldToScreen(wx, wy, shakeX, shakeY) {
+            return {
+                x: (wx - camera.x) * camera.zoom + viewW * 0.5 + shakeX,
+                y: (wy - camera.y) * camera.zoom + viewH * 0.5 + shakeY
+            };
+        }
+
+        function render() {
+            ctx.fillStyle = '#0c4a6e'; // Deep ocean water background
+            ctx.fillRect(0, 0, viewW, viewH);
+
+            const shakeX = camera.shake > 0 ? (Math.random() - 0.5) * camera.shake : 0;
+            const shakeY = camera.shake > 0 ? (Math.random() - 0.5) * camera.shake : 0;
+
+            ctx.save();
+            ctx.translate(viewW * 0.5 + shakeX, viewH * 0.5 + shakeY);
+            ctx.scale(camera.zoom, camera.zoom);
+            ctx.translate(-camera.x, -camera.y);
+
+            // Compute visible tile bounds
+            const halfW = (viewW * 0.5) / camera.zoom + TILE * 2;
+            const halfH = (viewH * 0.5) / camera.zoom + TILE * 2;
+            const minTX = Math.max(0, Math.floor((camera.x - halfW) / TILE));
+            const maxTX = Math.min(MAP_SIZE - 1, Math.floor((camera.x + halfW) / TILE));
+            const minTY = Math.max(0, Math.floor((camera.y - halfH) / TILE));
+            const maxTY = Math.min(MAP_SIZE - 1, Math.floor((camera.y + halfH) / TILE));
+
+            // 1. DRAW GROUND TILES (Roads, Sidewalks, Grass, Pay 'n' Spray)
+            const visibleBuildings = [];
+            for (let ty = minTY; ty <= maxTY; ty++) {
+                for (let tx = minTX; tx <= maxTX; tx++) {
+                    const t = mapGrid[ty][tx];
+                    const x = tx * TILE;
+                    const y = ty * TILE;
+
+                    if (t === T_WATER) {
+                        ctx.fillStyle = '#075985';
+                        ctx.fillRect(x, y, TILE + 1, TILE + 1);
+                        ctx.fillStyle = '#0284c7';
+                        const waveOffset = Math.sin(performance.now() * 0.003 + tx + ty) * 8;
+                        ctx.fillRect(x + 24 + waveOffset, y + 40, 42, 4);
+                        ctx.fillRect(x + 68 - waveOffset, y + 96, 36, 4);
+                    } else if (t === T_GRASS) {
+                        ctx.fillStyle = '#15803d';
+                        ctx.fillRect(x, y, TILE + 1, TILE + 1);
+                        ctx.fillStyle = '#166534';
+                        ctx.fillRect(x + 18, y + 22, 8, 8);
+                        ctx.fillRect(x + 92, y + 78, 10, 10);
+                    } else if (t === T_PAVEMENT || t === T_BLDG) {
+                        ctx.fillStyle = '#71717a';
+                        ctx.fillRect(x, y, TILE + 1, TILE + 1);
+                        ctx.strokeStyle = '#52525b';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(x + 2, y + 2, TILE - 4, TILE - 4);
+                        if (t === T_BLDG) {
+                            visibleBuildings.push({ tx, ty, meta: bldgMeta[ty][tx] });
+                        }
+                    } else if (t === T_SPRAY) {
+                        // Pay 'n' Spray Checkerboard Garage Floor
+                        ctx.fillStyle = '#3f3f46';
+                        ctx.fillRect(x, y, TILE + 1, TILE + 1);
+                        ctx.strokeStyle = '#e879f9';
+                        ctx.lineWidth = 4;
+                        ctx.strokeRect(x + 8, y + 8, TILE - 16, TILE - 16);
+                        ctx.fillStyle = '#f0abfc';
+                        ctx.font = 'bold 18px monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('PAY N SPRAY', x + TILE * 0.5, y + TILE * 0.45);
+                        ctx.fillStyle = '#facc15';
+                        ctx.font = 'bold 14px monospace';
+                        ctx.fillText('FREE REPAIR', x + TILE * 0.5, y + TILE * 0.65);
+                    } else if (t === T_ROAD_H || t === T_ROAD_V || t === T_ROAD_X) {
+                        ctx.fillStyle = '#27272a';
+                        ctx.fillRect(x, y, TILE + 1, TILE + 1);
+
+                        // Sidewalk curbs & dashed lane markings
+                        if (t === T_ROAD_H) {
+                            ctx.fillStyle = '#a1a1aa';
+                            ctx.fillRect(x, y, TILE, 10);
+                            ctx.fillRect(x, y + TILE - 10, TILE, 10);
+                            ctx.fillStyle = '#facc15';
+                            for (let d = 12; d < TILE; d += 36) {
+                                ctx.fillRect(x + d, y + TILE * 0.5 - 2, 20, 4);
+                            }
+                        } else if (t === T_ROAD_V) {
+                            ctx.fillStyle = '#a1a1aa';
+                            ctx.fillRect(x, y, 10, TILE);
+                            ctx.fillRect(x + TILE - 10, y, 10, TILE);
+                            ctx.fillStyle = '#facc15';
+                            for (let d = 12; d < TILE; d += 36) {
+                                ctx.fillRect(x + TILE * 0.5 - 2, y + d, 4, 20);
+                            }
+                        } else if (t === T_ROAD_X) {
+                            // Zebra Crosswalks!
+                            ctx.fillStyle = '#d4d4d8';
+                            for (let z = 20; z < TILE - 20; z += 18) {
+                                ctx.fillRect(x + z, y + 4, 10, 14);
+                                ctx.fillRect(x + z, y + TILE - 18, 10, 14);
+                                ctx.fillRect(x + 4, y + z, 14, 10);
+                                ctx.fillRect(x + TILE - 18, y + z, 14, 10);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. DRAW PERSISTENT DECALS (Tire Skidmarks, Blood Splats, Craters)
+            for (const d of decals) {
+                if (Math.abs(d.x - camera.x) > halfW || Math.abs(d.y - camera.y) > halfH) continue;
+                ctx.save();
+                ctx.translate(d.x, d.y);
+                ctx.rotate(d.angle);
+                if (d.type === 'skid') {
+                    ctx.fillStyle = 'rgba(10, 10, 12, 0.42)';
+                    ctx.fillRect(-d.size, -2.5, d.size * 2, 5);
+                } else {
+                    ctx.fillStyle = d.color;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, d.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            // 3. DRAW RINGING PAYPHONES & PICKUPS
+            const nowSec = performance.now() * 0.001;
+            for (const ph of payphones) {
+                // Pulsing ring wave when idle
+                if (!mission.active) {
+                    const pulse = (nowSec * 38) % 34;
+                    ctx.strokeStyle = `rgba(74, 222, 128, ${1 - pulse / 34})`;
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    ctx.arc(ph.x, ph.y, 10 + pulse, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                ctx.fillStyle = '#1e3a8a';
+                ctx.fillRect(ph.x - 9, ph.y - 9, 18, 18);
+                ctx.strokeStyle = '#93c5fd';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(ph.x - 9, ph.y - 9, 18, 18);
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('☎️', ph.x, ph.y);
+            }
+
+            // Mission Drop-Off Marker if in delivery stage
+            if (mission.active && mission.type === 'steal_deliver' && mission.stage === 2) {
+                const r = 36 + Math.sin(nowSec * 6) * 6;
+                ctx.strokeStyle = '#facc15';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(mission.targetX, mission.targetY, r, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(250, 204, 21, 0.22)';
+                ctx.fill();
+            }
+
+            for (const pk of pickups) {
+                if (pk.timer > 0) continue;
+                const bounce = Math.sin(nowSec * 5 + pk.x) * 3;
+                ctx.fillStyle = 'rgba(0,0,0,0.45)';
+                ctx.beginPath();
+                ctx.arc(pk.x + 2, pk.y + 4, 14, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#18181b';
+                ctx.strokeStyle = pk.color;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(pk.x, pk.y + bounce, 14, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.font = '15px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(pk.icon, pk.x, pk.y + bounce + 1);
+            }
+
+            // 4. DRAW PEDESTRIANS
+            for (const p of peds) {
+                if (Math.abs(p.x - camera.x) > halfW || Math.abs(p.y - camera.y) > halfH) continue;
+                drawCharacter(p.x, p.y, p.angle, p.color, p.role === 'boss' ? '#fef08a' : '#fed7aa', nowSec * 10);
+                if (p.role === 'boss') {
+                    // Red boss arrow highlight
+                    ctx.strokeStyle = '#ef4444';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 18 + Math.sin(nowSec * 8) * 3, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+
+            // 5. DRAW PLAYER (When On Foot)
+            if (!player.inCar && player.deadTimer <= 0) {
+                drawCharacter(player.x, player.y, player.angle, '#eab308', '#fed7aa', player.walkCycle, true);
+            }
+
+            // 6. DRAW VEHICLES (With Drop Shadows, Headlights, Sirens, Turrets)
+            for (const c of cars) {
+                if (Math.abs(c.x - camera.x) > halfW || Math.abs(c.y - camera.y) > halfH) continue;
+                drawVehicle(c, nowSec);
+            }
+
+            // 7. DRAW BULLETS & PARTICLES
+            for (const b of bullets) {
+                ctx.fillStyle = b.explosive ? '#f97316' : '#fef08a';
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.explosive ? 5 : 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            for (const pt of particles) {
+                ctx.globalAlpha = Math.max(0, pt.life / pt.maxLife);
+                ctx.fillStyle = pt.color;
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+
+            ctx.restore();
+
+            // 8. DRAW TRUE 2.5D PERSPECTIVE-EXTRUDED BUILDINGS (Screen-Space Painter's Order!)
+            // Sort farther buildings from screen center first so nearer buildings cleanly overlap!
+            visibleBuildings.sort((a, b) => {
+                const da = Math.hypot((a.tx + 0.5) * TILE - camera.x, (a.ty + 0.5) * TILE - camera.y);
+                const db = Math.hypot((b.tx + 0.5) * TILE - camera.x, (b.ty + 0.5) * TILE - camera.y);
+                return db - da;
+            });
+
+            const cxScreen = viewW * 0.5;
+            const cyScreen = viewH * 0.5;
+
+            for (const b of visibleBuildings) {
+                const wx0 = b.tx * TILE;
+                const wy0 = b.ty * TILE;
+                const wx1 = wx0 + TILE;
+                const wy1 = wy0 + TILE;
+
+                const s00 = worldToScreen(wx0, wy0, shakeX, shakeY);
+                const s10 = worldToScreen(wx1, wy0, shakeX, shakeY);
+                const s11 = worldToScreen(wx1, wy1, shakeX, shakeY);
+                const s01 = worldToScreen(wx0, wy1, shakeX, shakeY);
+
+                const h = b.meta.h;
+                const r00 = { x: s00.x + (s00.x - cxScreen) * h, y: s00.y + (s00.y - cyScreen) * h };
+                const r10 = { x: s10.x + (s10.x - cxScreen) * h, y: s10.y + (s10.y - cyScreen) * h };
+                const r11 = { x: s11.x + (s11.x - cxScreen) * h, y: s11.y + (s11.y - cyScreen) * h };
+                const r01 = { x: s01.x + (s01.x - cxScreen) * h, y: s01.y + (s01.y - cyScreen) * h };
+
+                // Ground drop shadow
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+                ctx.fillRect(s00.x + 8, s00.y + 10, s10.x - s00.x, s01.y - s00.y);
+
+                // North Wall (visible when camera is above top edge)
+                if (s00.y > cyScreen) {
+                    drawWallQuad(s00, s10, r10, r00, b.meta.wall, b.meta.win);
+                }
+                // South Wall (visible when camera is below bottom edge)
+                if (s11.y < cyScreen) {
+                    drawWallQuad(s11, s01, r01, r11, b.meta.dark, b.meta.win);
+                }
+                // West Wall (visible when camera is left of west edge)
+                if (s00.x > cxScreen) {
+                    drawWallQuad(s01, s00, r00, r01, b.meta.wall, b.meta.win);
+                }
+                // East Wall (visible when camera is right of east edge)
+                if (s10.x < cxScreen) {
+                    drawWallQuad(s10, s11, r11, r10, b.meta.dark, b.meta.win);
+                }
+
+                // Rooftop
+                const rw = r10.x - r00.x;
+                const rh = r01.y - r00.y;
+                ctx.fillStyle = b.meta.roof;
+                ctx.fillRect(r00.x, r00.y, rw, rh);
+                ctx.strokeStyle = '#0f172a';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(r00.x, r00.y, rw, rh);
+
+                // Inner roof ledge & 1997 rooftop details (HVAC units, Helipads, Skylights)
+                const pad = Math.max(4, rw * 0.09);
+                ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+                ctx.strokeRect(r00.x + pad, r00.y + pad, rw - pad * 2, rh - pad * 2);
+
+                if (b.meta.style === 0) {
+                    // Helipad 'H' on tall skyscrapers!
+                    ctx.strokeStyle = 'rgba(250, 204, 21, 0.55)';
+                    ctx.beginPath();
+                    ctx.arc(r00.x + rw * 0.5, r00.y + rh * 0.5, rw * 0.28, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.fillStyle = 'rgba(250, 204, 21, 0.55)';
+                    ctx.font = `bold ${Math.max(10, Math.floor(rw * 0.28))}px monospace`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('H', r00.x + rw * 0.5, r00.y + rh * 0.5);
+                } else if (b.meta.style === 1) {
+                    // Twin HVAC vents
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(r00.x + rw * 0.2, r00.y + rh * 0.22, rw * 0.22, rh * 0.22);
+                    ctx.fillRect(r00.x + rw * 0.55, r00.y + rh * 0.55, rw * 0.25, rh * 0.22);
+                } else if (b.meta.style === 2) {
+                    // Glass Skylight
+                    ctx.fillStyle = '#0284c7';
+                    ctx.fillRect(r00.x + rw * 0.25, r00.y + rh * 0.25, rw * 0.5, rh * 0.5);
+                }
+            }
+
+            // 9. DRAW FLOATING ARCADE POP-UPS & CLASSIC GTA 1 DIRECTIONAL ARROWS!
+            for (const ft of floatingTexts) {
+                const sp = worldToScreen(ft.x, ft.y, shakeX, shakeY);
+                ctx.globalAlpha = Math.max(0, ft.life / ft.maxLife);
+                ctx.font = 'bold 20px "VT323", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#000000';
+                ctx.fillText(ft.text, sp.x + 2, sp.y + 2);
+                ctx.fillStyle = ft.color;
+                ctx.fillText(ft.text, sp.x, sp.y);
+            }
+            ctx.globalAlpha = 1;
+
+            drawNavigationArrows(shakeX, shakeY);
+        }
+
+        function drawWallQuad(b1, b2, t2, t1, wallColor, winColor) {
+            ctx.fillStyle = wallColor;
+            ctx.beginPath();
+            ctx.moveTo(b1.x, b1.y);
+            ctx.lineTo(b2.x, b2.y);
+            ctx.lineTo(t2.x, t2.y);
+            ctx.lineTo(t1.x, t1.y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = '#090d16';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            //Lit perspective windows!
+            ctx.fillStyle = winColor;
+            ctx.globalAlpha = 0.65;
+            for (let row = 0.25; row <= 0.78; row += 0.26) {
+                for (let col = 0.18; col <= 0.82; col += 0.22) {
+                    const wxA = (b1.x * (1 - col) + b2.x * col) * (1 - row) + (t1.x * (1 - col) + t2.x * col) * row;
+                    const wyA = (b1.y * (1 - col) + b2.y * col) * (1 - row) + (t1.y * (1 - col) + t2.y * col) * row;
+                    ctx.fillRect(wxA - 2.5, wyA - 2.5, 5, 5);
+                }
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function drawCharacter(x, y, angle, shirtColor, headColor, cycle = 0, isPlayer = false) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+
+            // Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.45)';
+            ctx.beginPath();
+            ctx.arc(2, 3, 9, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Swinging arms/feet when walking
+            const swing = Math.sin(cycle) * 4;
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(-3 + swing, -9, 6, 4);
+            ctx.fillRect(-3 - swing, 5, 6, 4);
+
+            // Shoulders / Shirt
+            ctx.fillStyle = shirtColor;
+            ctx.beginPath();
+            ctx.roundRect(-6, -8, 12, 16, 4);
+            ctx.fill();
+            ctx.strokeStyle = '#09090b';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Weapon held forward
+            if (isPlayer && player.weaponIdx > 0) {
+                ctx.fillStyle = '#27272a';
+                ctx.fillRect(4, 2, 11, 3.5);
+            }
+
+            // Head
+            ctx.fillStyle = headColor;
+            ctx.beginPath();
+            ctx.arc(0, 0, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawVehicle(c, nowSec) {
+            const w = c.spec.w;
+            const l = c.spec.l;
+
+            ctx.save();
+            ctx.translate(c.x, c.y);
+            ctx.rotate(c.angle);
+
+            // Drop shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.48)';
+            ctx.beginPath();
+            ctx.roundRect(-l * 0.5 + 4, -w * 0.5 + 5, l, w, 6);
+            ctx.fill();
+
+            // Headlight beams when occupied
+            if (c.driver && c.hp > 0 && !c.spec.isTank) {
+                const grad = ctx.createLinearGradient(l * 0.5, 0, l * 0.5 + 85, 0);
+                grad.addColorStop(0, 'rgba(254, 240, 138, 0.28)');
+                grad.addColorStop(1, 'rgba(254, 240, 138, 0)');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.moveTo(l * 0.48, -w * 0.35);
+                ctx.lineTo(l * 0.5 + 85, -w * 0.9);
+                ctx.lineTo(l * 0.5 + 85, w * 0.9);
+                ctx.lineTo(l * 0.48, w * 0.35);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Tires / Tank Treads
+            ctx.fillStyle = '#09090b';
+            if (c.spec.isTank) {
+                ctx.fillRect(-l * 0.48, -w * 0.54, l * 0.96, 7);
+                ctx.fillRect(-l * 0.48, w * 0.54 - 7, l * 0.96, 7);
+            } else {
+                ctx.fillRect(l * 0.22, -w * 0.55, 11, 4);
+                ctx.fillRect(l * 0.22, w * 0.55 - 4, 11, 4);
+                ctx.fillRect(-l * 0.36, -w * 0.55, 11, 4);
+                ctx.fillRect(-l * 0.36, w * 0.55 - 4, 11, 4);
+            }
+
+            // Main Chassis Body
+            ctx.fillStyle = c.color;
+            ctx.beginPath();
+            ctx.roundRect(-l * 0.5, -w * 0.5, l, w, c.spec.isTank ? 3 : 7);
+            ctx.fill();
+            ctx.strokeStyle = '#09090b';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Police White Doors
+            if (c.spec.isPolice && c.hp > 0) {
+                ctx.fillStyle = '#f8fafc';
+                ctx.fillRect(-l * 0.18, -w * 0.46, l * 0.38, w * 0.92);
+            }
+
+            // Racing Stripes (Beast GTS / Stallion / Taxi Checker)
+            if (c.spec.stripe && c.hp > 0) {
+                ctx.fillStyle = c.spec.stripe;
+                ctx.fillRect(-l * 0.48, -3, l * 0.96, 6);
+            }
+
+            if (c.spec.isTank) {
+                // Tank Turret & Cannon Barrel
+                ctx.fillStyle = '#4d7c0f';
+                ctx.beginPath();
+                ctx.arc(-4, 0, 13, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = '#27272a';
+                ctx.fillRect(4, -3.5, 34, 7);
+            } else {
+                // Windshield & Rear Window
+                ctx.fillStyle = c.hp > 0 ? '#0f172a' : '#18181b';
+                ctx.fillRect(l * 0.06, -w * 0.38, l * 0.20, w * 0.76);
+                ctx.fillRect(-l * 0.32, -w * 0.36, l * 0.14, w * 0.72);
+
+                // Roof
+                ctx.fillStyle = c.spec.isPolice && c.hp > 0 ? '#f8fafc' : c.color;
+                ctx.fillRect(-l * 0.18, -w * 0.38, l * 0.24, w * 0.76);
+
+                // Taxi Yellow Roof Sign
+                if (c.spec.taxiSign && c.hp > 0) {
+                    ctx.fillStyle = '#fef08a';
+                    ctx.fillRect(-4, -6, 7, 12);
+                }
+
+                // Flashing Red & Blue Police Lightbar!
+                if (c.spec.isPolice && c.hp > 0) {
+                    const flash = Math.floor(nowSec * 10) % 2 === 0;
+                    ctx.fillStyle = c.sirenOn ? (flash ? '#ef4444' : '#3b82f6') : '#64748b';
+                    ctx.fillRect(-4, -w * 0.32, 7, w * 0.3);
+                    ctx.fillStyle = c.sirenOn ? (flash ? '#3b82f6' : '#ef4444') : '#64748b';
+                    ctx.fillRect(-4, 1, 7, w * 0.3);
+                }
+
+                // Headlights & Taillights
+                if (c.hp > 0) {
+                    ctx.fillStyle = '#fef08a';
+                    ctx.fillRect(l * 0.46, -w * 0.4, 3, 6);
+                    ctx.fillRect(l * 0.46, w * 0.4 - 6, 3, 6);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(-l * 0.49, -w * 0.4, 3, 6);
+                    ctx.fillRect(-l * 0.49, w * 0.4 - 6, 3, 6);
+                }
+            }
+
+            ctx.restore();
+        }
+
+        // Classic GTA 1 Orbiting Navigation Arrows around Player!
+        function drawNavigationArrows(shakeX, shakeY) {
+            const pScreen = worldToScreen(player.x, player.y, shakeX, shakeY);
+
+            // 1. Yellow Arrow -> Active Mission Target OR Nearest Ringing Payphone
+            let targetX = null;
+            let targetY = null;
+            let arrowColor = '#facc15';
+
+            if (mission.active) {
+                targetX = mission.targetX;
+                targetY = mission.targetY;
+                arrowColor = '#facc15';
+            } else {
+                // Point to nearest payphone
+                let bestD = Infinity;
+                for (const ph of payphones) {
+                    const d = Math.hypot(ph.x - player.x, ph.y - player.y);
+                    if (d < bestD) { bestD = d; targetX = ph.x; targetY = ph.y; }
+                }
+                arrowColor = '#4ade80';
+            }
+
+            if (targetX !== null && Math.hypot(targetX - player.x, targetY - player.y) > 95) {
+                drawSingleArrow(pScreen.x, pScreen.y, Math.atan2(targetY - player.y, targetX - player.x), 68, arrowColor);
+            }
+
+            // 2. Pink Arrow -> Nearest Pay 'n' Spray when Wanted!
+            if (Math.floor(player.wanted) >= 1) {
+                let bestSp = null;
+                let bestD = Infinity;
+                for (const sp of sprayShops) {
+                    const d = Math.hypot(sp.x - player.x, sp.y - player.y);
+                    if (d < bestD) { bestD = d; bestSp = sp; }
+                }
+                if (bestSp && bestD > 95) {
+                    drawSingleArrow(pScreen.x, pScreen.y, Math.atan2(bestSp.y - player.y, bestSp.x - player.x), 84, '#e879f9');
+                }
+            }
+        }
+
+        function drawSingleArrow(cx, cy, angle, orbitRadius, color) {
+            ctx.save();
+            ctx.translate(cx + Math.cos(angle) * orbitRadius, cy + Math.sin(angle) * orbitRadius);
+            ctx.rotate(angle);
+            ctx.fillStyle = color;
+            ctx.strokeStyle = '#09090b';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(12, 0);
+            ctx.lineTo(-8, -8);
+            ctx.lineTo(-4, 0);
+            ctx.lineTo(-8, 8);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // --- RESIZING & EVENT BINDINGS ---
+        function handleResize() {
+            const wrapper = document.getElementById('canvas-wrapper');
+            viewW = wrapper.clientWidth;
+            viewH = wrapper.clientHeight;
+            canvas.width = viewW;
+            canvas.height = viewH;
+        }
+
+        function cycleWeapon(nextIdx = null) {
+            audio.init();
+            if (nextIdx !== null) {
+                if (player.ammo[nextIdx] > 0) player.weaponIdx = nextIdx;
+            } else {
+                for (let i = 1; i <= WEAPONS.length; i++) {
+                    const cand = (player.weaponIdx + i) % WEAPONS.length;
+                    if (player.ammo[cand] > 0) {
+                        player.weaponIdx = cand;
+                        break;
+                    }
+                }
+            }
+            updateHUD();
+        }
+
+        function setupEvents() {
+            window.addEventListener('resize', handleResize);
+
+            window.addEventListener('keydown', (e) => {
+                audio.init();
+                keys[e.code] = true;
+
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+                    e.preventDefault();
+                }
+
+                if (!e.repeat) {
+                    if (e.code === 'Enter' || e.code === 'KeyF' || e.code === 'KeyE') {
+                        toggleEnterExitVehicle();
+                    } else if (e.code === 'KeyQ') {
+                        cycleWeapon();
+                    } else if (e.code === 'Digit1') cycleWeapon(0);
+                    else if (e.code === 'Digit2') cycleWeapon(1);
+                    else if (e.code === 'Digit3') cycleWeapon(2);
+                    else if (e.code === 'Digit4') cycleWeapon(3);
+                    else if (e.code === 'KeyH' && player.inCar) {
+                        if (player.inCar.spec.isPolice) {
+                            player.inCar.sirenOn = !player.inCar.sirenOn;
+                        }
+                        audio.horn(player.inCar.spec.isPolice);
+                    }
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                keys[e.code] = false;
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                mouse.x = e.clientX - rect.left;
+                mouse.y = e.clientY - rect.top;
+            });
+
+            canvas.addEventListener('mousedown', (e) => {
+                if (e.button === 0) {
+                    audio.init();
+                    const rect = canvas.getBoundingClientRect();
+                    mouse.x = e.clientX - rect.left;
+                    mouse.y = e.clientY - rect.top;
+                    mouse.down = true;
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                mouse.down = false;
+            });
+
+            // Top Toolbar Buttons
+            document.getElementById('btn-weapon').addEventListener('click', () => cycleWeapon());
+
+            document.getElementById('btn-crt').addEventListener('click', () => {
+                const layer = document.getElementById('crt-layer');
+                layer.classList.toggle('hidden');
+            });
+
+            document.getElementById('btn-sound').addEventListener('click', (e) => {
+                const on = audio.toggle();
+                e.currentTarget.textContent = on ? '🔊 SFX ON' : '🔇 MUTED';
+                e.currentTarget.classList.toggle('text-emerald-400', on);
+                e.currentTarget.classList.toggle('text-zinc-400', !on);
+            });
+
+            const helpModal = document.getElementById('help-modal');
+            document.getElementById('btn-help').addEventListener('click', () => {
+                helpModal.classList.toggle('hidden');
+            });
+            document.getElementById('btn-start-game').addEventListener('click', () => {
+                audio.init();
+                helpModal.classList.add('hidden');
+            });
+
+            document.getElementById('btn-restart').addEventListener('click', () => {
+                audio.init();
+                player.score = 0;
+                player.multiplier = 1;
+                mission.active = false;
+                populateWorld();
+                showBigBanner('CITY RESET', 'WELCOME BACK TO 1997!', '#facc15');
+            });
+
+            // Mobile Touch Pad Controls
+            document.querySelectorAll('[data-key]').forEach((btn) => {
+                const k = btn.getAttribute('data-key');
+                const press = (ev) => {
+                    ev.preventDefault();
+                    audio.init();
+                    keys[k] = true;
+                };
+                const release = (ev) => {
+                    ev.preventDefault();
+                    keys[k] = false;
+                };
+                btn.addEventListener('touchstart', press, { passive: false });
+                btn.addEventListener('touchend', release, { passive: false });
+                btn.addEventListener('touchcancel', release, { passive: false });
+                btn.addEventListener('mousedown', press);
+                btn.addEventListener('mouseup', release);
+                btn.addEventListener('mouseleave', release);
+            });
+
+            document.getElementById('touch-car').addEventListener('click', () => toggleEnterExitVehicle());
+            document.getElementById('touch-horn').addEventListener('click', () => {
+                if (player.inCar) {
+                    if (player.inCar.spec.isPolice) player.inCar.sirenOn = !player.inCar.sirenOn;
+                    audio.horn(player.inCar.spec.isPolice);
+                } else {
+                    cycleWeapon();
+                }
+            });
+        }
+
+        // --- BOOTSTRAP GAME ON WINDOW LOAD ---
+        let lastFrameTime = 0;
+        function gameLoop(timestamp) {
+            const dt = Math.min(0.05, (timestamp - lastFrameTime) / 1000 || 0.016);
+            lastFrameTime = timestamp;
+
+            update(dt);
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = function () {
+            handleResize();
+            buildCity();
+            populateWorld();
+            setupEvents();
+            lastFrameTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
