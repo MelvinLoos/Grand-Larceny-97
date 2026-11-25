@@ -1,10 +1,38 @@
 import { audio } from './audio.js';
-import { isSolidAt } from './city.js';
+import { isSolidAt, normalizeAngle } from './city.js';
 import { WEAPONS } from './config.js';
 import { addDecal } from './entities.js';
 import { addScore, hideRadio, showBigBanner, showRadio, updateHUD } from './hud.js';
+import { buzz } from './haptics.js';
 import { addCrime } from './missions.js';
 import { bullets, camera, cars, decals, game, mission, particles, peds, player } from './state.js';
+
+// --- AIM ASSIST (touch) ---
+export function findAimTarget(x, y, facing) {
+    let best = null;
+    let bestScore = Infinity;
+    const consider = (e, mul) => {
+        const dx = e.x - x;
+        const dy = e.y - y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 380 || dist < 1) return;
+        const da = Math.abs(normalizeAngle(Math.atan2(dy, dx) - facing));
+        if (da > 0.7) return;
+        const score = dist * (1 + da) * mul;
+        if (score < bestScore) {
+            bestScore = score;
+            best = e;
+        }
+    };
+    for (const p of peds) {
+        if (p.hp <= 0) continue;
+        const mul = p.role === 'boss' ? 0.5 : p.role === 'cop' && player.wanted >= 1 ? 0.7 : 1;
+        consider(p, mul);
+    }
+    const t = mission.targetEntity;
+    if (t && t.hp > 0 && !peds.includes(t)) consider(t, 0.5);
+    return best;
+}
 
 // --- ENTER / EXIT VEHICLE ---
 export function toggleEnterExitVehicle() {
@@ -77,6 +105,7 @@ export function toggleEnterExitVehicle() {
 export function fireWeapon(x, y, angle, weaponIdx, fromPlayer = true) {
     const w = WEAPONS[weaponIdx];
     audio.shoot(weaponIdx);
+    if (fromPlayer) buzz(weaponIdx === 3 ? 30 : 10);
 
     if (weaponIdx === 0) {
         // Melee Punch
@@ -227,6 +256,7 @@ export function damagePlayer(amount) {
     }
     player.hp = Math.max(0, player.hp - amount);
     camera.shake = Math.max(camera.shake, 7);
+    buzz(25);
     updateHUD();
 
     if (player.hp <= 0) {
@@ -237,6 +267,7 @@ export function damagePlayer(amount) {
 export function triggerWastedOrBusted(reason) {
     player.deadTimer = 3.2;
     player.deadReason = reason;
+    buzz([60, 40, 120]);
     player.inCar = null;
     hideRadio();
     player.multiplier = 1;

@@ -5,6 +5,7 @@ import { populateWorld } from './entities.js';
 import { hideRadio, showBigBanner, showPager, updateHUD } from './hud.js';
 import { HAZARD } from './palette.js';
 import { canvas, game, keys, mission, mouse, player, view } from './state.js';
+import { clearStick, setupTouch } from './touch.js';
 
 const manualEl = document.getElementById('manual');
 
@@ -13,8 +14,11 @@ export function handleResize() {
     const wrapper = document.getElementById('canvas-wrapper');
     view.w = wrapper.clientWidth;
     view.h = wrapper.clientHeight;
-    canvas.width = view.w;
-    canvas.height = view.h;
+    view.dpr = Math.min(window.devicePixelRatio || 1, game.dprCap);
+    canvas.width = Math.round(view.w * view.dpr);
+    canvas.height = Math.round(view.h * view.dpr);
+    // Phones see a wider slice of the street
+    view.fit = Math.min(1, Math.max(0.7, Math.min(view.w, view.h) / 720));
 }
 
 export function cycleWeapon(nextIdx = null) {
@@ -36,11 +40,20 @@ export function cycleWeapon(nextIdx = null) {
 export function clearInputs() {
     for (const k in keys) keys[k] = false;
     mouse.down = false;
+    clearStick();
 }
 
 export function startGame() {
     if (game.state !== 'title') return;
     audio.init();
+    if (
+        window.matchMedia('(pointer: coarse)').matches &&
+        document.fullscreenEnabled &&
+        !document.fullscreenElement &&
+        !window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches
+    ) {
+        document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+    }
     game.state = 'play';
     game.lastDistrict = '';
     const box = document.getElementById('box');
@@ -183,35 +196,5 @@ export function setupEvents() {
     if (window.matchMedia('(pointer: coarse)').matches)
         document.getElementById('start-hint').textContent = 'TAP TO PLAY';
 
-    // Mobile Touch Pad Controls
-    document.querySelectorAll('[data-key]').forEach((btn) => {
-        const k = btn.getAttribute('data-key');
-        const press = (ev) => {
-            ev.preventDefault();
-            audio.init();
-            keys[k] = true;
-            btn.classList.add('pressed');
-        };
-        const release = (ev) => {
-            ev.preventDefault();
-            keys[k] = false;
-            btn.classList.remove('pressed');
-        };
-        btn.addEventListener('touchstart', press, { passive: false });
-        btn.addEventListener('touchend', release, { passive: false });
-        btn.addEventListener('touchcancel', release, { passive: false });
-        btn.addEventListener('mousedown', press);
-        btn.addEventListener('mouseup', release);
-        btn.addEventListener('mouseleave', release);
-    });
-
-    document.getElementById('touch-car').addEventListener('click', () => toggleEnterExitVehicle());
-    document.getElementById('touch-horn').addEventListener('click', () => {
-        if (player.inCar) {
-            if (player.inCar.spec.isPolice) player.inCar.sirenOn = !player.inCar.sirenOn;
-            audio.horn(player.inCar.spec.isPolice);
-        } else {
-            cycleWeapon();
-        }
-    });
+    setupTouch();
 }

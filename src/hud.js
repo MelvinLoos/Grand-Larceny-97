@@ -125,6 +125,7 @@ export function updateHUD() {
     $('hud-mission-timer').hidden = !mission.active;
     if (mission.active) $('mission-text').textContent = mission.title;
 
+    $('touch-controls').classList.toggle('on-foot', !player.inCar);
     $('touch-car-lbl').textContent = player.inCar ? 'EXIT' : 'CAR';
     $('touch-horn-lbl').textContent = player.inCar ? 'HORN' : 'WEAPON';
     $('touch-horn-icon').setAttribute('href', player.inCar ? '#i-horn' : '#' + w.icon);

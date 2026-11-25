@@ -3,6 +3,7 @@ import { audio } from './audio.js';
 import {
     DIR_VECS,
     applyWallFeelers,
+    normalizeAngle,
     hasLineOfSight,
     isRoadTileType,
     isSolidAt,
@@ -11,9 +12,10 @@ import {
     tileAtWorld,
     updatePoliceFlowField
 } from './city.js';
-import { damagePed, damagePlayer, destroyCar, fireWeapon, triggerExplosion } from './combat.js';
+import { damagePed, damagePlayer, destroyCar, findAimTarget, fireWeapon, triggerExplosion } from './combat.js';
 import { MAP_SIZE, TILE, T_BLDG, T_GRASS, T_PAVEMENT, T_ROAD_X, T_WATER, WEAPONS } from './config.js';
 import { addDecal, createCar, spawnRandomPed } from './entities.js';
+import { buzz } from './haptics.js';
 import { showBigBanner, showPager, spawnFloatingText, updateDistrictName, updateHUD } from './hud.js';
 import { updateMission } from './missions.js';
 import {
@@ -30,8 +32,11 @@ import {
     pickups,
     player,
     sprayShops,
+    stick,
     view
 } from './state.js';
+
+let stickReverse = false; // hysteresis for point-to-go reversing
 
 // --- MAIN SIMULATION LOOP ---
 export function update(dt) {
@@ -90,6 +95,7 @@ export function update(dt) {
     const left = keys['KeyA'] || keys['ArrowLeft'];
     const right = keys['KeyD'] || keys['ArrowRight'];
     const brake = keys['Space'];
+    const stickOn = stick.active && stick.mag > 0;
     const fireInput =
         mouse.down || keys['ControlLeft'] || keys['ControlRight'] || keys['Fire'] || (!player.inCar && brake);
 
@@ -107,10 +113,29 @@ export function update(dt) {
             let forwardSpeed = car.vx * forwardX + car.vy * forwardY;
             let lateralSpeed = car.vx * rightX + car.vy * rightY;
 
-            if (up) {
-                forwardSpeed += spec.accel * dt;
-            } else if (down) {
-                forwardSpeed -= spec.accel * 0.8 * dt;
+            // Analog throttle (-1..1) and heading error for point-to-go steering
+            let throttle = up ? 1 : down ? -1 : 0;
+            let headingErr = 0;
+            if (stickOn) {
+                const diff = normalizeAngle(Math.atan2(stick.y, stick.x) - car.angle);
+                const adiff = Math.abs(diff);
+                if (!spec.isTank) stickReverse = stickReverse ? adiff > 2.0 : adiff > 2.4;
+                else stickReverse = false;
+                if (stickReverse) {
+                    throttle = -stick.mag;
+                    headingErr = normalizeAngle(diff + Math.PI);
+                } else {
+                    throttle = stick.mag * (1 - (0.5 * adiff) / Math.PI);
+                    headingErr = diff;
+                }
+            } else {
+                stickReverse = false;
+            }
+
+            if (throttle > 0) {
+                forwardSpeed += spec.accel * throttle * dt;
+            } else if (throttle < 0) {
+                forwardSpeed += spec.accel * 0.8 * throttle * dt;
             } else {
                 forwardSpeed *= 1 - 1.6 * dt;
             }
@@ -162,8 +187,13 @@ export function update(dt) {
             const steerFactor = spec.isTank
                 ? 2.2
                 : Math.min(1, Math.abs(forwardSpeed) / 95) * (forwardSpeed >= -5 ? 1 : -1) * 3.1;
-            if (left) car.angle -= steerFactor * dt;
-            if (right) car.angle += steerFactor * dt;
+            if (stickOn) {
+                const turn = Math.max(-1, Math.min(1, headingErr / 0.5)) * Math.abs(steerFactor) * dt;
+                car.angle += Math.abs(turn) > Math.abs(headingErr) ? headingErr : turn;
+            } else {
+                if (left) car.angle -= steerFactor * dt;
+                if (right) car.angle += steerFactor * dt;
+            }
 
             car.vx = Math.cos(car.angle) * forwardSpeed + -Math.sin(car.angle) * lateralSpeed;
             car.vy = Math.sin(car.angle) * forwardSpeed + Math.cos(car.angle) * lateralSpeed;
@@ -207,17 +237,24 @@ export function update(dt) {
             // On-Foot Movement
             let mx = (right ? 1 : 0) - (left ? 1 : 0);
             let my = (down ? 1 : 0) - (up ? 1 : 0);
+            let pace = 1;
             const len = Math.hypot(mx, my);
-            if (len > 0) {
+            if (stickOn) {
+                mx = stick.x;
+                my = stick.y;
+                pace = stick.mag;
+            } else if (len > 0) {
                 mx /= len;
                 my /= len;
-                const walkSpeed = 165;
+            }
+            if (stickOn || len > 0) {
+                const walkSpeed = 165 * pace;
                 const nx = player.x + mx * walkSpeed * dt;
                 const ny = player.y + my * walkSpeed * dt;
                 if (!isSolidAt(nx, player.y, 11)) player.x = nx;
                 if (!isSolidAt(player.x, ny, 11)) player.y = ny;
                 player.angle = Math.atan2(my, mx);
-                player.walkCycle += dt * 12;
+                player.walkCycle += dt * 12 * pace;
             }
 
             // Aim toward mouse when firing with mouse
@@ -229,6 +266,11 @@ export function update(dt) {
             if (fireInput && player.fireTimer <= 0) {
                 const w = WEAPONS[player.weaponIdx];
                 if (player.ammo[player.weaponIdx] > 0) {
+                    // Touch FIRE: nudge aim onto the best nearby target
+                    if (keys['Fire'] && !mouse.down) {
+                        const t = findAimTarget(player.x, player.y, player.angle);
+                        if (t) player.angle = Math.atan2(t.y - player.y, t.x - player.x);
+                    }
                     if (player.ammo[player.weaponIdx] !== Infinity) {
                         player.ammo[player.weaponIdx]--;
                     }
@@ -295,7 +337,10 @@ export function update(dt) {
         } else {
             if (Math.abs(c.vx) > 190) {
                 c.hp -= Math.abs(c.vx) * 0.06;
-                if (c === player.inCar) camera.shake = Math.max(camera.shake, 5);
+                if (c === player.inCar) {
+                    camera.shake = Math.max(camera.shake, 5);
+                    buzz(20);
+                }
             }
             c.vx *= -0.35;
         }
@@ -305,7 +350,10 @@ export function update(dt) {
         } else {
             if (Math.abs(c.vy) > 190) {
                 c.hp -= Math.abs(c.vy) * 0.06;
-                if (c === player.inCar) camera.shake = Math.max(camera.shake, 5);
+                if (c === player.inCar) {
+                    camera.shake = Math.max(camera.shake, 5);
+                    buzz(20);
+                }
             }
             c.vy *= -0.35;
         }
@@ -688,7 +736,7 @@ export function update(dt) {
     // --- DYNAMIC SPEED-ZOOM CAMERA ---
     const currentSpeed = player.inCar ? player.inCar.speed : 0;
     // Zooms out smoothly when driving fast so you can spot intersections ahead!
-    camera.targetZoom = player.inCar ? Math.max(0.6, 0.94 - (currentSpeed / 560) * 0.34) : 1.06;
+    camera.targetZoom = (player.inCar ? Math.max(0.6, 0.94 - (currentSpeed / 560) * 0.34) : 1.06) * view.fit;
     camera.zoom += (camera.targetZoom - camera.zoom) * 3.5 * dt;
 
     // Camera looks slightly ahead of fast vehicles

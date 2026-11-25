@@ -178,19 +178,8 @@
                 </div>
 
                 <div id="touch-controls">
-                    <div class="dpad">
-                        <button data-key="ArrowUp" class="pad-btn up" aria-label="Up / accelerate">
-                            <svg class="icon" aria-hidden="true"><use href="#i-chev" /></svg>
-                        </button>
-                        <button data-key="ArrowLeft" class="pad-btn lf" aria-label="Left">
-                            <svg class="icon" aria-hidden="true"><use href="#i-chev" /></svg>
-                        </button>
-                        <button data-key="ArrowDown" class="pad-btn dn" aria-label="Down / reverse">
-                            <svg class="icon" aria-hidden="true"><use href="#i-chev" /></svg>
-                        </button>
-                        <button data-key="ArrowRight" class="pad-btn rt" aria-label="Right">
-                            <svg class="icon" aria-hidden="true"><use href="#i-chev" /></svg>
-                        </button>
+                    <div id="stick-zone" aria-hidden="true">
+                        <div id="stick-base"><div id="stick-knob"></div></div>
                     </div>
                     <div class="actions">
                         <button id="touch-car" class="pad-btn act">
@@ -201,7 +190,7 @@
                             <svg class="icon" aria-hidden="true"><use id="touch-horn-icon" href="#i-pistol" /></svg
                             ><span id="touch-horn-lbl">WEAPON</span>
                         </button>
-                        <button data-key="Space" class="pad-btn act">
+                        <button data-key="Space" class="pad-btn act brake">
                             <svg class="icon" aria-hidden="true"><use href="#i-brake" /></svg><span>BRAKE</span>
                         </button>
                         <button data-key="Fire" class="pad-btn act fire">
@@ -294,8 +283,8 @@
                             <dd>Pause and open this manual</dd>
                         </dl>
                         <p class="manual-note">
-                            On a phone, the pad on the left drives and walks. The buttons on the right jack cars, fire,
-                            brake and honk.
+                            On a phone, drag anywhere on the left half to walk or drive. The car heads where you point.
+                            The buttons on the right jack cars, fire, brake and honk.
                         </p>
                         <div class="folio">2</div>
                     </section>

@@ -41,6 +41,7 @@ export function worldToScreen(wx, wy, shakeX, shakeY) {
 }
 
 export function render() {
+    ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     ctx.fillStyle = WATER;
     ctx.fillRect(0, 0, view.w, view.h);
 

@@ -6,6 +6,8 @@ export const ctx = canvas.getContext('2d');
 // Input state
 export const keys = {};
 export const mouse = { x: 0, y: 0, down: false, worldX: 0, worldY: 0 };
+// Analog touch stick: x/y = unit direction, mag = 0..1 after deadzone
+export const stick = { active: false, x: 0, y: 0, mag: 0 };
 
 // World Map & Building metadata
 export const mapGrid = [];
@@ -67,7 +69,7 @@ export const mission = {
     completedCount: 0
 };
 // Scalar view size (was viewW / viewH)
-export const view = { w: 800, h: 600 };
+export const view = { w: 800, h: 600, dpr: 1, fit: 1 };
 
 // Misc mutable game flags that used to be loose top-level `let`s
 export const game = {
@@ -80,5 +82,8 @@ export const game = {
     districtTimer: null,
     pagerTimeout: null,
     radioTimer: null,
-    policeFlowTimer: 0
+    policeFlowTimer: 0,
+    dprCap: 2,
+    frameEma: 16,
+    slowTime: 0
 };
