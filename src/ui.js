@@ -5,6 +5,7 @@ import { populateWorld } from './entities.js';
 import { hideRadio, showBigBanner, showPager, updateHUD } from './hud.js';
 import { HAZARD } from './palette.js';
 import { canvas, game, keys, mission, mouse, player, view } from './state.js';
+import { closeCityMap, openCityMap } from './minimap.js';
 import { clearStick, setupTouch } from './touch.js';
 
 const manualEl = document.getElementById('manual');
@@ -112,11 +113,24 @@ export function setupEvents() {
             }
             return;
         }
+        if (game.mapOpen) {
+            if (e.code === 'Escape' || e.code === 'KeyM' || e.code === 'KeyP') {
+                e.preventDefault();
+                closeCityMap();
+            }
+            return;
+        }
         if (game.state === 'title') {
             if ((e.code === 'Enter' || e.code === 'Space') && !e.repeat) {
                 e.preventDefault();
                 startGame();
             }
+            return;
+        }
+        if (e.code === 'KeyM') {
+            e.preventDefault();
+            clearInputs();
+            openCityMap();
             return;
         }
         if (e.code === 'Escape' || e.code === 'KeyP') {
@@ -176,6 +190,11 @@ export function setupEvents() {
     document.getElementById('btn-sound').addEventListener('click', toggleSound);
     document.getElementById('btn-sound-manual').addEventListener('click', toggleSound);
     document.getElementById('btn-help').addEventListener('click', openManual);
+    document.getElementById('radar').addEventListener('click', () => {
+        clearInputs();
+        openCityMap();
+    });
+    document.getElementById('btn-close-map').addEventListener('click', closeCityMap);
     document.getElementById('btn-open-manual').addEventListener('click', openManual);
     document.getElementById('btn-resume').addEventListener('click', closeManual);
     document.getElementById('btn-start-game').addEventListener('click', startGame);

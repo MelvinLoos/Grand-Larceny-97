@@ -139,6 +139,12 @@
         flex: 1;
         font-size: 17px;
     }
+    #radar {
+        width: 104px;
+        height: 104px;
+        top: 116px;
+        right: 10px;
+    }
     #district-label {
         right: 12px;
         bottom: calc(190px + var(--safe-b));

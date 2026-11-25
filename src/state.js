@@ -89,6 +89,8 @@ export const game = {
     districtTimer: null,
     districtCooldown: 0,
     gangTimer: 0,
+    mapOpen: false,
+    mapFrom: 'play',
     pagerTimeout: null,
     radioTimer: null,
     policeFlowTimer: 0,

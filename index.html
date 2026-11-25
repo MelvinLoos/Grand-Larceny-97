@@ -172,6 +172,12 @@
                     <div id="pager-message"></div>
                 </div>
 
+                <canvas
+                    id="radar"
+                    width="300"
+                    height="300"
+                    aria-label="Radar. Click or press M for the city map"
+                ></canvas>
                 <div id="district-label" aria-live="polite"></div>
 
                 <div id="radio" aria-live="polite">
@@ -271,6 +277,20 @@
             </div>
         </section>
 
+        <!-- Fold-out city map (M) -->
+        <div id="map-overlay" hidden role="dialog" aria-modal="true" aria-label="City map">
+            <div class="map-wrap">
+                <canvas id="citymap" width="640" height="640"></canvas>
+                <ul class="map-key">
+                    <li><i style="background: #22e5ff"></i>Spray-B-Gone</li>
+                    <li><i style="background: #ff5a2a"></i>Fuse Box Bombs</li>
+                    <li><i style="background: #ffd400"></i>Harbor Export ($)</li>
+                    <li><i style="background: #d23a2a"></i>Job target</li>
+                </ul>
+                <button class="btn primary" id="btn-close-map">Back to the streets (M)</button>
+            </div>
+        </div>
+
         <!-- Pause / help: the manual -->
         <div id="manual" hidden role="dialog" aria-modal="true" aria-labelledby="manual-title">
             <div class="manual-wrap">
@@ -290,6 +310,10 @@
                             <dd>Switch weapon</dd>
                             <dt><kbd>H</kbd></dt>
                             <dd>Horn, or siren in a cop car</dd>
+                            <dt><kbd>B</kbd></dt>
+                            <dd>Arm a fitted car bomb: 5 seconds, then bail out</dd>
+                            <dt><kbd>M</kbd></dt>
+                            <dd>Fold-out city map</dd>
                             <dt><kbd>Esc</kbd><kbd>P</kbd></dt>
                             <dd>Pause and open this manual</dd>
                         </dl>
@@ -316,8 +340,19 @@
                             <li>
                                 <svg class="icon solid c-water" aria-hidden="true"><use href="#i-arrow" /></svg
                                 ><span
-                                    ><b>Blue arrow:</b> the nearest Spray-B-Gone. Roll in slowly for free paint, full
-                                    repairs and zero heat.</span
+                                    ><b>Blue arrow:</b> the nearest Spray-B-Gone. Drive into the garage bay for $1,000:
+                                    full repairs, new paint and five seconds of probation. No cop cars or tanks.</span
+                                >
+                            </li>
+                            <li>
+                                <svg class="icon solid c-route" aria-hidden="true"><use href="#i-bomb" /></svg
+                                ><span><b>Fuse Box Bombs</b> (Harbor, $5,000) fits a car bomb. Press B to arm it.</span>
+                            </li>
+                            <li>
+                                <svg class="icon solid c-hazard" aria-hidden="true"><use href="#i-car" /></svg
+                                ><span
+                                    ><b>Harbor Export:</b> sell cars by condition. Tick all four on the order board for
+                                    a $25,000 bonus.</span
                                 >
                             </li>
                             <li>

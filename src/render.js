@@ -15,6 +15,7 @@ import {
 import { DISTRICTS, districtAtTile } from './districts.js';
 import { drawCanopy, drawFoliageGround } from './foliage.js';
 import { GRIME } from './grime.js';
+import { drawRadar } from './minimap.js';
 import { BAY_INFO } from './shops.js';
 import { HAZARD, INK, PAPER, PARK, ROUTE, STREETS_H, STREETS_V, WATER, shade } from './palette.js';
 import {
@@ -611,6 +612,7 @@ export function render() {
     ctx.globalAlpha = 1;
 
     drawNavigationArrows(shakeX, shakeY);
+    drawRadar(nowSec);
 }
 
 // Persistent wanted-car checklist beside the export bay
