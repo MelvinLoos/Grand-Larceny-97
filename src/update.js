@@ -21,6 +21,7 @@ import { addDecal, createCar, pickCarType, spawnRandomPed } from './entities.js'
 import { buzz } from './haptics.js';
 import { showPager, spawnFloatingText, updateDistrictName, updateHUD } from './hud.js';
 import { updateMission } from './missions.js';
+import { updateBays } from './shops.js';
 import {
     bullets,
     camera,
@@ -65,6 +66,15 @@ export function update(dt) {
         if (player.wantedDecay <= 0) {
             player.wanted = Math.max(0, Math.floor(player.wanted) - 1);
             player.wantedDecay = 15;
+            updateHUD();
+        }
+    }
+
+    if (player.probation > 0) {
+        player.probation -= dt;
+        if (player.probation <= 0) {
+            player.probation = 0;
+            player.probationWanted = 0;
             updateHUD();
         }
     }
@@ -261,6 +271,8 @@ export function update(dt) {
             }
         }
     }
+
+    updateBays(dt);
 
     // --- UPDATE VEHICLES & COLLISIONS ---
     let anySirenNear = false;

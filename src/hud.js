@@ -126,6 +126,7 @@ export function updateHUD() {
         el.setAttribute('aria-label', `Wanted level ${level} of 4`);
     }
 
+    $('hud-wanted').classList.toggle('probation', player.probation > 0);
     $('hud-mission-timer').hidden = !mission.active;
     if (mission.active) $('mission-text').textContent = mission.title;
 

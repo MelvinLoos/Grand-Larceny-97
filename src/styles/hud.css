@@ -287,6 +287,15 @@
     text-transform: uppercase;
 }
 
+#hud-wanted.probation {
+    animation: probation-blink 0.3s steps(2, jump-none) infinite;
+}
+@keyframes probation-blink {
+    50% {
+        opacity: 0.2;
+    }
+}
+
 #district-label {
     position: absolute;
     right: 18px;

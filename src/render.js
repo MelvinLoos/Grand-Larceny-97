@@ -1,4 +1,4 @@
-import { isRoadCell } from './city.js';
+import { DIR_VECS, bayByTile, isRoadCell } from './city.js';
 import {
     MAP_SIZE,
     TILE,
@@ -15,6 +15,7 @@ import {
 import { DISTRICTS, districtAtTile } from './districts.js';
 import { drawCanopy, drawFoliageGround } from './foliage.js';
 import { GRIME } from './grime.js';
+import { BAY_INFO } from './shops.js';
 import { HAZARD, INK, PAPER, PARK, ROUTE, STREETS_H, STREETS_V, WATER, shade } from './palette.js';
 import {
     bays,
@@ -75,6 +76,31 @@ function brickTile() {
         g.drawImage(GRIME.walk[1], 0, 0, 144, 144);
     }));
 }
+// Yellow/black hazard stripes across the doorway, straddling the bay edge and the apron
+function drawHazardThreshold(x, y, bay) {
+    const v = DIR_VECS[bay.dir];
+    const th = 20;
+    const rx = v.dx > 0 ? x + TILE - th : x;
+    const ry = v.dy > 0 ? y + TILE - th : y;
+    const w = v.dx === 0 ? TILE : th;
+    const h = v.dy === 0 ? TILE : th;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(rx, ry, w, h);
+    ctx.clip();
+    ctx.fillStyle = HAZARD;
+    ctx.fillRect(rx, ry, w, h);
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 9;
+    ctx.beginPath();
+    for (let k = -h; k < w + h; k += 24) {
+        ctx.moveTo(rx + k, ry + h);
+        ctx.lineTo(rx + k + h, ry);
+    }
+    ctx.stroke();
+    ctx.restore();
+}
+
 let _bayFloor = null;
 function bayFloorTile() {
     return (_bayFloor ||= tileCanvas((g) => {
@@ -180,6 +206,11 @@ export function render() {
                 ctx.drawImage(brickTile(), x, y, TILE + 1, TILE + 1);
             } else if (t === T_BAY) {
                 ctx.drawImage(bayFloorTile(), x, y, TILE + 1, TILE + 1);
+                const bay = bayByTile.get(ty * MAP_SIZE + tx);
+                if (bay) {
+                    drawHazardThreshold(x, y, bay);
+                    visibleBuildings.push({ tx, ty, meta: bay.meta, bay });
+                }
             } else if (t === T_ROAD_H || t === T_ROAD_V || t === T_ROAD_X) {
                 const gd = DISTRICTS[districtAtTile(tx, ty)].ground;
                 const curb = gd.walk;
@@ -474,6 +505,7 @@ export function render() {
         const s01 = worldToScreen(wx0, wy1, shakeX, shakeY);
 
         const h = b.meta.h * hMul;
+        ctx.globalAlpha = b.bay ? b.bay.roofAlpha : 1; // the bay's roof fades so you can watch the car pull in
         const r00 = { x: s00.x + (s00.x - vpSx) * h, y: s00.y + (s00.y - vpSy) * h };
         const r10 = { x: s10.x + (s10.x - vpSx) * h, y: s10.y + (s10.y - vpSy) * h };
         const r11 = { x: s11.x + (s11.x - vpSx) * h, y: s11.y + (s11.y - vpSy) * h };
@@ -519,6 +551,9 @@ export function render() {
             ctx.lineWidth = 2.5;
             ctx.strokeRect(r00.x + pad, r00.y + pad, rw - pad * 2, rh - pad * 2);
         }
+
+        ctx.globalAlpha = 1;
+        if (b.bay) drawBayFront(b, s00, s10, s11, s01, vpSx, vpSy, h);
 
         if (b.meta.style === 0) {
             ctx.strokeStyle = 'rgba(20, 19, 15, 0.55)';
@@ -575,6 +610,92 @@ export function render() {
     drawNavigationArrows(shakeX, shakeY);
 }
 
+const lerpPt = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+const leanPt = (p, vpSx, vpSy, h) => ({ x: p.x + (p.x - vpSx) * h, y: p.y + (p.y - vpSy) * h });
+
+// Roller shutter (slides up as it opens), door housing and the neon shop sign, always at full alpha
+function drawBayFront(b, s00, s10, s11, s01, vpSx, vpSy, h) {
+    const bay = b.bay;
+    const info = BAY_INFO[bay.type];
+    // entrance edge corners in screen space (dir 0 E, 1 S, 2 W, 3 N)
+    const [e0, e1] = [
+        [s10, s11],
+        [s11, s01],
+        [s01, s00],
+        [s00, s10]
+    ][bay.dir];
+    const door = Math.min(0.12, h * 0.8);
+    const top0 = leanPt(e0, vpSx, vpSy, door);
+    const top1 = leanPt(e1, vpSx, vpSy, door);
+    // shutter panel: lower edge rises as it opens
+    const lo = bay.shutter * door;
+    if (bay.shutter < 0.98) {
+        const a0 = leanPt(e0, vpSx, vpSy, lo);
+        const a1 = leanPt(e1, vpSx, vpSy, lo);
+        ctx.fillStyle = '#9aa1a8';
+        ctx.beginPath();
+        ctx.moveTo(a0.x, a0.y);
+        ctx.lineTo(a1.x, a1.y);
+        ctx.lineTo(top1.x, top1.y);
+        ctx.lineTo(top0.x, top0.y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(20, 19, 15, 0.55)';
+        ctx.lineWidth = 1.5;
+        for (let k = 1; k < 7; k++) {
+            const t = k / 7;
+            const p = lerpPt(a0, top0, t);
+            const q = lerpPt(a1, top1, t);
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(q.x, q.y);
+            ctx.stroke();
+        }
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+    // door housing
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(top0.x, top0.y);
+    ctx.lineTo(top1.x, top1.y);
+    ctx.stroke();
+    // red buzzer flash on a rejection
+    if (bay.state === 'reject' && Math.floor(performance.now() / 150) % 2 === 0) {
+        const m = lerpPt(top0, top1, 0.5);
+        ctx.fillStyle = '#ff2a2a';
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, 9 * Math.max(0.6, camera.zoom), 0, Math.PI * 2);
+        ctx.fill();
+    }
+    // neon awning sign on the roof lip above the door
+    const r0 = leanPt(e0, vpSx, vpSy, h);
+    const r1 = leanPt(e1, vpSx, vpSy, h);
+    const m = lerpPt(r0, r1, 0.5);
+    const fs = Math.max(9, 17 * camera.zoom);
+    ctx.font = `italic 900 ${fs}px "Archivo", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(info.label).width + 14;
+    const pulse = 0.8 + Math.sin(performance.now() * 0.008 + bay.tx) * 0.2;
+    ctx.fillStyle = INK;
+    ctx.fillRect(Math.round(m.x - tw / 2), Math.round(m.y - fs * 0.7), Math.round(tw), Math.round(fs * 1.4));
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = info.color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(
+        Math.round(m.x - tw / 2) + 1,
+        Math.round(m.y - fs * 0.7) + 1,
+        Math.round(tw) - 2,
+        Math.round(fs * 1.4) - 2
+    );
+    ctx.fillStyle = info.color;
+    ctx.fillText(info.label, m.x, m.y + 1);
+    ctx.globalAlpha = 1;
+}
+
 export function drawWallQuad(b1, b2, t2, t1, wallColor, winColor, winAlpha = 0.5) {
     ctx.fillStyle = wallColor;
     ctx.beginPath();
@@ -589,8 +710,9 @@ export function drawWallQuad(b1, b2, t2, t1, wallColor, winColor, winAlpha = 0.5
     ctx.stroke();
 
     if (winAlpha <= 0) return;
+    const a0 = ctx.globalAlpha;
     ctx.fillStyle = winColor;
-    ctx.globalAlpha = winAlpha;
+    ctx.globalAlpha = a0 * winAlpha;
     for (let row = 0.25; row <= 0.78; row += 0.26) {
         for (let col = 0.18; col <= 0.82; col += 0.22) {
             const wxA = (b1.x * (1 - col) + b2.x * col) * (1 - row) + (t1.x * (1 - col) + t2.x * col) * row;
@@ -598,7 +720,7 @@ export function drawWallQuad(b1, b2, t2, t1, wallColor, winColor, winAlpha = 0.5
             ctx.fillRect(wxA - 2.5, wyA - 2, 5, 4);
         }
     }
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = a0;
 }
 
 export function drawCharacter(

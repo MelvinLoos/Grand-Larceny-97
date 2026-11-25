@@ -7,6 +7,13 @@ import { cars, mission, payphones, peds, player } from './state.js';
 
 // --- WANTED SYSTEM ---
 export function addCrime(amount) {
+    if (player.probation > 0) {
+        // Crime during probation: the cops get their heat back, plus this crime
+        amount += player.probationWanted;
+        player.probation = 0;
+        player.probationWanted = 0;
+        player.wanted = 0;
+    }
     player.wanted = Math.min(4, player.wanted + amount);
     player.wantedDecay = 18;
     updateHUD();

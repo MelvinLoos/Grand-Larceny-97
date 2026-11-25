@@ -96,6 +96,23 @@ export class RetroAudio {
         this.playTone(110, 28, 0.48, 'sawtooth', 0.16);
     }
 
+    spray() {
+        this.playNoise(1.1, 3600, 0.07);
+    }
+    ratchet() {
+        for (let i = 0; i < 7; i++) setTimeout(() => this.playTone(190, 120, 0.04, 'square', 0.05), i * 80);
+    }
+    shutter() {
+        this.playNoise(0.35, 650, 0.09);
+        this.playTone(95, 55, 0.32, 'sawtooth', 0.04);
+    }
+    buzzer() {
+        this.playTone(130, 130, 0.22, 'square', 0.08);
+        setTimeout(() => this.playTone(130, 130, 0.22, 'square', 0.08), 300);
+    }
+    beep(hi = false) {
+        this.playTone(hi ? 2100 : 1700, hi ? 2100 : 1700, 0.07, 'square', 0.06);
+    }
     cash() {
         this.playTone(880, 1320, 0.09, 'square', 0.07);
         setTimeout(() => this.playTone(1320, 1760, 0.12, 'square', 0.07), 65);

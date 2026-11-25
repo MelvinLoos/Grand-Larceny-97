@@ -114,10 +114,25 @@ function findBayEntrance(tx, ty) {
     return 1;
 }
 
+// Tile -> bay lookup; a shut shutter makes the bay tile solid for cars, peds, bullets and line of sight
+export const bayByTile = new Map();
+export function isBayShut(tx, ty) {
+    const b = bayByTile.get(ty * MAP_SIZE + tx);
+    return !!b && b.shutter < 0.55;
+}
+
+function neighbourMeta(tx, ty) {
+    for (const dv of DIR_VECS) {
+        const m = bldgMeta[ty + dv.dy][tx + dv.dx];
+        if (m && m.kind === 'building') return m;
+    }
+    return buildingMeta(tx, ty, () => 0.5);
+}
+
 function registerBay(type, tx, ty) {
     const dir = findBayEntrance(tx, ty);
     const v = DIR_VECS[dir];
-    bays.push({
+    const bay = {
         type,
         tx,
         ty,
@@ -126,12 +141,15 @@ function registerBay(type, tx, ty) {
         y: (ty + 0.5) * TILE,
         ex: (tx + 0.5 + v.dx) * TILE, // apron tile centre in front of the shutter
         ey: (ty + 0.5 + v.dy) * TILE,
-        shutter: 1, // 1 = fully open, 0 = shut
+        shutter: 0, // 1 = fully open, 0 = shut
         roofAlpha: 1,
-        state: 'idle',
+        state: 'idle', // idle | reject | service | rollout
         timer: 0,
-        cooldown: 0
-    });
+        cooldown: 0,
+        meta: { ...neighbourMeta(tx, ty), style: -1, neon: null }
+    };
+    bays.push(bay);
+    bayByTile.set(ty * MAP_SIZE + tx, bay);
 }
 
 // Nearest plain pavement tile to (tx, ty) that no landmark has claimed
@@ -154,6 +172,7 @@ function pavementNear(tx, ty, taken) {
 
 export function buildCity() {
     bays.length = 0;
+    bayByTile.clear();
     payphones.length = 0;
     LANDMARKS.gangTurfs.length = 0;
     LANDMARKS.parkedCars.length = 0;
@@ -376,6 +395,11 @@ export function tileAtWorld(wx, wy) {
     return mapGrid[ty][tx];
 }
 
+function isBayShutAt(wx, wy) {
+    if (tileAtWorld(wx, wy) !== T_BAY) return false;
+    return isBayShut(Math.floor(wx / TILE), Math.floor(wy / TILE));
+}
+
 export function isSolidAt(wx, wy, radius = 12) {
     const pts = [
         [wx - radius, wy - radius],
@@ -384,7 +408,7 @@ export function isSolidAt(wx, wy, radius = 12) {
         [wx + radius, wy + radius]
     ];
     for (const [px, py] of pts) {
-        if (isSolidTile(tileAtWorld(px, py))) return true;
+        if (isSolidTile(tileAtWorld(px, py)) || isBayShutAt(px, py)) return true;
     }
     return false;
 }
@@ -434,7 +458,7 @@ export function hasLineOfSight(x1, y1, x2, y2) {
         const t = i / steps;
         const sx = x1 + (x2 - x1) * t;
         const sy = y1 + (y2 - y1) * t;
-        if (isSolidTile(tileAtWorld(sx, sy))) return false;
+        if (isSolidTile(tileAtWorld(sx, sy)) || isBayShutAt(sx, sy)) return false;
     }
     return true;
 }
@@ -497,7 +521,7 @@ export function updatePoliceFlowField() {
             if (ntx < 1 || nty < 1 || ntx >= MAP_SIZE - 1 || nty >= MAP_SIZE - 1) continue;
             // Roads cost 1, alleys/bays 2.5-3, pavement/grass 4.5 so cruisers stick to avenues until the final approach
             const stepCost = TILE_PROPS[mapGrid[nty][ntx]].flowCost;
-            if (stepCost === Infinity) continue;
+            if (stepCost === Infinity || (mapGrid[nty][ntx] === T_BAY && isBayShut(ntx, nty))) continue;
             const nextCost = cost + stepCost;
             if (nextCost < policeFlowDist[nty][ntx]) {
                 policeFlowDist[nty][ntx] = nextCost;

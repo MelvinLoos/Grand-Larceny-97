@@ -37,7 +37,7 @@ export function findAimTarget(x, y, facing) {
 
 // --- ENTER / EXIT VEHICLE ---
 export function toggleEnterExitVehicle() {
-    if (player.deadTimer > 0) return;
+    if (player.deadTimer > 0 || player.inCar?.serviceLock) return;
     audio.init();
 
     if (player.inCar) {
@@ -274,6 +274,8 @@ export function triggerWastedOrBusted(reason) {
     hideRadio();
     player.multiplier = 1;
     player.wanted = 0;
+    player.probation = 0;
+    player.probationWanted = 0;
     if (mission.active) {
         mission.active = false;
     }
