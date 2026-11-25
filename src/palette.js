@@ -2,17 +2,17 @@
 export const INK = '#14130f';
 export const PAPER = '#ece6d2';
 export const WALK = '#e1d8bf';
-export const ROAD = '#f7f2e2';
+export const ROAD = '#3a3b3e';
 export const WATER = '#2f6db5';
 export const PARK = '#79a957';
 export const HAZARD = '#ffd400';
 export const ROUTE = '#d23a2a';
 export const DISTRICTS = {
-    downtown: { name: 'DOWNTOWN NEON BAY', roofs: ['#dcb85a', '#cfa64a', '#e3c77c'] },
-    park: { name: 'CENTRAL PARK PLAZA', roofs: ['#dcb85a', '#cfa64a', '#e3c77c'] },
-    uptown: { name: 'UPTOWN FINANCIAL', roofs: ['#9fb6cc', '#8ea7bf', '#b3c6d8'] },
-    west: { name: 'WESTSIDE HEIGHTS', roofs: ['#cf9474', '#c2805f', '#dba88c'] },
-    dock: { name: 'SOUTHEAST DOCKYARD', roofs: ['#aaa69c', '#99958b', '#bcb8ae'] }
+    downtown: { name: 'DOWNTOWN NEON BAY', roofs: ['#b8a58a', '#a89478', '#c9b99f'] },
+    park: { name: 'CENTRAL PARK PLAZA', roofs: ['#c4b49a', '#b3a283', '#d3c6ae'] },
+    uptown: { name: 'UPTOWN FINANCIAL', roofs: ['#7d8d9c', '#6b7b8b', '#94a3b0'] },
+    west: { name: 'WESTSIDE HEIGHTS', roofs: ['#a5553f', '#92472f', '#b56a50'] },
+    dock: { name: 'SOUTHEAST DOCKYARD', roofs: ['#8d8e88', '#7b7c76', '#9fa09a'] }
 };
 export const STREETS_H = [
     '',

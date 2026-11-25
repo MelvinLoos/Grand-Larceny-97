@@ -150,7 +150,7 @@ export function render() {
                 ctx.fillStyle = ROAD;
                 ctx.fillRect(x, y, TILE + 1, TILE + 1);
                 ctx.drawImage(GRIME.road[(tx * 5 + ty * 11) & 3], x, y, TILE + 1, TILE + 1);
-                ctx.fillStyle = '#cbc1a3';
+                ctx.fillStyle = '#c9c6b4';
                 if (t === T_ROAD_H) {
                     for (let d = 12; d < TILE; d += 36) ctx.fillRect(x + d, y + TILE * 0.5 - 2, 20, 4);
                     ctx.fillStyle = WALK;
@@ -160,7 +160,7 @@ export function render() {
                     ctx.fillRect(x, y + 9, TILE + 1, 2.5);
                     ctx.fillRect(x, y + TILE - 11.5, TILE + 1, 2.5);
                     if (tx % 4 === 0 && STREETS_H[(ty - 2) / 4 + 1]) {
-                        ctx.fillStyle = 'rgba(20, 19, 15, 0.42)';
+                        ctx.fillStyle = 'rgba(236, 230, 210, 0.45)';
                         ctx.font = '700 17px "Barlow Condensed", sans-serif';
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
@@ -178,7 +178,7 @@ export function render() {
                         ctx.save();
                         ctx.translate(x + 26, y + TILE * 0.5);
                         ctx.rotate(-Math.PI / 2);
-                        ctx.fillStyle = 'rgba(20, 19, 15, 0.42)';
+                        ctx.fillStyle = 'rgba(236, 230, 210, 0.45)';
                         ctx.font = '700 17px "Barlow Condensed", sans-serif';
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
@@ -186,7 +186,7 @@ export function render() {
                         ctx.restore();
                     }
                 } else {
-                    ctx.fillStyle = 'rgba(20, 19, 15, 0.20)';
+                    ctx.fillStyle = 'rgba(236, 230, 210, 0.35)';
                     for (let z = 20; z < TILE - 20; z += 18) {
                         ctx.fillRect(x + z, y + 4, 10, 14);
                         ctx.fillRect(x + z, y + TILE - 18, 10, 14);
@@ -359,13 +359,6 @@ export function render() {
     ctx.restore();
 
     // 8. DRAW TRUE 2.5D PERSPECTIVE-EXTRUDED BUILDINGS (Screen-Space Painter's Order!)
-    // Sort farther buildings from screen center first so nearer buildings cleanly overlap!
-    visibleBuildings.sort((a, b) => {
-        const da = Math.hypot((a.tx + 0.5) * TILE - camera.x, (a.ty + 0.5) * TILE - camera.y);
-        const db = Math.hypot((b.tx + 0.5) * TILE - camera.x, (b.ty + 0.5) * TILE - camera.y);
-        return db - da;
-    });
-
     // On the box front the city is seen through the die-cut window: lean buildings from the window's centre, flatter
     let cxScreen = view.w * 0.5;
     let cyScreen = view.h * 0.5;
@@ -374,6 +367,25 @@ export function render() {
         cxScreen = game.attractWindow.x;
         cyScreen = game.attractWindow.y;
         hMul *= 0.35;
+    }
+    // Shake moves the whole scene rigidly, so the vanishing point shakes with the footprints
+    const vpSx = cxScreen + shakeX;
+    const vpSy = cyScreen + shakeY;
+
+    // Painter's order must be taken around the point the walls lean away from (the vanishing point),
+    // otherwise a nearer box can be drawn underneath a farther one.
+    const vpX = camera.x + (cxScreen - view.w * 0.5) / camera.zoom;
+    const vpY = camera.y + (cyScreen - view.h * 0.5) / camera.zoom;
+    for (const b of visibleBuildings) {
+        b.d = ((b.tx + 0.5) * TILE - vpX) ** 2 + ((b.ty + 0.5) * TILE - vpY) ** 2;
+    }
+    visibleBuildings.sort((a, b) => b.d - a.d);
+
+    // Ground shadows first, so no shadow is ever stamped over a neighbouring building's wall or roof
+    ctx.fillStyle = 'rgba(20, 19, 15, 0.22)';
+    for (const b of visibleBuildings) {
+        const s = worldToScreen(b.tx * TILE, b.ty * TILE, shakeX, shakeY);
+        ctx.fillRect(s.x + 8, s.y + 10, TILE * camera.zoom, TILE * camera.zoom);
     }
 
     for (const b of visibleBuildings) {
@@ -388,18 +400,15 @@ export function render() {
         const s01 = worldToScreen(wx0, wy1, shakeX, shakeY);
 
         const h = b.meta.h * hMul;
-        const r00 = { x: s00.x + (s00.x - cxScreen) * h, y: s00.y + (s00.y - cyScreen) * h };
-        const r10 = { x: s10.x + (s10.x - cxScreen) * h, y: s10.y + (s10.y - cyScreen) * h };
-        const r11 = { x: s11.x + (s11.x - cxScreen) * h, y: s11.y + (s11.y - cyScreen) * h };
-        const r01 = { x: s01.x + (s01.x - cxScreen) * h, y: s01.y + (s01.y - cyScreen) * h };
+        const r00 = { x: s00.x + (s00.x - vpSx) * h, y: s00.y + (s00.y - vpSy) * h };
+        const r10 = { x: s10.x + (s10.x - vpSx) * h, y: s10.y + (s10.y - vpSy) * h };
+        const r11 = { x: s11.x + (s11.x - vpSx) * h, y: s11.y + (s11.y - vpSy) * h };
+        const r01 = { x: s01.x + (s01.x - vpSx) * h, y: s01.y + (s01.y - vpSy) * h };
 
-        ctx.fillStyle = 'rgba(20, 19, 15, 0.22)';
-        ctx.fillRect(s00.x + 8, s00.y + 10, s10.x - s00.x, s01.y - s00.y);
-
-        if (s00.y > cyScreen) drawWallQuad(s00, s10, r10, r00, b.meta.wall, b.meta.win);
-        if (s11.y < cyScreen) drawWallQuad(s11, s01, r01, r11, b.meta.dark, b.meta.win);
-        if (s00.x > cxScreen) drawWallQuad(s01, s00, r00, r01, b.meta.wall, b.meta.win);
-        if (s10.x < cxScreen) drawWallQuad(s10, s11, r11, r10, b.meta.dark, b.meta.win);
+        if (s00.y > vpSy) drawWallQuad(s00, s10, r10, r00, b.meta.wall, b.meta.win);
+        if (s11.y < vpSy) drawWallQuad(s11, s01, r01, r11, b.meta.dark, b.meta.win);
+        if (s00.x > vpSx) drawWallQuad(s01, s00, r00, r01, b.meta.wall, b.meta.win);
+        if (s10.x < vpSx) drawWallQuad(s10, s11, r11, r10, b.meta.dark, b.meta.win);
 
         const rw = r10.x - r00.x;
         const rh = r01.y - r00.y;
