@@ -523,7 +523,7 @@ export function spawnLeafBurst(f, n) {
 }
 
 function rustle(x, y) {
-    if (Math.hypot(x - player.x, y - player.y) < 650) audio.playNoise(0.14, 2600, 0.05);
+    audio.rustle(x, y);
 }
 
 // Cars only ever touch the trunk; bushes just drag and burst
@@ -558,6 +558,8 @@ export function collideCarFoliage(c, dt) {
                 f.hitCd = 0.4;
                 spawnLeafBurst(f, 8 + Math.min(6, Math.floor(impact / 60)));
                 rustle(f.x, f.y);
+                audio.snap(f.x, f.y);
+                if (impact > 190) audio.crash(c.x, c.y, impact);
             }
         } else {
             const sp = Math.hypot(c.vx, c.vy);

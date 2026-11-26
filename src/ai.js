@@ -216,7 +216,7 @@ export function updateTrafficCarAI(c, dt) {
                 desiredSpeed = 0;
                 if (other === player.inCar && c.honkCooldown <= 0 && Math.hypot(c.x - player.x, c.y - player.y) < 420) {
                     c.honkCooldown = 4 + Math.random() * 3;
-                    audio.horn(false);
+                    audio.horn(c);
                 }
             } else {
                 const otherFwd = Math.max(0, other.vx * fx + other.vy * fy);
@@ -235,7 +235,7 @@ export function updateTrafficCarAI(c, dt) {
             desiredSpeed = 0;
             if (c.honkCooldown <= 0) {
                 c.honkCooldown = 3.5;
-                audio.horn(false);
+                audio.horn(c);
             }
         }
     }

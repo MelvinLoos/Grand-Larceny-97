@@ -67,6 +67,7 @@ export function toggleEnterExitVehicle() {
         car.driver = false;
         car.doorT = 0.5;
         player.inCar = null;
+        audio.door(car);
         hideRadio();
         updateHUD();
         return;
@@ -100,6 +101,7 @@ export function toggleEnterExitVehicle() {
                 panicTimer: 4,
                 shootTimer: 0.8
             });
+            audio.yelp(bestCar.x, bestCar.y);
             addCrime(bestCar.spec.isPolice ? 1.2 : 0.45);
             alertGangs(bestCar.x, bestCar.y);
             addScore(150, bestCar.x, bestCar.y - 20, 'JACKED');
@@ -109,8 +111,8 @@ export function toggleEnterExitVehicle() {
         bestCar.driver = true;
         bestCar.doorT = 0.5;
         player.inCar = bestCar;
-        showRadio(bestCar.spec);
-        audio.cash();
+        showRadio(bestCar.radioStation);
+        audio.door(bestCar);
         updateHUD();
     }
 }
@@ -118,7 +120,7 @@ export function toggleEnterExitVehicle() {
 // --- WEAPONS & EXPLOSIONS ---
 export function fireWeapon(x, y, angle, weaponIdx, fromPlayer = true) {
     const w = WEAPONS[weaponIdx];
-    audio.shoot(weaponIdx);
+    audio.shoot(weaponIdx, x, y);
     if (fromPlayer) buzz(weaponIdx === 3 ? 30 : 10);
 
     if (weaponIdx === 0) {
@@ -171,7 +173,7 @@ export function fireWeapon(x, y, angle, weaponIdx, fromPlayer = true) {
 }
 
 export function triggerExplosion(x, y, radius = 125, fromPlayer = true, dmgMul = 1) {
-    audio.explosion();
+    audio.explosion(x, y, dmgMul > 1);
     camera.shake = Math.max(camera.shake, 18);
     addDecal('crater', x, y, Math.random() * 6.28, radius * 0.42, 'rgba(15, 15, 15, 0.72)');
 

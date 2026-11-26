@@ -16,6 +16,7 @@ export function addCrime(amount) {
     }
     player.wanted = Math.min(4, player.wanted + amount);
     player.wantedDecay = 18;
+    audio.dispatch();
     updateHUD();
 }
 
@@ -101,9 +102,10 @@ export function updateMission(dt) {
         for (const ph of payphones) {
             ph.ringPhase += dt * 5;
             const dist = Math.hypot(player.x - ph.x, player.y - ph.y);
-            if (dist < 420 && Math.floor(ph.ringPhase) % 8 === 0 && Math.random() < 0.06) {
-                audio.phoneRing();
-            }
+            // 1.2s trill every 4s; distance gain + panning come from the audio manager
+            const ringing = ph.ringPhase % 20 < 6;
+            if (ringing && !ph.wasRinging) audio.phoneRing(ph.x, ph.y);
+            ph.wasRinging = ringing;
             if (!player.inCar && dist < 44 && player.deadTimer <= 0) {
                 startPayphoneMission(ph);
                 break;

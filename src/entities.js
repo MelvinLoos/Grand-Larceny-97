@@ -1,5 +1,5 @@
 import { LANDMARKS, angleToRoadDir, isSidewalkAt, isSolidAt, pickRoadSpawnAnywhere } from './city.js';
-import { CAR_TYPES, MAP_SIZE, TILE } from './config.js';
+import { CAR_TYPES, MAP_SIZE, TILE, pickStation } from './config.js';
 import { DISTRICTS, getDistrictAt, pickWeighted } from './districts.js';
 import { PUNK_HAIR, pedLook, SHIRT_COLORS, VEHICLE_PALETTE } from './palette.js';
 import { showPager, updateHUD } from './hud.js';
@@ -50,7 +50,8 @@ export function createCar(typeKey, x, y, angle = 0, aiMode = 'traffic') {
         honkCooldown: 0,
         stuckTimer: 0,
         reverseTimer: 0,
-        deployedCop: false
+        deployedCop: false,
+        radioStation: pickStation(spec) // sticks with the car: jack it and you hear what they were playing
     };
 }
 
