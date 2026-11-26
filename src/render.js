@@ -50,6 +50,11 @@ export function worldToScreen(wx, wy, shakeX, shakeY) {
 }
 
 // --- CACHED GROUND TILES ---
+// World-space box a building is drawn on: its setback footprint, or the whole tile
+function footprint(b) {
+    return b.meta.fp || { x0: b.tx * TILE, y0: b.ty * TILE, x1: (b.tx + 1) * TILE, y1: (b.ty + 1) * TILE };
+}
+
 function tileCanvas(draw) {
     const c = document.createElement('canvas');
     c.width = c.height = 144;
@@ -480,7 +485,8 @@ export function render() {
     const vpX = camera.x + (cxScreen - view.w * 0.5) / camera.zoom;
     const vpY = camera.y + (cyScreen - view.h * 0.5) / camera.zoom;
     for (const b of visibleBuildings) {
-        b.d = ((b.tx + 0.5) * TILE - vpX) ** 2 + ((b.ty + 0.5) * TILE - vpY) ** 2;
+        const fp = footprint(b);
+        b.d = ((fp.x0 + fp.x1) / 2 - vpX) ** 2 + ((fp.y0 + fp.y1) / 2 - vpY) ** 2;
     }
     // Tree canopies join the same far-to-near painter's order (cars and peds pass underneath)
     const props = visibleBuildings.concat(visibleFoliage.map((f) => ({ f, d: (f.x - vpX) ** 2 + (f.y - vpY) ** 2 })));
@@ -489,8 +495,9 @@ export function render() {
     // Ground shadows first, so no shadow is ever stamped over a neighbouring building's wall or roof
     ctx.fillStyle = 'rgba(20, 19, 15, 0.22)';
     for (const b of visibleBuildings) {
-        const s = worldToScreen(b.tx * TILE, b.ty * TILE, shakeX, shakeY);
-        ctx.fillRect(s.x + 8, s.y + 10, TILE * camera.zoom, TILE * camera.zoom);
+        const fp = footprint(b);
+        const s = worldToScreen(fp.x0, fp.y0, shakeX, shakeY);
+        ctx.fillRect(s.x + 8, s.y + 10, (fp.x1 - fp.x0) * camera.zoom, (fp.y1 - fp.y0) * camera.zoom);
     }
 
     for (const b of props) {
@@ -500,10 +507,11 @@ export function render() {
             ctx.imageSmoothingEnabled = true;
             continue;
         }
-        const wx0 = b.tx * TILE;
-        const wy0 = b.ty * TILE;
-        const wx1 = wx0 + TILE;
-        const wy1 = wy0 + TILE;
+        const fp = footprint(b);
+        const wx0 = fp.x0;
+        const wy0 = fp.y0;
+        const wx1 = fp.x1;
+        const wy1 = fp.y1;
 
         const s00 = worldToScreen(wx0, wy0, shakeX, shakeY);
         const s10 = worldToScreen(wx1, wy0, shakeX, shakeY);

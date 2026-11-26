@@ -13,7 +13,13 @@ export const DISTRICTS = [
         id: 'downtown',
         name: 'DOWNTOWN FINANCIAL',
         ground: { road: '#3b4350', walk: '#d6dce2', concrete: false, tiled: true },
-        bldg: { stories: [4, 6], roofs: ['#7d8d9c', '#6b7b8b', '#94a3b0'], win: '#cfe6f5', winAlpha: 0.6 },
+        bldg: {
+            wideWalk: 0.55,
+            stories: [4, 6],
+            roofs: ['#7d8d9c', '#6b7b8b', '#94a3b0'],
+            win: '#cfe6f5',
+            winAlpha: 0.6
+        },
         blocks: { towers: 0.35, standard: 0.15, split: 0.12, L: 0.18, U: 0.08, plaza: 0.12 },
         foliage: {
             sideChance: 0.22,

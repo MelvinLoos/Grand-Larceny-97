@@ -1,5 +1,5 @@
-import { LANDMARKS, angleToRoadDir, pickRoadSpawnAnywhere, tileAtWorld } from './city.js';
-import { CAR_TYPES, MAP_SIZE, TILE, isSidewalkTile } from './config.js';
+import { LANDMARKS, angleToRoadDir, isSidewalkAt, isSolidAt, pickRoadSpawnAnywhere } from './city.js';
+import { CAR_TYPES, MAP_SIZE, TILE } from './config.js';
 import { DISTRICTS, getDistrictAt, pickWeighted } from './districts.js';
 import { PUNK_HAIR, pedLook, SHIRT_COLORS, VEHICLE_PALETTE } from './palette.js';
 import { showPager, updateHUD } from './hud.js';
@@ -144,7 +144,7 @@ export function spawnRandomPed(role = 'civilian', nearPlayer = false) {
             wx = (2 + Math.random() * (MAP_SIZE - 4)) * TILE;
             wy = (2 + Math.random() * (MAP_SIZE - 4)) * TILE;
         }
-        if (isSidewalkTile(tileAtWorld(wx, wy))) {
+        if (isSidewalkAt(wx, wy) && !isSolidAt(wx, wy, 8)) {
             const dp = DISTRICTS[getDistrictAt(wx, wy)].peds;
             const shirts = role === 'civilian' && dp.shirts ? dp.shirts : SHIRT_COLORS;
             peds.push({
