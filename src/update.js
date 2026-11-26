@@ -7,6 +7,7 @@ import {
     LANDMARKS,
     hasLineOfSight,
     isRoadTileType,
+    isSidewalkAt,
     isSolidAt,
     pickRoadSpawnNear,
     policeFlowDist,
@@ -15,7 +16,7 @@ import {
 } from './city.js';
 import { damagePed, damagePlayer, destroyCar, findAimTarget, fireWeapon, triggerExplosion } from './combat.js';
 import { collideCarFoliage, steerAroundTrunks, trunkBlocks, updateFoliage } from './foliage.js';
-import { MAP_SIZE, TILE, T_ROAD_X, WEAPONS, isSidewalkTile, isSolidTile } from './config.js';
+import { MAP_SIZE, TILE, T_ROAD_X, WEAPONS, isSolidTile } from './config.js';
 import { getDistrictAt } from './districts.js';
 import { PUNK_HAIR, pedLook } from './palette.js';
 import { addDecal, createCar, pickCarType, spawnRandomPed } from './entities.js';
@@ -582,8 +583,7 @@ export function update(dt) {
                         // Dive perpendicular to oncoming vehicle toward nearest sidewalk
                         const perpA = Math.atan2(c.vy, c.vx) + Math.PI * 0.5;
                         const perpB = perpA + Math.PI;
-                        const tA = tileAtWorld(p.x + Math.cos(perpA) * 28, p.y + Math.sin(perpA) * 28);
-                        p.angle = isSidewalkTile(tA) ? perpA : perpB;
+                        p.angle = isSidewalkAt(p.x + Math.cos(perpA) * 28, p.y + Math.sin(perpA) * 28) ? perpA : perpB;
                         break;
                     }
                 }
@@ -715,7 +715,7 @@ export function update(dt) {
             // Pedestrians stay on sidewalks/parks, only entering roads at T_ROAD_X crosswalks when clear of cars!
             let canStep = false;
             if (!isSolidAt(nx, ny, 8) && !trunkBlocks(p.x, p.y, nx, ny, 8)) {
-                if (isSidewalkTile(nt)) {
+                if (isSidewalkAt(nx, ny)) {
                     canStep = true;
                 } else if (p.panicTimer > 0 && !isSolidTile(nt)) {
                     canStep = true;

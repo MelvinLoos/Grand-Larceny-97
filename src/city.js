@@ -11,6 +11,7 @@ import {
     T_ROAD_V,
     T_ROAD_X,
     T_WATER,
+    isSidewalkTile,
     isSolidTile
 } from './config.js';
 import { D_MIDTOWN, DISTRICTS, buildingMeta, containerMeta, districtAtTile, pickWeighted } from './districts.js';
@@ -21,6 +22,8 @@ import { bays, bldgMeta, cars, mapGrid, payphones, player } from './state.js';
 // so every road tile has at least two road neighbours: zero dead-end stubs for the traffic AI.
 // Blocks are 3x3 tiles at 3 + 4n. Three superblocks swallow their interior avenues (T-junctions).
 const BLOCKS = 14;
+const SIDEWALK = 32; // building setback from an avenue (+10px curb painted on the road tile): fits player (r11) and peds (r8)
+const SIDEWALK_WIDE = 48; // wider promenade faces
 const blockOrigin = (n) => 3 + 4 * n;
 
 // 3x3 block templates. B building  . pavement  A alley/courtyard apron  Y drive-in bay  (rotated cw k*90deg)
@@ -295,6 +298,8 @@ export function buildCity() {
     Object.assign(LANDMARKS.yardRect, { x0: yx0, y0: yy0, x1: yx0 + 6, y1: yy0 + 2 });
     registerBay('export', yx0 + 3, yy0 + 1);
 
+    applySetbacks();
+
     // 4. Anchors resolved against the finished map
     const taken = new Set();
     const spawnTx = Math.floor(pcx);
@@ -361,6 +366,36 @@ export function buildCity() {
     }
 }
 
+// Pull each building's footprint back from any avenue it touches, so the pavement under the tile becomes a walkable
+// sidewalk. The width is rolled per block face so every building along one face lines up.
+function applySetbacks() {
+    const dirs = [
+        [1, 0],
+        [0, 1],
+        [-1, 0],
+        [0, -1]
+    ]; // E, S, W, N (matches DIR_VECS)
+    for (let ty = 0; ty < MAP_SIZE; ty++)
+        for (let tx = 0; tx < MAP_SIZE; tx++) {
+            const m = bldgMeta[ty][tx];
+            if (mapGrid[ty][tx] !== T_BLDG || !m || m.kind !== 'building') continue;
+            const wide = DISTRICTS[districtAtTile(tx, ty)].bldg.wideWalk ?? 0.3;
+            const bx = Math.floor((tx - 3) / 4);
+            const by = Math.floor((ty - 3) / 4);
+            const inset = dirs.map(([dx, dy], d) => {
+                if (!isRoadCell(tx + dx, ty + dy)) return 0;
+                return rngFor(bx * 131 + by * 977 + d * 7 + 5)() < wide ? SIDEWALK_WIDE : SIDEWALK;
+            });
+            if (!inset.some((v) => v > 0)) continue;
+            m.fp = {
+                x0: tx * TILE + inset[2],
+                y0: ty * TILE + inset[3],
+                x1: (tx + 1) * TILE - inset[0],
+                y1: (ty + 1) * TILE - inset[1]
+            };
+        }
+}
+
 // Dev check: every road tile needs 2+ road neighbours and all roads form one connected network
 export function validateRoadNetwork() {
     const deadEnds = [];
@@ -403,6 +438,23 @@ function isBayShutAt(wx, wy) {
     return isBayShut(Math.floor(wx / TILE), Math.floor(wy / TILE));
 }
 
+// Solid at a world point: building tiles are only solid inside their setback footprint
+export function isSolidPoint(wx, wy) {
+    const t = tileAtWorld(wx, wy);
+    if (t === T_BLDG) {
+        const fp = bldgMeta[Math.floor(wy / TILE)][Math.floor(wx / TILE)]?.fp;
+        if (fp) return wx >= fp.x0 && wx < fp.x1 && wy >= fp.y0 && wy < fp.y1;
+        return true;
+    }
+    return isSolidTile(t) || isBayShutAt(wx, wy);
+}
+
+// Pedestrian-walkable ground: pavement/grass tiles plus the sidewalk strip in front of a building
+export function isSidewalkAt(wx, wy) {
+    const t = tileAtWorld(wx, wy);
+    return isSidewalkTile(t) || (t === T_BLDG && !isSolidPoint(wx, wy));
+}
+
 export function isSolidAt(wx, wy, radius = 12) {
     const pts = [
         [wx - radius, wy - radius],
@@ -411,7 +463,7 @@ export function isSolidAt(wx, wy, radius = 12) {
         [wx + radius, wy + radius]
     ];
     for (const [px, py] of pts) {
-        if (isSolidTile(tileAtWorld(px, py)) || isBayShutAt(px, py)) return true;
+        if (isSolidPoint(px, py)) return true;
     }
     return false;
 }
@@ -461,7 +513,7 @@ export function hasLineOfSight(x1, y1, x2, y2) {
         const t = i / steps;
         const sx = x1 + (x2 - x1) * t;
         const sy = y1 + (y2 - y1) * t;
-        if (isSolidTile(tileAtWorld(sx, sy)) || isBayShutAt(sx, sy)) return false;
+        if (isSolidPoint(sx, sy)) return false;
     }
     return true;
 }
@@ -506,7 +558,7 @@ export function updatePoliceFlowField() {
     }
     const ptx = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(player.x / TILE)));
     const pty = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(player.y / TILE)));
-    if (isSolidTile(mapGrid[pty][ptx])) return;
+    if (isSolidTile(mapGrid[pty][ptx]) && isSolidPoint(player.x, player.y)) return;
 
     flowHeap.length = 0;
     policeFlowDist[pty][ptx] = 0;
