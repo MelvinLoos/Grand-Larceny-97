@@ -68,6 +68,15 @@
 #hud-armor-bar {
     background: #5a8fd6;
 }
+#hud-breath {
+    background: #7fd6e6;
+}
+.m-br {
+    width: 118px;
+}
+.breath-row[hidden] {
+    display: none !important;
+}
 .m-hp {
     width: 118px;
 }

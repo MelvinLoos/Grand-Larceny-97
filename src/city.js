@@ -11,10 +11,12 @@ import {
     T_ROAD_V,
     T_ROAD_X,
     T_WATER,
+    WORLD_SIZE,
     isSidewalkTile,
     isSolidTile
 } from './config.js';
 import { D_MIDTOWN, DISTRICTS, buildingMeta, containerMeta, districtAtTile, pickWeighted } from './districts.js';
+import { carveRiver, lowBarrierAt, surfaceAt } from './river.js';
 import { bays, bldgMeta, cars, mapGrid, payphones, player } from './state.js';
 
 // --- CITY GENERATION ---
@@ -298,6 +300,9 @@ export function buildCity() {
     Object.assign(LANDMARKS.yardRect, { x0: yx0, y0: yy0, x1: yx0 + 6, y1: yy0 + 2 });
     registerBay('export', yx0 + 3, yy0 + 1);
 
+    // 3d. The river, its bridges and the broken drawbridge
+    carveRiver();
+
     applySetbacks();
 
     // 4. Anchors resolved against the finished map
@@ -438,14 +443,21 @@ function isBayShutAt(wx, wy) {
     return isBayShut(Math.floor(wx / TILE), Math.floor(wy / TILE));
 }
 
-// Solid at a world point: building tiles are only solid inside their setback footprint
-export function isSolidPoint(wx, wy) {
+// Hard walls at a world point: building tiles are only solid inside their setback footprint, shut bays are solid
+export function isWallPoint(wx, wy) {
     const t = tileAtWorld(wx, wy);
     if (t === T_BLDG) {
         const fp = bldgMeta[Math.floor(wy / TILE)][Math.floor(wx / TILE)]?.fp;
         if (fp) return wx >= fp.x0 && wx < fp.x1 && wy >= fp.y0 && wy < fp.y1;
         return true;
     }
+    return isBayShutAt(wx, wy);
+}
+
+// Solid for pedestrians, spawns and shops: walls plus open water
+export function isSolidPoint(wx, wy) {
+    const t = tileAtWorld(wx, wy);
+    if (t === T_BLDG) return isWallPoint(wx, wy);
     return isSolidTile(t) || isBayShutAt(wx, wy);
 }
 
@@ -466,6 +478,44 @@ export function isSolidAt(wx, wy, radius = 12) {
         if (isSolidPoint(px, py)) return true;
     }
     return false;
+}
+
+const cornersHit = (wx, wy, radius, fn) =>
+    fn(wx - radius, wy - radius) ||
+    fn(wx + radius, wy - radius) ||
+    fn(wx - radius, wy + radius) ||
+    fn(wx + radius, wy + radius);
+const offWorld = (px, py) => px < 0 || py < 0 || px >= WORLD_SIZE || py >= WORLD_SIZE;
+
+// Hard walls only (bullets pass over rails and water)
+export function isWallAt(wx, wy, radius = 3) {
+    return cornersHit(wx, wy, radius, isWallPoint);
+}
+
+// What stops a car of radius `radius` at height z: true (hard wall / world edge), a low barrier object, or null.
+// Open water does not stop a car: it falls in.
+export function blockerAt(wx, wy, radius, z) {
+    let low = null;
+    for (const [px, py] of [
+        [wx - radius, wy - radius],
+        [wx + radius, wy - radius],
+        [wx - radius, wy + radius],
+        [wx + radius, wy + radius]
+    ]) {
+        if (offWorld(px, py) || isWallPoint(px, py)) return true;
+        low ||= lowBarrierAt(px, py, z, false);
+    }
+    return low;
+}
+
+// On foot (or swimming): walls, the world edge and non-climbable barriers stop you; water does not
+export function walkBlockedAt(wx, wy, radius) {
+    return cornersHit(
+        wx,
+        wy,
+        radius,
+        (px, py) => offWorld(px, py) || isWallPoint(px, py) || !!lowBarrierAt(px, py, 0, true)
+    );
 }
 
 // --- ROAD LANE & AI NAVIGATION HELPERS ---
@@ -505,15 +555,28 @@ export function getLaneCoord(tileIdx, dir) {
     return center + LANE_OFFSET; // Northbound -> East half of road
 }
 
-// Line-of-sight raycast so cops/enemies don't shoot into brick walls or drive blindly into blocks
+// Line-of-sight raycast so cops/enemies don't shoot into brick walls: water and rails don't block the view
 export function hasLineOfSight(x1, y1, x2, y2) {
+    const dist = Math.hypot(x2 - x1, y2 - y1);
+    const steps = Math.max(2, Math.ceil(dist / 36));
+    for (let i = 1; i < steps; i++) {
+        const t = i / steps;
+        if (isWallPoint(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t)) return false;
+    }
+    return true;
+}
+
+// Same, but for cars: open river blocks the line, except the drawbridge gap (cops will chase over the jump)
+export function hasDriveLine(x1, y1, x2, y2) {
     const dist = Math.hypot(x2 - x1, y2 - y1);
     const steps = Math.max(2, Math.ceil(dist / 36));
     for (let i = 1; i < steps; i++) {
         const t = i / steps;
         const sx = x1 + (x2 - x1) * t;
         const sy = y1 + (y2 - y1) * t;
-        if (isSolidPoint(sx, sy)) return false;
+        if (isWallPoint(sx, sy)) return false;
+        const s = surfaceAt(sx, sy);
+        if (s.water && !s.gap) return false;
     }
     return true;
 }
@@ -637,15 +700,24 @@ export function pickRoadSpawnAnywhere() {
     return null;
 }
 
-// Adjusts a steering angle using left/right feeler whiskers to avoid walls & water
-export function applyWallFeelers(x, y, desiredAngle, lookDist = 64) {
-    if (!isSolidAt(x + Math.cos(desiredAngle) * lookDist, y + Math.sin(desiredAngle) * lookDist, 14)) {
+// Adjusts a steering angle using left/right feeler whiskers to avoid walls & water.
+// asCar: water is not an obstacle (cops must be able to line up the drawbridge jump), breakable barriers neither
+export function applyWallFeelers(x, y, desiredAngle, lookDist = 64, asCar = false) {
+    const blocked = asCar
+        ? (px, py) =>
+              cornersHit(px, py, 14, (cx, cy) => {
+                  if (offWorld(cx, cy) || isWallPoint(cx, cy)) return true;
+                  const b = lowBarrierAt(cx, cy, 0, false);
+                  return !!b && !b.breakable;
+              })
+        : (px, py) => isSolidAt(px, py, 14);
+    if (!blocked(x + Math.cos(desiredAngle) * lookDist, y + Math.sin(desiredAngle) * lookDist)) {
         return desiredAngle;
     }
     const offsets = [0.42, -0.42, 0.85, -0.85, 1.3, -1.3];
     for (const off of offsets) {
         const testAng = desiredAngle + off;
-        if (!isSolidAt(x + Math.cos(testAng) * lookDist, y + Math.sin(testAng) * lookDist, 14)) {
+        if (!blocked(x + Math.cos(testAng) * lookDist, y + Math.sin(testAng) * lookDist)) {
             return testAng;
         }
     }

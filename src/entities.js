@@ -1,6 +1,7 @@
 import { LANDMARKS, angleToRoadDir, isSidewalkAt, isSolidAt, pickRoadSpawnAnywhere } from './city.js';
-import { CAR_TYPES, MAP_SIZE, TILE, pickStation } from './config.js';
+import { CAR_TYPES, MAP_SIZE, SWIM_TIME, TILE, pickStation } from './config.js';
 import { DISTRICTS, getDistrictAt, pickWeighted } from './districts.js';
+import { surfaceAt } from './river.js';
 import { PUNK_HAIR, pedLook, SHIRT_COLORS, VEHICLE_PALETTE } from './palette.js';
 import { showPager, updateHUD } from './hud.js';
 import { bullets, camera, cars, decals, floatingTexts, particles, peds, pickups, player } from './state.js';
@@ -22,6 +23,7 @@ export function createCar(typeKey, x, y, angle = 0, aiMode = 'traffic') {
         color = VEHICLE_PALETTE[paletteID];
     } else color = spec.colors[Math.floor(Math.random() * spec.colors.length)];
     const initDir = angleToRoadDir(angle);
+    const surf = surfaceAt(x, y);
     return {
         typeKey,
         spec,
@@ -31,6 +33,15 @@ export function createCar(typeKey, x, y, angle = 0, aiMode = 'traffic') {
         vy: 0,
         speed: 0,
         angle,
+        z: surf.z, // height above the ground plane (bridge decks and ramps lift it)
+        vz: 0,
+        spin: 0, // airborne yaw rate
+        airborne: false,
+        onBridge: surf.deck,
+        onRamp: surf.ramp,
+        sink: 0, // 0 -> 1 while going down in the river
+        sunk: false,
+        jump: null,
         color,
         paletteID,
         turretAngle: angle, // tank only: where the cannon points, independent of the hull
@@ -84,6 +95,8 @@ export function populateWorld() {
     player.currentDistrict = -1;
     player.probation = 0;
     player.probationWanted = 0;
+    player.swimming = false;
+    player.breath = SWIM_TIME;
 
     // Parked cars on the Central Park north plaza (off active traffic lanes!)
     for (const pc of LANDMARKS.parkedCars) cars.push(createCar(pc.type, pc.x, pc.y, pc.angle, 'parked'));

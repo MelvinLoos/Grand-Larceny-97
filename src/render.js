@@ -9,6 +9,7 @@ import {
     T_PAVEMENT,
     T_ROAD_H,
     T_ROAD_V,
+    T_RAMP,
     T_ROAD_X,
     T_WATER
 } from './config.js';
@@ -16,6 +17,17 @@ import { DISTRICTS, districtAtTile } from './districts.js';
 import { drawCanopy, drawFoliageGround } from './foliage.js';
 import { GRIME } from './grime.js';
 import { drawRadar } from './minimap.js';
+import {
+    applyAirScale,
+    drawBridgeDeck,
+    drawBridgeRails,
+    drawRampTile,
+    drawTileBarriers,
+    drawWaterDecor,
+    isRampCell,
+    overlayTiles,
+    tealOf
+} from './render-river.js';
 import { BAY_INFO } from './shops.js';
 import { bodyOf, doorFor, skinOf } from './vehicles.js';
 import { HAZARD, INK, PAPER, PARK, ROUTE, STREETS_H, STREETS_V, WATER, shade } from './palette.js';
@@ -147,6 +159,8 @@ export function render() {
     const visibleBuildings = [];
     const visibleFoliage = [];
     const nowMs = performance.now();
+    const nowSec0 = nowMs * 0.001;
+    overlayTiles.length = 0;
     for (let ty = minTY; ty <= maxTY; ty++) {
         for (let tx = minTX; tx <= maxTX; tx++) {
             const t = mapGrid[ty][tx];
@@ -172,6 +186,8 @@ export function render() {
                 }
                 ctx.stroke();
                 ctx.lineCap = 'butt';
+                drawWaterDecor(ctx, tx, ty, x, y, nowMs);
+                drawTileBarriers(ctx, tx, ty);
                 const edgeH = ty === 0 || ty === MAP_SIZE - 1,
                     edgeV = tx === 0 || tx === MAP_SIZE - 1;
                 if ((edgeH && tx % 4 === 2 && !edgeV) || (edgeV && ty % 4 === 2 && !edgeH)) {
@@ -219,6 +235,11 @@ export function render() {
                     drawHazardThreshold(x, y, bay);
                     visibleBuildings.push({ tx, ty, meta: bay.meta, bay });
                 }
+            } else if (t === T_RAMP) {
+                drawRampTile(ctx, tx, ty, x, y, nowSec0);
+                drawTileBarriers(ctx, tx, ty);
+            } else if (t === T_ROAD_H && bldgMeta[ty][tx]?.kind === 'bridge') {
+                drawBridgeDeck(ctx, tx, ty, x, y);
             } else if (t === T_ROAD_H || t === T_ROAD_V || t === T_ROAD_X) {
                 const gd = DISTRICTS[districtAtTile(tx, ty)].ground;
                 const curb = gd.walk;
@@ -270,8 +291,8 @@ export function render() {
                     // Junction: zebra crossings only where a road arrives, kerb where the side is closed (T / corner)
                     const rN = isRoadCell(tx, ty - 1),
                         rS = isRoadCell(tx, ty + 1),
-                        rW = isRoadCell(tx - 1, ty),
-                        rE = isRoadCell(tx + 1, ty);
+                        rW = isRoadCell(tx - 1, ty) || isRampCell(tx - 1, ty),
+                        rE = isRoadCell(tx + 1, ty) || isRampCell(tx + 1, ty);
                     ctx.fillStyle = 'rgba(236, 230, 210, 0.35)';
                     for (let z = 20; z < TILE - 20; z += 18) {
                         if (rN) ctx.fillRect(x + z, y + 4, 10, 14);
@@ -429,13 +450,30 @@ export function render() {
             player.walkCycle !== player._lastWC
         );
         player._lastWC = player.walkCycle;
+        if (player.swimming) {
+            // Head and shoulders above the surface: foam rings, a water-line over the body
+            const ph = performance.now() * 0.006;
+            ctx.fillStyle = 'rgba(47, 109, 181, 0.62)';
+            ctx.beginPath();
+            ctx.ellipse(player.x, player.y + 5, 14, 9, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(242, 248, 246, 0.85)';
+            ctx.lineWidth = 2.5;
+            for (let k = 0; k < 2; k++) {
+                ctx.beginPath();
+                ctx.arc(player.x, player.y + 3, 15 + ((ph + k * 3) % 6) * 2.2, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
     }
 
     // 6. DRAW VEHICLES (With Drop Shadows, Headlights, Sirens, Turrets)
     const seen = cars.filter((c) => Math.abs(c.x - camera.x) <= halfW && Math.abs(c.y - camera.y) <= halfH);
     ctx.imageSmoothingEnabled = false; // chunky sprite pixels at every zoom
     for (const c of seen) drawVehicleShadow(c);
-    for (const c of seen) drawVehicle(c, nowSec);
+    for (const c of seen) if (!c.airborne) drawVehicle(c, nowSec);
+    // Guardrails stand taller than a deck car: drawn over it
+    for (let i = 0; i < overlayTiles.length; i += 2) drawBridgeRails(ctx, overlayTiles[i], overlayTiles[i + 1]);
     ctx.imageSmoothingEnabled = true;
 
     // 7. DRAW BULLETS & PARTICLES
@@ -453,6 +491,15 @@ export function render() {
 
     for (const pt of particles) {
         ctx.globalAlpha = Math.max(0, pt.life / pt.maxLife);
+        if (pt.ring) {
+            // splash foam: an expanding ring
+            ctx.strokeStyle = pt.color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, pt.size + (1 - pt.life / pt.maxLife) * pt.grow, 0, Math.PI * 2);
+            ctx.stroke();
+            continue;
+        }
         ctx.fillStyle = pt.color;
         if (pt.square) {
             ctx.fillRect(Math.round(pt.x - pt.size / 2), Math.round(pt.y - pt.size / 2), pt.size, pt.size);
@@ -463,6 +510,11 @@ export function render() {
         ctx.fill();
     }
     ctx.globalAlpha = 1;
+
+    // 7b. AIRBORNE CARS: their own pass above traffic, rails, foam and spray
+    ctx.imageSmoothingEnabled = false;
+    for (const c of seen) if (c.airborne) drawVehicle(c, nowSec);
+    ctx.imageSmoothingEnabled = true;
 
     ctx.restore();
 
@@ -1011,6 +1063,7 @@ function drawVehicleVector(c, nowSec) {
 
     ctx.save();
     ctx.translate(c.x, c.y);
+    applyAirScale(ctx, c);
     ctx.rotate(c.angle);
 
     // Drop shadow
@@ -1110,16 +1163,22 @@ const LIGHTBAR = { x0: 16, x1: 47, y: 61, h: 6 };
 // Pass 1 (ground): every car's shadow before any body, so a shadow never lands on a neighbouring car
 export function drawVehicleShadow(c) {
     const skin = skinOf(c);
-    if (!skin) return;
+    if (!skin || c.sink > 0.7) return;
+    // Sun in the north-west, like the trees and peds. The higher the car, the further south-east its shadow falls
+    // on the surface below (even across the water), smaller and fainter.
+    const off = 6 + Math.max(0, c.z) * 0.6;
+    const k = 1 - Math.min(0.18, Math.max(0, c.z) / 300);
     ctx.save();
-    ctx.translate(c.x + 6, c.y + 6); // sun in the north-west, like the trees and peds
+    ctx.globalAlpha = Math.max(0.4, 1 - Math.max(0, c.z) / 190) * (1 - (c.sink || 0));
+    ctx.translate(c.x + off, c.y + off);
     ctx.rotate(c.angle + Math.PI / 2);
-    ctx.drawImage(skin.shadow, -skin.dw / 2, -skin.dh / 2, skin.dw, skin.dh);
+    ctx.drawImage(skin.shadow, (-skin.dw / 2) * k, (-skin.dh / 2) * k, skin.dw * k, skin.dh * k);
     ctx.restore();
     const t = skin.turret;
     if (t) {
         ctx.save();
-        ctx.translate(c.x + 6 + Math.cos(c.angle) * t.ring, c.y + 6 + Math.sin(c.angle) * t.ring);
+        ctx.globalAlpha = 1 - (c.sink || 0);
+        ctx.translate(c.x + off + Math.cos(c.angle) * t.ring, c.y + off + Math.sin(c.angle) * t.ring);
         ctx.rotate(c.turretAngle + Math.PI / 2);
         ctx.drawImage(t.shadow, -t.ox, -t.oy, skin.dw, skin.dh);
         ctx.restore();
@@ -1135,13 +1194,20 @@ export function drawVehicle(c, nowSec) {
 
     ctx.save();
     ctx.translate(c.x, c.y);
+    applyAirScale(ctx, c);
     ctx.rotate(c.angle);
-    if (c.driver && c.hp > 0 && !c.spec.isTank) drawBeams(c, l, w);
+    if (c.sink > 0) ctx.globalAlpha = 1 - 0.45 * Math.min(1, c.sink);
+    if (c.driver && c.hp > 0 && !c.spec.isTank && !(c.sink > 0)) drawBeams(c, l, w);
 
     // Sprites are drawn nose-up, the car frame is nose-right
     ctx.save();
     ctx.rotate(Math.PI / 2);
     ctx.drawImage(bodyOf(c, skin), -w / 2, -l / 2, w, l);
+    if (c.sink > 0) {
+        ctx.globalAlpha = Math.min(0.78, c.sink * 0.95) * (1 - 0.45 * Math.min(1, c.sink));
+        ctx.drawImage(tealOf(skin), -w / 2, -l / 2, w, l);
+        ctx.globalAlpha = 1 - 0.45 * Math.min(1, c.sink);
+    }
     if (c.spec.isPolice && c.hp > 0 && c.sirenOn) {
         const flash = Math.floor(nowSec * 10) % 2 === 0;
         const k = skin.k;

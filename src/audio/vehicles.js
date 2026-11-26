@@ -223,7 +223,11 @@ export const loops = {
     updateWorld() {
         const ctx = this.ctx;
         if (!ctx) return;
-        const p = player.inCar && player.inCar.hp > 0 && player.deadTimer <= 0 ? player.inCar : null;
+        // a sinking car is drowned out: engine and radio go with it
+        const p =
+            player.inCar && player.inCar.hp > 0 && player.deadTimer <= 0 && !(player.inCar.sink > 0)
+                ? player.inCar
+                : null;
         this.setListener(camera.x, camera.y, p ? p.vx : 0, p ? p.vy : 0);
         if (!this.gameActive) return;
         if (p !== this.car) this.carChanged(p);
@@ -233,6 +237,7 @@ export const loops = {
         }
         this.updateEngine(p);
         this.updateScreech(p);
+        this.updateJoints(p);
         this.updateSirens();
         this.updateHums();
     },
@@ -296,7 +301,7 @@ export const loops = {
         const S = this.screech;
         const now = this.ctx.currentTime;
         let target = 0;
-        if (car && isRoadTileType(tileAtWorld(car.x, car.y))) {
+        if (car && !car.airborne && isRoadTileType(tileAtWorld(car.x, car.y))) {
             const spd = car.speed || 0;
             if (car.handbrake && spd > 130) target = 0.7;
             else target = clamp(((car.slip || 0) - 70) / 220, 0, 1);
@@ -305,13 +310,23 @@ export const loops = {
         S.gain.gain.setTargetAtTime(target * 0.14, now, 0.05);
     },
 
+    // Steel bridge deck: an expansion joint every half tile under the wheels
+    updateJoints(car) {
+        if (!car || !car.onBridge || car.airborne || (car.speed || 0) < 200) return;
+        const j = Math.floor(car.x / 72);
+        if (j !== this._joint) {
+            this._joint = j;
+            this.jointThud(car.x, car.y);
+        }
+    },
+
     updateSirens() {
         const now = this.ctx.currentTime;
         const L = this.listener;
         const c = this._cands;
         c.length = 0;
         for (const car of cars) {
-            if (!car.sirenOn || car.hp <= 0) continue;
+            if (!car.sirenOn || car.hp <= 0 || car.sink > 0) continue;
             const d = Math.hypot(car.x - L.x, car.y - L.y);
             if (d < SIREN_RANGE) c.push({ car, d });
         }
@@ -342,7 +357,7 @@ export const loops = {
         const c = this._cands;
         c.length = 0;
         for (const car of cars) {
-            if (car === this.car || car.hp <= 0 || (car.speed || 0) < 30) continue;
+            if (car === this.car || car.hp <= 0 || car.sink > 0 || (car.speed || 0) < 30) continue;
             const d = Math.hypot(car.x - L.x, car.y - L.y);
             if (d < HUM_RANGE) c.push({ car, d });
         }

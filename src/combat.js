@@ -1,6 +1,7 @@
 import { audio } from './audio.js';
-import { hasLineOfSight, isSolidAt, normalizeAngle } from './city.js';
-import { WEAPONS } from './config.js';
+import { hasLineOfSight, isSolidAt, normalizeAngle, walkBlockedAt } from './city.js';
+import { surfaceAt } from './river.js';
+import { SWIM_TIME, TILE, WEAPONS } from './config.js';
 import { addDecal } from './entities.js';
 import { addScore, hideRadio, showBigBanner, showRadio, updateHUD } from './hud.js';
 import { buzz } from './haptics.js';
@@ -52,6 +53,8 @@ export function toggleEnterExitVehicle() {
     if (player.inCar) {
         // Exit current vehicle
         const car = player.inCar;
+        if (car.airborne) return; // no bailing out mid-jump
+        if (car.sink > 0) return bailOutOfSinking(car);
         const sideAngle = car.angle - Math.PI * 0.5;
         const exitX = car.x + Math.cos(sideAngle) * (car.spec.w * 0.9 + 14);
         const exitY = car.y + Math.sin(sideAngle) * (car.spec.w * 0.9 + 14);
@@ -77,7 +80,7 @@ export function toggleEnterExitVehicle() {
     let bestCar = null;
     let bestDist = 72;
     for (const c of cars) {
-        if (c.hp <= 0) continue;
+        if (c.hp <= 0 || c.sink > 0 || c.airborne) continue;
         const d = Math.hypot(c.x - player.x, c.y - player.y);
         if (d < bestDist) {
             bestDist = d;
@@ -115,6 +118,35 @@ export function toggleEnterExitVehicle() {
         audio.door(bestCar);
         updateHUD();
     }
+}
+
+// Door kicked open in a sinking car: onto the quay if it is within a tile, otherwise into the water
+function bailOutOfSinking(car) {
+    let best = null;
+    let bestD = TILE + 20;
+    for (let a = 0; a < 16; a++) {
+        const ang = (a / 16) * Math.PI * 2;
+        for (const r of [40, 70, 100, 130]) {
+            const x = car.x + Math.cos(ang) * r;
+            const y = car.y + Math.sin(ang) * r;
+            if (r < bestD && !surfaceAt(x, y).water && !walkBlockedAt(x, y, 11)) {
+                best = { x, y };
+                bestD = r;
+            }
+        }
+    }
+    const sideAngle = car.angle - Math.PI * 0.5;
+    player.x = best ? best.x : car.x + Math.cos(sideAngle) * (car.spec.w * 0.9 + 14);
+    player.y = best ? best.y : car.y + Math.sin(sideAngle) * (car.spec.w * 0.9 + 14);
+    player.swimming = !best;
+    player.breath = SWIM_TIME;
+    car.aiMode = 'parked';
+    car.driver = false;
+    car.doorT = 0.5;
+    player.inCar = null;
+    audio.door(car);
+    hideRadio();
+    updateHUD();
 }
 
 // --- WEAPONS & EXPLOSIONS ---
@@ -281,7 +313,7 @@ export function damagePlayer(amount) {
     }
 }
 
-export function triggerWastedOrBusted(reason) {
+export function triggerWastedOrBusted(reason, subOverride = null) {
     player.deadTimer = 3.2;
     player.deadReason = reason;
     buzz([60, 40, 120]);
@@ -295,9 +327,10 @@ export function triggerWastedOrBusted(reason) {
         mission.active = false;
     }
     const sub =
-        reason === 'BUSTED!'
+        subOverride ??
+        (reason === 'BUSTED!'
             ? 'Hauled to the Precinct — Weapons Confiscated!'
-            : 'Patching you up at Neon Bay General Hospital...';
+            : 'Patching you up at Neon Bay General Hospital...');
     showBigBanner(reason, sub, reason === 'BUSTED!' ? '#5a8fd6' : '#d23a2a');
     updateHUD();
 }

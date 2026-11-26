@@ -5,6 +5,8 @@ import './styles/touch.css';
 import './styles/manual.css';
 import './styles/responsive.css';
 import * as city from './city.js';
+import * as river from './river.js';
+import * as stunts from './stunts.js';
 import { audio } from './audio.js';
 import { LANDMARKS, buildCity } from './city.js';
 import { populateWorld } from './entities.js';
@@ -87,4 +89,4 @@ async function init() {
 init();
 
 // Dev-only console hook for poking at the world (stripped from production builds)
-if (import.meta.env.DEV) window.__gl = { city, state, LANDMARKS, audio };
+if (import.meta.env.DEV) window.__gl = { city, river, stunts, state, LANDMARKS, audio };

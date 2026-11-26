@@ -3,6 +3,8 @@ import { audio } from './audio.js';
 import {
     DIR_VECS,
     applyWallFeelers,
+    blockerAt,
+    isWallAt,
     normalizeAngle,
     LANDMARKS,
     hasLineOfSight,
@@ -12,11 +14,12 @@ import {
     pickRoadSpawnNear,
     policeFlowDist,
     tileAtWorld,
-    updatePoliceFlowField
+    updatePoliceFlowField,
+    walkBlockedAt
 } from './city.js';
 import { damagePed, damagePlayer, destroyCar, findAimTarget, fireWeapon, triggerExplosion } from './combat.js';
 import { collideCarFoliage, steerAroundTrunks, trunkBlocks, updateFoliage } from './foliage.js';
-import { MAP_SIZE, TILE, T_ROAD_X, WEAPONS, isSolidTile } from './config.js';
+import { CAR_H, MAP_SIZE, TILE, T_ROAD_X, WEAPONS, isSolidTile } from './config.js';
 import { getDistrictAt } from './districts.js';
 import { PUNK_HAIR, pedLook } from './palette.js';
 import { addDecal, createCar, pickCarType, spawnRandomPed } from './entities.js';
@@ -24,6 +27,8 @@ import { buzz } from './haptics.js';
 import { showPager, spawnFloatingText, updateDistrictName, updateHUD } from './hud.js';
 import { updateMission } from './missions.js';
 import { updateBays } from './shops.js';
+import { updateRiver } from './river.js';
+import { breakBarrier, drownPeds, reapSunk, resetSwim, sameLevel, updateCarVertical, updateSwim } from './stunts.js';
 import { tankGeom } from './vehicles.js';
 import {
     bullets,
@@ -128,6 +133,7 @@ export function update(dt) {
             player.armor = 25;
             player.x = LANDMARKS.playerSpawn.x;
             player.y = LANDMARKS.playerSpawn.y;
+            resetSwim();
             if (player.deadReason === 'BUSTED!') {
                 player.ammo = [Infinity, 50, 0, 0];
                 player.weaponIdx = 1;
@@ -194,124 +200,131 @@ export function update(dt) {
             const car = player.inCar;
             const spec = car.spec;
 
-            const forwardX = Math.cos(car.angle);
-            const forwardY = Math.sin(car.angle);
-            const rightX = -forwardY;
-            const rightY = forwardX;
+            if (car.airborne || car.sink > 0) {
+                // Wheels off the ground (or going under): no steering, no braking, no screech
+                car.slip = 0;
+                car.handbrake = false;
+                car.throttle = 0;
+            } else {
+                const forwardX = Math.cos(car.angle);
+                const forwardY = Math.sin(car.angle);
+                const rightX = -forwardY;
+                const rightY = forwardX;
 
-            let forwardSpeed = car.vx * forwardX + car.vy * forwardY;
-            let lateralSpeed = car.vx * rightX + car.vy * rightY;
+                let forwardSpeed = car.vx * forwardX + car.vy * forwardY;
+                let lateralSpeed = car.vx * rightX + car.vy * rightY;
 
-            // Analog throttle (-1..1) and heading error for point-to-go steering
-            let throttle = up ? 1 : down ? -1 : 0;
-            let headingErr = 0;
-            if (stickOn) {
-                const diff = normalizeAngle(Math.atan2(stick.y, stick.x) - car.angle);
-                const adiff = Math.abs(diff);
-                if (!spec.isTank) stickReverse = stickReverse ? adiff > 2.0 : adiff > 2.4;
-                else stickReverse = false;
-                if (stickReverse) {
-                    throttle = -stick.mag;
-                    headingErr = normalizeAngle(diff + Math.PI);
+                // Analog throttle (-1..1) and heading error for point-to-go steering
+                let throttle = up ? 1 : down ? -1 : 0;
+                let headingErr = 0;
+                if (stickOn) {
+                    const diff = normalizeAngle(Math.atan2(stick.y, stick.x) - car.angle);
+                    const adiff = Math.abs(diff);
+                    if (!spec.isTank) stickReverse = stickReverse ? adiff > 2.0 : adiff > 2.4;
+                    else stickReverse = false;
+                    if (stickReverse) {
+                        throttle = -stick.mag;
+                        headingErr = normalizeAngle(diff + Math.PI);
+                    } else {
+                        throttle = stick.mag * (1 - (0.5 * adiff) / Math.PI);
+                        headingErr = diff;
+                    }
                 } else {
-                    throttle = stick.mag * (1 - (0.5 * adiff) / Math.PI);
-                    headingErr = diff;
+                    stickReverse = false;
                 }
-            } else {
-                stickReverse = false;
-            }
 
-            if (throttle > 0) {
-                forwardSpeed += spec.accel * throttle * dt;
-            } else if (throttle < 0) {
-                forwardSpeed += spec.accel * 0.8 * throttle * dt;
-            } else {
-                forwardSpeed *= 1 - 1.6 * dt;
-            }
-
-            // Handbrake drift!
-            if (brake) {
-                forwardSpeed *= 1 - 3.2 * dt;
-                lateralSpeed *= 0.965;
-                if (Math.hypot(car.vx, car.vy) > 130) {
-                    addDecal(
-                        'skid',
-                        car.x - forwardX * 18 + rightX * 10,
-                        car.y - forwardY * 18 + rightY * 10,
-                        car.angle,
-                        6
-                    );
-                    addDecal(
-                        'skid',
-                        car.x - forwardX * 18 - rightX * 10,
-                        car.y - forwardY * 18 - rightY * 10,
-                        car.angle,
-                        6
-                    );
+                if (throttle > 0) {
+                    forwardSpeed += spec.accel * throttle * dt;
+                } else if (throttle < 0) {
+                    forwardSpeed += spec.accel * 0.8 * throttle * dt;
+                } else {
+                    forwardSpeed *= 1 - 1.6 * dt;
                 }
-            } else {
-                lateralSpeed *= spec.grip;
-                if (Math.abs(lateralSpeed) > 75) {
-                    addDecal(
-                        'skid',
-                        car.x - forwardX * 18 + rightX * 10,
-                        car.y - forwardY * 18 + rightY * 10,
-                        car.angle,
-                        5
-                    );
-                    addDecal(
-                        'skid',
-                        car.x - forwardX * 18 - rightX * 10,
-                        car.y - forwardY * 18 - rightY * 10,
-                        car.angle,
-                        5
-                    );
+
+                // Handbrake drift!
+                if (brake) {
+                    forwardSpeed *= 1 - 3.2 * dt;
+                    lateralSpeed *= 0.965;
+                    if (Math.hypot(car.vx, car.vy) > 130) {
+                        addDecal(
+                            'skid',
+                            car.x - forwardX * 18 + rightX * 10,
+                            car.y - forwardY * 18 + rightY * 10,
+                            car.angle,
+                            6
+                        );
+                        addDecal(
+                            'skid',
+                            car.x - forwardX * 18 - rightX * 10,
+                            car.y - forwardY * 18 - rightY * 10,
+                            car.angle,
+                            6
+                        );
+                    }
+                } else {
+                    lateralSpeed *= spec.grip;
+                    if (Math.abs(lateralSpeed) > 75) {
+                        addDecal(
+                            'skid',
+                            car.x - forwardX * 18 + rightX * 10,
+                            car.y - forwardY * 18 + rightY * 10,
+                            car.angle,
+                            5
+                        );
+                        addDecal(
+                            'skid',
+                            car.x - forwardX * 18 - rightX * 10,
+                            car.y - forwardY * 18 - rightY * 10,
+                            car.angle,
+                            5
+                        );
+                    }
                 }
-            }
 
-            forwardSpeed = Math.max(-spec.maxSpeed * 0.42, Math.min(spec.maxSpeed, forwardSpeed));
+                forwardSpeed = Math.max(-spec.maxSpeed * 0.42, Math.min(spec.maxSpeed, forwardSpeed));
 
-            // Steering scales smoothly with vehicle movement (Tank can pivot in place!)
-            const steerFactor = spec.isTank
-                ? 2.2
-                : Math.min(1, Math.abs(forwardSpeed) / 95) * (forwardSpeed >= -5 ? 1 : -1) * 3.1;
-            if (stickOn) {
-                const turn = Math.max(-1, Math.min(1, headingErr / 0.5)) * Math.abs(steerFactor) * dt;
-                car.angle += Math.abs(turn) > Math.abs(headingErr) ? headingErr : turn;
-            } else {
-                if (left) car.angle -= steerFactor * dt;
-                if (right) car.angle += steerFactor * dt;
-            }
+                // Steering scales smoothly with vehicle movement (Tank can pivot in place!)
+                const steerFactor = spec.isTank
+                    ? 2.2
+                    : Math.min(1, Math.abs(forwardSpeed) / 95) * (forwardSpeed >= -5 ? 1 : -1) * 3.1;
+                if (stickOn) {
+                    const turn = Math.max(-1, Math.min(1, headingErr / 0.5)) * Math.abs(steerFactor) * dt;
+                    car.angle += Math.abs(turn) > Math.abs(headingErr) ? headingErr : turn;
+                } else {
+                    if (left) car.angle -= steerFactor * dt;
+                    if (right) car.angle += steerFactor * dt;
+                }
 
-            car.vx = Math.cos(car.angle) * forwardSpeed + -Math.sin(car.angle) * lateralSpeed;
-            car.vy = Math.sin(car.angle) * forwardSpeed + Math.cos(car.angle) * lateralSpeed;
-            car.speed = Math.hypot(car.vx, car.vy);
-            car.slip = Math.abs(lateralSpeed); // read by the screech loop
-            car.handbrake = !!brake;
-            car.throttle = Math.abs(throttle);
+                car.vx = Math.cos(car.angle) * forwardSpeed + -Math.sin(car.angle) * lateralSpeed;
+                car.vy = Math.sin(car.angle) * forwardSpeed + Math.cos(car.angle) * lateralSpeed;
+                car.speed = Math.hypot(car.vx, car.vy);
+                car.slip = Math.abs(lateralSpeed); // read by the screech loop
+                car.handbrake = !!brake;
+                car.throttle = Math.abs(throttle);
 
-            // Tank main cannon!
-            if (spec.isTank && (mouse.down || keys['ControlLeft'] || keys['Fire']) && player.fireTimer <= 0) {
-                player.fireTimer = 0.9;
-                const tg = tankGeom(car);
-                const tipX = car.x + Math.cos(car.angle) * tg.ring + Math.cos(car.turretAngle) * tg.barrel;
-                const tipY = car.y + Math.sin(car.angle) * tg.ring + Math.sin(car.turretAngle) * tg.barrel;
-                fireWeapon(tipX, tipY, car.turretAngle, 3, true);
-                // Muzzle flare: a few orange-yellow pixels off the barrel tip
-                for (let i = 0, n = 3 + ((Math.random() * 3) | 0); i < n; i++) {
-                    const a = car.turretAngle + (Math.random() - 0.5) * 0.7;
-                    const sp = 70 + Math.random() * 110;
-                    particles.push({
-                        x: tipX,
-                        y: tipY,
-                        vx: Math.cos(a) * sp + car.vx,
-                        vy: Math.sin(a) * sp + car.vy,
-                        size: 2 + ((Math.random() * 2) | 0),
-                        square: true,
-                        color: Math.random() < 0.5 ? '#ffd400' : '#ff8a2a',
-                        life: 0.14,
-                        maxLife: 0.14
-                    });
+                // Tank main cannon!
+                if (spec.isTank && (mouse.down || keys['ControlLeft'] || keys['Fire']) && player.fireTimer <= 0) {
+                    player.fireTimer = 0.9;
+                    const tg = tankGeom(car);
+                    const tipX = car.x + Math.cos(car.angle) * tg.ring + Math.cos(car.turretAngle) * tg.barrel;
+                    const tipY = car.y + Math.sin(car.angle) * tg.ring + Math.sin(car.turretAngle) * tg.barrel;
+                    fireWeapon(tipX, tipY, car.turretAngle, 3, true);
+                    // Muzzle flare: a few orange-yellow pixels off the barrel tip
+                    for (let i = 0, n = 3 + ((Math.random() * 3) | 0); i < n; i++) {
+                        const a = car.turretAngle + (Math.random() - 0.5) * 0.7;
+                        const sp = 70 + Math.random() * 110;
+                        particles.push({
+                            x: tipX,
+                            y: tipY,
+                            vx: Math.cos(a) * sp + car.vx,
+                            vy: Math.sin(a) * sp + car.vy,
+                            size: 2 + ((Math.random() * 2) | 0),
+                            square: true,
+                            color: Math.random() < 0.5 ? '#ffd400' : '#ff8a2a',
+                            life: 0.14,
+                            maxLife: 0.14
+                        });
+                    }
                 }
             }
 
@@ -333,14 +346,18 @@ export function update(dt) {
                 my /= len;
             }
             if (stickOn || len > 0) {
-                const walkSpeed = 165 * pace;
+                const walkSpeed = (player.swimming ? 95 : 165) * pace;
                 const nx = player.x + mx * walkSpeed * dt;
                 const ny = player.y + my * walkSpeed * dt;
-                if (!isSolidAt(nx, player.y, 11) && !trunkBlocks(player.x, player.y, nx, player.y, 11)) player.x = nx;
-                if (!isSolidAt(player.x, ny, 11) && !trunkBlocks(player.x, player.y, player.x, ny, 11)) player.y = ny;
+                if (!walkBlockedAt(nx, player.y, 11) && !trunkBlocks(player.x, player.y, nx, player.y, 11))
+                    player.x = nx;
+                if (!walkBlockedAt(player.x, ny, 11) && !trunkBlocks(player.x, player.y, player.x, ny, 11))
+                    player.y = ny;
                 player.angle = Math.atan2(my, mx);
                 player.walkCycle += dt * 12 * pace;
             }
+
+            updateSwim(dt);
 
             // Aim toward mouse when firing with mouse
             if (mouse.down) {
@@ -392,7 +409,8 @@ export function update(dt) {
         }
 
         // AI Traffic & Police Pursuit Logic
-        if (c !== player.inCar && c.driver) {
+        const free = !c.airborne && !(c.sink > 0); // wheels on the ground and above water
+        if (c !== player.inCar && c.driver && free) {
             if (c.spec.isPolice && Math.floor(player.wanted) >= 1) {
                 c.aiMode = 'police';
                 c.sirenOn = true;
@@ -426,47 +444,65 @@ export function update(dt) {
                     }
                 }
             }
-        } else if (c !== player.inCar) {
+        } else if (c !== player.inCar && free) {
             // Parked car friction
             c.vx *= 1 - 4 * dt;
             c.vy *= 1 - 4 * dt;
         }
 
-        // Integrate position & wall bounce
-        const nx = c.x + c.vx * dt;
-        const ny = c.y + c.vy * dt;
+        // Integrate position & wall bounce, in sub-steps so a fast car can't skip a thin parapet
         const rad = c.spec.w * 0.52;
-
-        if (!isSolidAt(nx, c.y, rad)) {
-            c.x = nx;
-        } else {
-            if (Math.abs(c.vx) > 190) {
-                c.hp -= Math.abs(c.vx) * 0.06;
-                bump(c, Math.abs(c.vx));
-                if (c === player.inCar) {
-                    camera.shake = Math.max(camera.shake, 5);
-                    buzz(20);
+        const steps = Math.min(6, Math.max(1, Math.ceil((Math.hypot(c.vx, c.vy) * dt) / 10)));
+        const sdt = dt / steps;
+        for (let k = 0; k < steps; k++) {
+            const nx = c.x + c.vx * sdt;
+            const hx = blockerAt(nx, c.y, rad, c.z);
+            if (!hx) {
+                c.x = nx;
+            } else if (hx !== true && hx.breakable && Math.hypot(c.vx, c.vy) > 140) {
+                breakBarrier(hx);
+                c.vx *= 0.82;
+                c.vy *= 0.82;
+                c.x = nx;
+            } else {
+                if (Math.abs(c.vx) > 190) {
+                    c.hp -= Math.abs(c.vx) * 0.06;
+                    bump(c, Math.abs(c.vx));
+                    if (c === player.inCar) {
+                        camera.shake = Math.max(camera.shake, 5);
+                        buzz(20);
+                    }
                 }
+                c.vx *= -0.35;
             }
-            c.vx *= -0.35;
+
+            const ny = c.y + c.vy * sdt;
+            const hy = blockerAt(c.x, ny, rad, c.z);
+            if (!hy) {
+                c.y = ny;
+            } else if (hy !== true && hy.breakable && Math.hypot(c.vx, c.vy) > 140) {
+                breakBarrier(hy);
+                c.vx *= 0.82;
+                c.vy *= 0.82;
+                c.y = ny;
+            } else {
+                if (Math.abs(c.vy) > 190) {
+                    c.hp -= Math.abs(c.vy) * 0.06;
+                    bump(c, Math.abs(c.vy));
+                    if (c === player.inCar) {
+                        camera.shake = Math.max(camera.shake, 5);
+                        buzz(20);
+                    }
+                }
+                c.vy *= -0.35;
+            }
         }
 
-        if (!isSolidAt(c.x, ny, rad)) {
-            c.y = ny;
-        } else {
-            if (Math.abs(c.vy) > 190) {
-                c.hp -= Math.abs(c.vy) * 0.06;
-                bump(c, Math.abs(c.vy));
-                if (c === player.inCar) {
-                    camera.shake = Math.max(camera.shake, 5);
-                    buzz(20);
-                }
-            }
-            c.vy *= -0.35;
-        }
+        // Ramps, flight, landing, plunging into the river
+        updateCarVertical(c, dt);
 
         // Tree trunks (solid) & bushes (drive-through drag + leaf burst)
-        collideCarFoliage(c, dt);
+        if (free) collideCarFoliage(c, dt);
 
         // Car-to-Car Collisions
         for (let j = i + 1; j < cars.length; j++) {
@@ -475,7 +511,7 @@ export function update(dt) {
             const dy = o.y - c.y;
             const dist = Math.hypot(dx, dy);
             const minDist = (c.spec.w + o.spec.w) * 0.78;
-            if (dist > 0 && dist < minDist) {
+            if (dist > 0 && dist < minDist && sameLevel(c, o)) {
                 const nxCol = dx / dist;
                 const nyCol = dy / dist;
                 const overlap = minDist - dist;
@@ -511,7 +547,7 @@ export function update(dt) {
 
         // Running over Pedestrians!
         const carSpd = Math.hypot(c.vx, c.vy);
-        if (carSpd > 75) {
+        if (carSpd > 75 && free && c.z <= CAR_H) {
             for (const p of peds) {
                 if (p.hp <= 0) continue;
                 if (Math.hypot(p.x - c.x, p.y - c.y) < c.spec.w * 0.78) {
@@ -554,10 +590,11 @@ export function update(dt) {
             }
         }
 
-        if (c.hp <= 0) {
+        if (c.hp <= 0 && !c.sunk) {
             destroyCar(c, c === player.inCar);
         }
     }
+    reapSunk();
 
     updateFoliage(dt);
 
@@ -567,6 +604,7 @@ export function update(dt) {
     }
 
     // --- UPDATE PEDESTRIANS ---
+    drownPeds();
     const parkLoop = LANDMARKS.parkLoop;
 
     for (let i = peds.length - 1; i >= 0; i--) {
@@ -770,7 +808,7 @@ export function update(dt) {
         b.life -= dt;
 
         let hit = false;
-        if (isSolidAt(b.x, b.y, 3)) {
+        if (isWallAt(b.x, b.y, 3)) {
             hit = true;
             audio.impact(b.x, b.y, 'wall');
         }
@@ -892,6 +930,8 @@ export function update(dt) {
         ft.life -= dt;
         if (ft.life <= 0) floatingTexts.splice(i, 1);
     }
+
+    updateRiver(dt);
 
     // Update Missions & District Display
     if (game.state === 'play') {
