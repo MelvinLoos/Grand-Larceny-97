@@ -42,6 +42,14 @@ import {
     view
 } from './state.js';
 
+// One crash sound per car per quarter second, whatever the number of contacts
+function bump(c, force) {
+    const now = performance.now();
+    if (now - (c.crashAt || 0) < 250) return;
+    c.crashAt = now;
+    audio.crash(c.x, c.y, force);
+}
+
 let stickReverse = false; // hysteresis for point-to-go reversing
 let bombKeyHeld = false;
 
@@ -64,8 +72,9 @@ function updateCarBombs(dt) {
         c.bombTimer -= dt;
         c.bombBeep -= dt;
         if (c.bombBeep <= 0) {
-            if (Math.hypot(c.x - player.x, c.y - player.y) < 900) audio.beep(c.bombTimer < 2);
-            c.bombBeep = Math.max(0.09, c.bombTimer * 0.12);
+            audio.bombBeep(c.x, c.y);
+            // once a second, then accelerating through the final second
+            c.bombBeep = c.bombTimer > 1 ? 1 : Math.max(0.09, c.bombTimer * 0.2);
         }
         if (c.bombTimer <= 0) {
             c.bombArmed = false;
@@ -239,7 +248,6 @@ export function update(dt) {
                         car.angle,
                         6
                     );
-                    if (Math.random() < 0.35) audio.screech();
                 }
             } else {
                 lateralSpeed *= spec.grip;
@@ -278,6 +286,9 @@ export function update(dt) {
             car.vx = Math.cos(car.angle) * forwardSpeed + -Math.sin(car.angle) * lateralSpeed;
             car.vy = Math.sin(car.angle) * forwardSpeed + Math.cos(car.angle) * lateralSpeed;
             car.speed = Math.hypot(car.vx, car.vy);
+            car.slip = Math.abs(lateralSpeed); // read by the screech loop
+            car.handbrake = !!brake;
+            car.throttle = Math.abs(throttle);
 
             // Tank main cannon!
             if (spec.isTank && (mouse.down || keys['ControlLeft'] || keys['Fire']) && player.fireTimer <= 0) {
@@ -364,7 +375,6 @@ export function update(dt) {
     updateGangs(dt);
 
     // --- UPDATE VEHICLES & COLLISIONS ---
-    let anySirenNear = false;
     for (let i = 0; i < cars.length; i++) {
         const c = cars[i];
         if (c.hp <= 0) continue;
@@ -432,6 +442,7 @@ export function update(dt) {
         } else {
             if (Math.abs(c.vx) > 190) {
                 c.hp -= Math.abs(c.vx) * 0.06;
+                bump(c, Math.abs(c.vx));
                 if (c === player.inCar) {
                     camera.shake = Math.max(camera.shake, 5);
                     buzz(20);
@@ -445,6 +456,7 @@ export function update(dt) {
         } else {
             if (Math.abs(c.vy) > 190) {
                 c.hp -= Math.abs(c.vy) * 0.06;
+                bump(c, Math.abs(c.vy));
                 if (c === player.inCar) {
                     camera.shake = Math.max(camera.shake, 5);
                     buzz(20);
@@ -477,6 +489,7 @@ export function update(dt) {
 
                 const relV = Math.hypot(c.vx - o.vx, c.vy - o.vy);
                 if (relV > 140) {
+                    bump(c, relV);
                     // Battle Tank crushes cars instantly!
                     if (c.spec.isTank && c === player.inCar && o.hp > 0) {
                         destroyCar(o, true);
@@ -504,7 +517,7 @@ export function update(dt) {
                 if (Math.hypot(p.x - c.x, p.y - c.y) < c.spec.w * 0.78) {
                     damagePed(p, 150, c === player.inCar);
                     if (c === player.inCar) {
-                        audio.playTone(120, 55, 0.08, 'sawtooth', 0.08);
+                        audio.thump(p.x, p.y);
                     }
                 }
             }
@@ -543,10 +556,6 @@ export function update(dt) {
 
         if (c.hp <= 0) {
             destroyCar(c, c === player.inCar);
-        }
-
-        if (c.sirenOn && Math.hypot(c.x - player.x, c.y - player.y) < 700) {
-            anySirenNear = true;
         }
     }
 
@@ -763,13 +772,17 @@ export function update(dt) {
         let hit = false;
         if (isSolidAt(b.x, b.y, 3)) {
             hit = true;
+            audio.impact(b.x, b.y, 'wall');
         }
 
         // Check Ped hits
         if (!hit) {
             for (const p of peds) {
                 if (Math.hypot(p.x - b.x, p.y - b.y) < 14) {
-                    if (!b.explosive) damagePed(p, b.damage, b.fromPlayer);
+                    if (!b.explosive) {
+                        damagePed(p, b.damage, b.fromPlayer);
+                        audio.impact(p.x, p.y, 'flesh');
+                    }
                     hit = true;
                     break;
                 }
@@ -782,6 +795,7 @@ export function update(dt) {
                 if (c.hp <= 0 || (b.fromPlayer && c === player.inCar)) continue;
                 if (Math.hypot(c.x - b.x, c.y - b.y) < c.spec.w * 0.75) {
                     if (!b.explosive) {
+                        audio.impact(c.x, c.y, 'metal');
                         c.hp -= b.damage;
                         if (c.hp <= 0) destroyCar(c, b.fromPlayer);
                     }
@@ -833,7 +847,7 @@ export function update(dt) {
         }
         if (Math.hypot(player.x - pk.x, player.y - pk.y) < 28) {
             pk.timer = 25; // Respawns after 25s
-            audio.cash();
+            audio.pickup();
             if (pk.kind === 'health') {
                 player.hp = 100;
                 spawnFloatingText('MAX HEALTH!', pk.x, pk.y, '#d23a2a');
@@ -902,11 +916,6 @@ export function update(dt) {
     mouse.worldX = camera.x + (mouse.x - view.w * 0.5) / camera.zoom;
     mouse.worldY = camera.y + (mouse.y - view.h * 0.5) / camera.zoom;
 
-    // Update Radio & Siren Audio
-    audio.updateMusicAndSirens(
-        dt,
-        !!player.inCar,
-        player.inCar ? player.inCar.typeKey : null,
-        anySirenNear || (player.inCar && player.inCar.sirenOn)
-    );
+    // Engine, tires, sirens and radio follow the world from here
+    audio.updateWorld();
 }

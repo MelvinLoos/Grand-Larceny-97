@@ -57,6 +57,49 @@ export const WEAPONS = [
     }
 ];
 
+// Radio stations (style picks the procedural generator in audio/radio.js)
+export const STATIONS = {
+    rush: { freq: '104.5', band: 'FM', name: 'RUSH 104', tag: 'Jungle at illegal speeds.', style: 'jungle' },
+    meter: { freq: '88.3', band: 'FM', name: 'THE METER', tag: 'Electro-funk by the mile.', style: 'acid' },
+    crash: { freq: '98.7', band: 'FM', name: 'CRASH FM', tag: 'All guitars. No brakes.', style: 'rock' },
+    beige: { freq: '101.1', band: 'FM', name: 'BEIGE 101', tag: 'Soft hits for sitting in traffic.', style: 'soft' },
+    talk: { freq: '640', band: 'AM', name: 'TALK BACK 640', tag: 'Callers who should not be calling.', style: 'talk' },
+    harbor: {
+        freq: '1010',
+        band: 'AM',
+        name: 'HARBOR HAUL AM',
+        tag: 'Shipping forecasts and swearing.',
+        style: 'talk'
+    },
+    nbpd: {
+        freq: '155.4',
+        band: 'MHz',
+        name: 'NBPD DISPATCH',
+        tag: "Suspect vehicle is... wait, that's you.",
+        style: 'scanner'
+    },
+    army: {
+        freq: '27.1',
+        band: 'CB',
+        name: 'ARMY SURPLUS RADIO',
+        tag: 'Requests by artillery only.',
+        style: 'scanner'
+    },
+    off: { freq: '--', band: '', name: 'RADIO OFF', tag: 'Just the engine. Bliss.', style: null }
+};
+// R cycles these in a civilian car; cop cars and the tank only toggle their own channel
+export const CIVIL_STATIONS = ['rush', 'meter', 'crash', 'beige', 'talk', 'harbor', 'off'];
+export const pickStation = (spec) => {
+    let total = 0;
+    for (const k in spec.stations) total += spec.stations[k];
+    let r = Math.random() * total;
+    for (const k in spec.stations) {
+        r -= spec.stations[k];
+        if (r <= 0) return k;
+    }
+    return 'off';
+};
+
 // Vehicle Archetypes
 export const CAR_TYPES = {
     hellcrab: {
@@ -74,7 +117,7 @@ export const CAR_TYPES = {
         value: 1200,
         mass: 1,
         exportValue: 8000,
-        radio: { freq: '98.7', band: 'FM', name: 'CRASH FM', tag: 'All guitars. No brakes.' }
+        stations: { rush: 4, meter: 2, crash: 1, off: 0.3 }
     },
     bumbler: {
         name: 'BUMBLER',
@@ -91,7 +134,7 @@ export const CAR_TYPES = {
         value: 600,
         mass: 1,
         exportValue: 2500,
-        radio: { freq: '101.1', band: 'FM', name: 'BEIGE 101', tag: 'Soft hits for sitting in traffic.' }
+        stations: { rush: 1, meter: 1, crash: 1, beige: 2, talk: 1, off: 0.3 }
     },
     cabbie: {
         name: 'CABBIE TAXI',
@@ -108,7 +151,7 @@ export const CAR_TYPES = {
         value: 800,
         mass: 1,
         exportValue: 2500,
-        radio: { freq: '88.3', band: 'FM', name: 'THE METER', tag: 'Hip hop by the mile.' }
+        stations: { meter: 3, beige: 1, rush: 1, crash: 1, talk: 2, harbor: 1, off: 0.3 }
     },
     blitz: {
         name: 'BLITZ V8',
@@ -125,7 +168,7 @@ export const CAR_TYPES = {
         value: 1000,
         mass: 1,
         exportValue: 5000,
-        radio: { freq: '104.5', band: 'FM', name: 'RUSH 104', tag: 'Eurodance at illegal speeds.' }
+        stations: { crash: 4, meter: 3, rush: 1, off: 0.3 }
     },
     van: {
         name: 'BOX VAN',
@@ -141,7 +184,7 @@ export const CAR_TYPES = {
         value: 750,
         mass: 1.9,
         exportValue: 2500,
-        radio: { freq: '640', band: 'AM', name: 'TALK BACK 640', tag: 'Callers who should not be calling.' }
+        stations: { talk: 3, harbor: 1, crash: 1, off: 0.3 }
     },
     hauler: {
         name: 'DOCK HAULER',
@@ -157,7 +200,7 @@ export const CAR_TYPES = {
         value: 900,
         mass: 2.8,
         exportValue: 2500,
-        radio: { freq: '1010', band: 'AM', name: 'HARBOR HAUL AM', tag: 'Shipping forecasts and swearing.' }
+        stations: { harbor: 3, talk: 1, crash: 1, off: 0.3 }
     },
     police: {
         name: 'COP CRUISER',
@@ -172,7 +215,7 @@ export const CAR_TYPES = {
         isPolice: true,
         value: 1500,
         mass: 1.1,
-        radio: { freq: '155.4', band: 'MHz', name: 'NBPD DISPATCH', tag: "Suspect vehicle is... wait, that's you." }
+        stations: { nbpd: 1 }
     },
     tank: {
         name: 'BATTLE TANK',
@@ -187,6 +230,6 @@ export const CAR_TYPES = {
         isTank: true,
         value: 5000,
         mass: 4,
-        radio: { freq: '27.1', band: 'CB', name: 'ARMY SURPLUS RADIO', tag: 'Requests by artillery only.' }
+        stations: { army: 1 }
     }
 };

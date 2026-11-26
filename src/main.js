@@ -5,6 +5,7 @@ import './styles/touch.css';
 import './styles/manual.css';
 import './styles/responsive.css';
 import * as city from './city.js';
+import { audio } from './audio.js';
 import { LANDMARKS, buildCity } from './city.js';
 import { populateWorld } from './entities.js';
 import { bakeFoliage, plantFoliage } from './foliage.js';
@@ -52,6 +53,7 @@ function gameLoop(timestamp) {
     game.lastFrameTime = timestamp;
     adaptQuality(raw, dt);
 
+    audio.setActive(game.state !== 'paused'); // paused / map / hidden tab: suspend every loop and the radio clock
     if (game.state !== 'paused') update(dt);
     if (game.state === 'title') {
         // Attract mode: the camera drifts over Neon Bay behind the box window
@@ -85,4 +87,4 @@ async function init() {
 init();
 
 // Dev-only console hook for poking at the world (stripped from production builds)
-if (import.meta.env.DEV) window.__gl = { city, state, LANDMARKS };
+if (import.meta.env.DEV) window.__gl = { city, state, LANDMARKS, audio };

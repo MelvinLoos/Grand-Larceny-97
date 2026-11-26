@@ -430,6 +430,8 @@
 #radio.show {
     opacity: 1;
     transform: translate(-50%, 0);
+    pointer-events: auto;
+    cursor: pointer;
 }
 #radio-freq {
     grid-row: span 2;

@@ -128,7 +128,7 @@ function setupButtons() {
         () => {
             if (player.inCar) {
                 if (player.inCar.spec.isPolice) player.inCar.sirenOn = !player.inCar.sirenOn;
-                audio.horn(player.inCar.spec.isPolice);
+                audio.horn(player.inCar);
             } else {
                 cycleWeapon();
             }

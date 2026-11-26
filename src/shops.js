@@ -71,7 +71,7 @@ function serve(b, car, chk) {
             player.probation = 5;
             player.wanted = 0;
         }
-        audio.cash();
+        audio.chime();
         showBigBanner(
             'RESPRAYED!',
             chk.free ? 'ON THE TAB — FULL REPAIR, NEW PAINT' : 'FRESH PAINT, FULL REPAIR, 5s PROBATION',
@@ -156,10 +156,10 @@ export function updateBays(dt) {
                         b.timer = SERVICE_TIME;
                         b.chk = chk;
                         lockCar(b, car);
-                        audio.shutter();
+                        audio.shutter(b.x, b.y);
                         if (b.type === 'spray') {
-                            audio.spray();
-                            audio.ratchet();
+                            audio.spray(b.x, b.y);
+                            audio.ratchet(b.x, b.y);
                         }
                     }
                 } else if (b.cooldown <= 0) {
@@ -167,7 +167,7 @@ export function updateBays(dt) {
                     b.timer = 2;
                     b.cooldown = 6;
                     showBigBanner(chk.msg, BAY_INFO[b.type].name, '#d23a2a');
-                    audio.buzzer();
+                    audio.buzzer(b.x, b.y);
                 }
             }
         } else if (b.state === 'reject') {
@@ -210,7 +210,7 @@ export function updateBays(dt) {
                 } else {
                     b.state = 'rollout';
                     b.timer = ROLLOUT_TIME;
-                    audio.shutter();
+                    audio.shutter(b.x, b.y);
                 }
             }
         } else if (b.state === 'rollout') {

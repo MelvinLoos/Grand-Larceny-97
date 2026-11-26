@@ -1,8 +1,8 @@
 import { audio } from './audio.js';
 import { toggleEnterExitVehicle } from './combat.js';
-import { WEAPONS } from './config.js';
+import { CIVIL_STATIONS, WEAPONS } from './config.js';
 import { populateWorld } from './entities.js';
-import { hideRadio, showBigBanner, showPager, updateHUD } from './hud.js';
+import { hideRadio, showBigBanner, showPager, showRadio, updateHUD } from './hud.js';
 import { HAZARD } from './palette.js';
 import { canvas, game, keys, mission, mouse, player, view } from './state.js';
 import { closeCityMap, openCityMap } from './minimap.js';
@@ -36,6 +36,17 @@ export function cycleWeapon(nextIdx = null) {
         }
     }
     updateHUD();
+}
+
+// R: next station in a civilian car; cop cars and the tank only flip their own channel on and off
+export function cycleRadio() {
+    const car = player.inCar;
+    if (!car) return;
+    const own = car.spec.isTank ? 'army' : 'nbpd';
+    const list = car.spec.isPolice || car.spec.isTank ? [own, 'off'] : CIVIL_STATIONS;
+    car.radioStation = list[(list.indexOf(car.radioStation) + 1) % list.length];
+    audio.tuneTo(car.radioStation);
+    showRadio(car.radioStation);
 }
 
 export function clearInputs() {
@@ -106,6 +117,10 @@ export function setupEvents() {
 
     window.addEventListener('keydown', (e) => {
         audio.init();
+        if (e.code === 'KeyN') {
+            if (!e.repeat) toggleSound();
+            return;
+        }
         if (!manualEl.hidden) {
             if (e.code === 'Escape' || e.code === 'KeyP') {
                 e.preventDefault();
@@ -153,11 +168,12 @@ export function setupEvents() {
             else if (e.code === 'Digit2') cycleWeapon(1);
             else if (e.code === 'Digit3') cycleWeapon(2);
             else if (e.code === 'Digit4') cycleWeapon(3);
+            else if (e.code === 'KeyR' && player.inCar) cycleRadio();
             else if (e.code === 'KeyH' && player.inCar) {
                 if (player.inCar.spec.isPolice) {
                     player.inCar.sirenOn = !player.inCar.sirenOn;
                 }
-                audio.horn(player.inCar.spec.isPolice);
+                audio.horn(player.inCar);
             }
         }
     });
@@ -188,6 +204,7 @@ export function setupEvents() {
         mouse.down = false;
     });
 
+    document.getElementById('radio').addEventListener('click', cycleRadio); // tap the readout on touch
     document.getElementById('btn-weapon').addEventListener('click', () => cycleWeapon());
     document.getElementById('btn-sound').addEventListener('click', toggleSound);
     document.getElementById('btn-sound-manual').addEventListener('click', toggleSound);

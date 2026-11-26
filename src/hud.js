@@ -1,5 +1,5 @@
 import { audio } from './audio.js';
-import { WEAPONS } from './config.js';
+import { STATIONS, WEAPONS } from './config.js';
 import { DISTRICTS, getDistrictAt } from './districts.js';
 import { HAZARD } from './palette.js';
 import { floatingTexts, game, mission, player } from './state.js';
@@ -38,8 +38,7 @@ export function showPager(msg) {
     void box.offsetWidth;
     box.classList.add('show');
     document.getElementById('hud').classList.add('paging');
-    audio.playTone(2400, 2400, 0.06, 'square', 0.035);
-    setTimeout(() => audio.playTone(2400, 2400, 0.06, 'square', 0.035), 120);
+    audio.pager();
     if (game.pagerTimeout) clearTimeout(game.pagerTimeout);
     game.pagerTimeout = setTimeout(() => {
         box.classList.remove('show');
@@ -60,10 +59,10 @@ export function showBigBanner(title, sub = '', color = '#ffd400') {
     wrap.classList.add('show');
 }
 
-export function showRadio(spec) {
+export function showRadio(stationId) {
     const el = document.getElementById('radio');
-    const r = spec.radio;
-    document.getElementById('radio-freq').innerHTML = `${r.freq}<small>${r.band}</small>`;
+    const r = STATIONS[stationId] || STATIONS.off;
+    document.getElementById('radio-freq').innerHTML = r.band ? `${r.freq}<small>${r.band}</small>` : r.freq;
     document.getElementById('radio-name').textContent = r.name;
     document.getElementById('radio-tag').textContent = r.tag;
     el.classList.remove('mini');
@@ -73,7 +72,7 @@ export function showRadio(spec) {
     game.radioTimer = setTimeout(() => {
         el.classList.add('mini');
         document.getElementById('hud').classList.remove('radio-on');
-    }, 3400);
+    }, 2500);
 }
 export function hideRadio() {
     if (game.radioTimer) clearTimeout(game.radioTimer);
@@ -116,6 +115,7 @@ export function updateHUD() {
     const level = Math.floor(player.wanted);
     if (level !== game.lastWantedLevel) {
         game.lastWantedLevel = level;
+        audio.dispatch();
         const el = $('hud-wanted');
         let html = '';
         for (let i = 0; i < 4; i++) {
