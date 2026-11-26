@@ -120,6 +120,60 @@ export const sfx = {
         }
     },
 
+    // Heavy retro splash: low thud, lowpass plunge, bandpassed spray, then rising bubble blips
+    splash(x, y, heavy = true) {
+        const m = heavy ? 1 : 0.55;
+        const v = this.voice(x, y, 1200, m);
+        this.tone(v, { type: 'sine', f0: 140, f1: 38, dur: 0.28 * (0.6 + m * 0.4), gain: 0.4 });
+        this.noise(v, { ftype: 'lowpass', freq: 1600, freq1: 220, fdur: 0.5, dur: 0.55, gain: 0.34, attack: 0.012 });
+        this.noise(v, { ftype: 'bandpass', freq: 3200, freq1: 1400, Q: 0.9, dur: 0.4, at: 0.04, gain: 0.16 });
+        for (let i = 0; i < (heavy ? 5 : 3); i++) {
+            const f = 380 + Math.random() * 260;
+            this.tone(v, {
+                type: 'sine',
+                f0: f,
+                f1: f * 2.1,
+                dur: 0.07,
+                at: 0.3 + i * 0.075 + Math.random() * 0.03,
+                gain: 0.05,
+                freq: 2400,
+                Q: 6
+            });
+        }
+    },
+
+    // Suspension compression thud + brief tire chirp
+    landing(x, y, force = 300) {
+        const k = clamp((force - 120) / 360, 0.3, 1);
+        const v = this.voice(x, y, 1100);
+        this.tone(v, { type: 'sine', f0: 95, f1: 32, dur: 0.22, gain: 0.5 * k });
+        this.noise(v, { ftype: 'bandpass', freq: 900, dur: 0.16, gain: 0.3 * k });
+        this.tone(v, { type: 'square', f0: 70, f1: 40, dur: 0.12, gain: 0.12 * k, freq: 500 });
+        this.noise(v, { ftype: 'bandpass', freq: 1700, Q: 7, dur: 0.12, at: 0.05, gain: 0.1 * k });
+    },
+
+    // Steel expansion joint under the tires: thud-thud
+    jointThud(x, y) {
+        const v = this.voice(x, y, 500);
+        this.tone(v, { type: 'sine', f0: 62, f1: 40, dur: 0.1, gain: 0.16 });
+        this.tone(v, { type: 'sine', f0: 56, f1: 36, dur: 0.1, at: 0.085, gain: 0.12 });
+        this.noise(v, { ftype: 'lowpass', freq: 320, dur: 0.06, gain: 0.08 });
+    },
+
+    // 90s arcade stab: power chord, then a rising arpeggio
+    stuntFanfare() {
+        const v = this.voice();
+        for (const f of [262, 330, 392]) {
+            this.tone(v, { type: 'sawtooth', f0: f, dur: 0.34, hold: 0.18, gain: 0.05, freq: 2600 });
+            this.tone(v, { type: 'square', f0: f * 2, dur: 0.3, hold: 0.14, gain: 0.025, freq: 3200 });
+        }
+        [523, 659, 784, 1047, 1319].forEach((f, i) =>
+            this.tone(v, { type: 'square', f0: f, dur: 0.14, at: 0.3 + i * 0.075, gain: 0.05, freq: 3600 })
+        );
+        this.tone(v, { type: 'sawtooth', f0: 1568, dur: 0.5, at: 0.72, hold: 0.2, gain: 0.05, freq: 3600 });
+        this.tone(v, { type: 'triangle', f0: 131, dur: 0.9, at: 0.3, hold: 0.4, gain: 0.12 });
+    },
+
     bombBeep(x, y) {
         this.tone(this.voice(x, y, 900), { type: 'square', f0: 1200, dur: 0.07, gain: 0.07 });
     },

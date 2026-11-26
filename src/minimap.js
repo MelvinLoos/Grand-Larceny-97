@@ -7,12 +7,14 @@ import {
     T_BLDG,
     T_GRASS,
     T_PAVEMENT,
+    T_RAMP,
     T_WATER,
     isSolidTile
 } from './config.js';
 import { LANDMARKS } from './city.js';
 import { DISTRICTS, districtAtTile } from './districts.js';
-import { INK, PAPER, WATER } from './palette.js';
+import { HAZARD, INK, PAPER, WATER } from './palette.js';
+import { RIVER } from './river.js';
 import { bays, bldgMeta, game, mapGrid, mission, payphones, player } from './state.js';
 import { BAY_INFO } from './shops.js';
 
@@ -29,7 +31,11 @@ function bakeCity() {
             const t = mapGrid[ty][tx];
             const d = DISTRICTS[districtAtTile(tx, ty)];
             let col;
-            if (t === T_WATER) col = WATER;
+            const river = tx >= RIVER.x0 && tx <= RIVER.x1 && ty > 0 && ty < MAP_SIZE - 1;
+            if (t === T_WATER)
+                col = river ? '#2a86b4' : WATER; // the harbor channel reads a shade brighter
+            else if (t === T_RAMP) col = HAZARD;
+            else if (bldgMeta[ty][tx]?.kind === 'bridge') col = '#eee8d4';
             else if (t === T_GRASS) col = '#79a957';
             else if (t === T_BLDG) col = bldgMeta[ty][tx]?.roof || '#888';
             else if (t === T_ALLEY) col = '#8b5a45';
@@ -38,6 +44,11 @@ function bakeCity() {
             else col = d.ground.road;
             g.fillStyle = col;
             g.fillRect(tx * PX, ty * PX, PX, PX);
+            if (bldgMeta[ty][tx]?.kind === 'bridge') {
+                g.fillStyle = INK; // bridge casings
+                g.fillRect(tx * PX, ty * PX, PX, 1);
+                g.fillRect(tx * PX, ty * PX + PX - 1, PX, 1);
+            }
             if (isSolidTile(t) && t === T_BLDG) {
                 g.fillStyle = 'rgba(20,19,15,0.25)';
                 g.fillRect(tx * PX, ty * PX + PX - 1, PX, 1);
@@ -50,6 +61,7 @@ function bakeCity() {
 const ICONS = () => [
     ...bays.map((b) => ({ x: b.x, y: b.y, kind: b.type })),
     ...payphones.map((p) => ({ x: p.x, y: p.y, kind: 'phone' })),
+    { x: RIVER.star.x, y: RIVER.star.y, kind: 'stunt' },
     ...(mission.active ? [{ x: mission.targetX, y: mission.targetY, kind: 'target' }] : [])
 ];
 
@@ -59,6 +71,22 @@ function drawIcon(g, kind, x, y, r, t) {
     if (kind === 'phone') {
         g.fillStyle = '#ffd400';
         g.fillRect(x - r * 0.4, y - r * 0.4, r * 0.8, r * 0.8);
+        return;
+    }
+    if (kind === 'stunt') {
+        // stunt-jump star on the broken drawbridge
+        g.beginPath();
+        for (let i = 0; i < 10; i++) {
+            const rr = (i & 1 ? 0.5 : 1.15) * r;
+            const a = -Math.PI / 2 + (i * Math.PI) / 5;
+            g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+        }
+        g.closePath();
+        g.fillStyle = HAZARD;
+        g.fill();
+        g.strokeStyle = INK;
+        g.lineWidth = 1.5;
+        g.stroke();
         return;
     }
     if (kind === 'target') {

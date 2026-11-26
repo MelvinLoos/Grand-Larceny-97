@@ -14,6 +14,18 @@ export const T_ROAD_X = 5;
 export const T_BLDG = 6;
 export const T_ALLEY = 7; // Brick back-alley / courtyard apron: player + foot traffic only
 export const T_BAY = 8; // Recessed drive-in garage bay floor (see shops.js)
+export const T_RAMP = 9; // Broken drawbridge stunt ramp stub (see river.js): player + reckless cops only
+
+// --- VERTICAL PHYSICS (world px; z is height above the water/ground plane) ---
+export const GRAVITY = 620;
+export const DECK_Z = 18; // intact bridge deck height
+export const RAMP_Z = 26; // broken drawbridge ramp lip height
+export const LAUNCH_K = 0.58; // vz = LAUNCH_K * forward speed off a ramp lip
+export const MIN_LAUNCH_SPEED = 220;
+export const STUNT_MIN_DIST = 180;
+export const SINK_TIME = 1.8;
+export const SWIM_TIME = 3.5;
+export const CAR_H = 16; // cars further apart than this vertically don't touch
 
 // Per-tile behaviour table. flowCost feeds the police flow-field (Infinity = impassable).
 const SOLID = {
@@ -26,7 +38,7 @@ const SOLID = {
 const WALK = { solid: false, sidewalk: true, drivableByPlayer: true, allowCivilianTraffic: false, flowCost: 4.5 };
 const ROAD = { solid: false, sidewalk: false, drivableByPlayer: true, allowCivilianTraffic: true, flowCost: 1 };
 export const TILE_PROPS = {
-    [T_WATER]: SOLID,
+    [T_WATER]: { ...SOLID, hazard: 'water' },
     [T_BLDG]: SOLID,
     [T_GRASS]: WALK,
     [T_PAVEMENT]: WALK,
@@ -34,7 +46,8 @@ export const TILE_PROPS = {
     [T_ROAD_V]: ROAD,
     [T_ROAD_X]: ROAD,
     [T_ALLEY]: { solid: false, sidewalk: false, drivableByPlayer: true, allowCivilianTraffic: false, flowCost: 2.5 },
-    [T_BAY]: { solid: false, sidewalk: false, drivableByPlayer: true, allowCivilianTraffic: false, flowCost: 3 }
+    [T_BAY]: { solid: false, sidewalk: false, drivableByPlayer: true, allowCivilianTraffic: false, flowCost: 3 },
+    [T_RAMP]: { solid: false, sidewalk: false, drivableByPlayer: true, allowCivilianTraffic: false, flowCost: 6 }
 };
 export const isSolidTile = (t) => TILE_PROPS[t].solid;
 export const isSidewalkTile = (t) => TILE_PROPS[t].sidewalk;

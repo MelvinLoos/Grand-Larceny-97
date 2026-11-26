@@ -3,7 +3,7 @@ import {
     DIR_VECS,
     applyWallFeelers,
     getLaneCoord,
-    hasLineOfSight,
+    hasDriveLine,
     isRoadCell,
     isRoadTileType,
     isSolidAt,
@@ -31,7 +31,7 @@ export function driveAICarToward(c, targetX, targetY, desiredSpeed, dt) {
 
     let desiredAng = Math.atan2(targetY - c.y, targetX - c.x);
     if (c.aiMode === 'police' || !isRoadTileType(tileAtWorld(c.x, c.y))) {
-        desiredAng = applyWallFeelers(c.x, c.y, desiredAng, 68);
+        desiredAng = applyWallFeelers(c.x, c.y, desiredAng, 68, true);
     }
 
     const diff = normalizeAngle(desiredAng - c.angle);
@@ -256,7 +256,7 @@ export function updateTrafficCarAI(c, dt) {
 
 export function updatePoliceCarAI(c, dt) {
     const distToPlayer = Math.hypot(player.x - c.x, player.y - c.y);
-    const clearSight = distToPlayer < 420 && hasLineOfSight(c.x, c.y, player.x, player.y);
+    const clearSight = distToPlayer < 420 && hasDriveLine(c.x, c.y, player.x, player.y);
 
     let targetX = player.x;
     let targetY = player.y;

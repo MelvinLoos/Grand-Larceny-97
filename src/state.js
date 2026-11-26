@@ -58,7 +58,9 @@ export const player = {
     walkCycle: 0,
     currentDistrict: -1,
     probation: 0, // seconds of flashing probation left after a respray
-    probationWanted: 0
+    probationWanted: 0,
+    swimming: false, // in the river on foot
+    breath: 3.5 // seconds of swimming left
 };
 
 // Harbor Export orders: which models are still wanted (reset after the $25,000 bonus)
