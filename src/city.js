@@ -336,13 +336,13 @@ export function buildCity() {
         const pt = pavementNear(tx, ty, taken);
         LANDMARKS.pickups.push({ kind, color, x: (pt.tx + 0.5) * TILE, y: (pt.ty + 0.5) * TILE });
     };
-    LANDMARKS.pickups.push({ kind: 'uzi', color: '#ffd400', x: LANDMARKS.parkCenter.x, y: LANDMARKS.parkCenter.y });
+    LANDMARKS.pickups.push({ kind: 'uzi', color: '#f59e0b', x: LANDMARKS.parkCenter.x, y: LANDMARKS.parkCenter.y });
     pk('armor', '#5a8fd6', qx0 + 3, qy0 + 1);
-    pk('rocket', '#ff8a2a', yx0 + 3, yy0 + 2);
-    pk('health', '#d23a2a', 10, 44);
-    pk('rocket', '#ff8a2a', 50, 18);
-    pk('bribe', '#a855f7', 20, 10);
-    pk('health', '#d23a2a', 40, 36);
+    pk('rocket', '#ff6a1f', yx0 + 3, yy0 + 2);
+    pk('health', '#3fbf5f', 10, 44);
+    pk('rocket', '#ff6a1f', 50, 18);
+    pk('bribe', '#ffd400', 20, 10);
+    pk('health', '#3fbf5f', 40, 36);
 
     const turf0 = LANDMARKS.gangTurfs[0];
     LANDMARKS.missions.hotCar = turf0

@@ -111,6 +111,7 @@ export function populateWorld() {
     player.vx = 0;
     player.vy = 0;
     player.hp = 100;
+    player.hpSeen = 100;
     player.armor = 50;
     player.wanted = 0;
     player.inCar = null;
@@ -162,7 +163,7 @@ export function populateWorld() {
 
     // Weapon, Health, Armor & Bribe Pickups spread over the districts
     for (const p of LANDMARKS.pickups) {
-        pickups.push({ ...p, timer: 0 });
+        pickups.push({ ...p, timer: 0, hintT: 0, seed: Math.random() * Math.PI * 2 });
     }
 
     camera.x = player.x;

@@ -7,6 +7,7 @@ export const WATER = '#2f6db5';
 export const PARK = '#79a957';
 export const HAZARD = '#ffd400';
 export const ROUTE = '#d23a2a';
+export const PHONE = '#35c8e0'; // payphone booth header + its nav arrow
 export const STREETS_H = [
     '',
     'FERRY ST',

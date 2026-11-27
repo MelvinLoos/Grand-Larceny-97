@@ -26,6 +26,8 @@ export const STUNT_MIN_DIST = 180;
 export const SINK_TIME = 1.8;
 export const SWIM_TIME = 3.5;
 export const CAR_HIT_SPEED = 45; // a car must be at least this fast (px/s) and driving INTO someone to hurt them
+export const PICKUP_RESPAWN = 60; // seconds before a collected pickup returns
+export const METERS_PER_PX = 1 / 12; // HUD distance readout: a 56px car is roughly 4.7m
 export const CAR_H = 16; // cars further apart than this vertically don't touch
 
 // Per-tile behaviour table. flowCost feeds the police flow-field (Infinity = impassable).

@@ -1,6 +1,7 @@
-import { DIR_VECS, LANDMARKS, bayByTile, isRoadCell } from './city.js';
+import { DIR_VECS, LANDMARKS, bayByTile, isOnScreen, isRoadCell } from './city.js';
 import {
     MAP_SIZE,
+    METERS_PER_PX,
     TILE,
     T_ALLEY,
     T_BAY,
@@ -30,7 +31,7 @@ import {
 } from './render-river.js';
 import { BAY_INFO } from './shops.js';
 import { bodyOf, doorFor, skinOf } from './vehicles.js';
-import { HAZARD, INK, PAPER, PARK, ROUTE, STREETS_H, STREETS_V, WATER, shade } from './palette.js';
+import { HAZARD, INK, PAPER, PARK, PHONE, ROUTE, STREETS_H, STREETS_V, WATER, shade } from './palette.js';
 import {
     bays,
     bldgMeta,
@@ -348,73 +349,35 @@ export function render() {
 
     drawLawProps(nowSec0, halfW, halfH);
 
-    // 3. DRAW RINGING PAYPHONES & PICKUPS
+    // 3. DRAW PAYPHONE BOOTHS, MISSION TARGET RING & PICKUPS
     const nowSec = performance.now() * 0.001;
-    for (const ph of payphones) {
-        if (!mission.active) {
-            const pulse = (nowSec * 38) % 34;
-            ctx.strokeStyle = `rgba(210, 58, 42, ${1 - pulse / 34})`;
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(ph.x, ph.y, 12 + pulse, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-        ctx.fillStyle = 'rgba(20, 19, 15, 0.3)';
-        ctx.fillRect(ph.x - 8, ph.y - 7, 20, 20);
-        ctx.fillStyle = HAZARD;
-        ctx.strokeStyle = INK;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.roundRect(ph.x - 10, ph.y - 10, 20, 20, 4);
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = INK;
-        ctx.fillRect(ph.x - 6, ph.y - 5, 12, 3);
-        ctx.fillRect(ph.x - 6, ph.y - 5, 3, 8);
-        ctx.fillRect(ph.x + 3, ph.y - 5, 3, 8);
-    }
+    for (const ph of payphones) drawPayphone(ph, nowSec);
 
     drawExportBoard();
 
-    if (mission.active && mission.type === 'steal_deliver' && mission.stage === 2) {
-        const r = 40 + Math.sin(nowSec * 6) * 5;
-        ctx.fillStyle = 'rgba(210, 58, 42, 0.14)';
+    if (mission.active) {
+        const col = mission.kind === 'kill' ? ROUTE : HAZARD;
+        const drop = mission.type === 'steal_deliver' && mission.stage === 2;
+        const r = (drop ? 95 : 34) + Math.sin(nowSec * 6) * 4;
+        ctx.save();
+        ctx.globalAlpha = 0.16;
+        ctx.fillStyle = col;
         ctx.beginPath();
         ctx.arc(mission.targetX, mission.targetY, r, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = ROUTE;
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 8;
+        ctx.stroke();
+        ctx.strokeStyle = col;
         ctx.lineWidth = 5;
         ctx.setLineDash([14, 10]);
         ctx.lineDashOffset = -nowSec * 30;
         ctx.stroke();
-        ctx.setLineDash([]);
+        ctx.restore();
     }
 
-    const PICKUP_LABEL = { uzi: 'SMG', rocket: 'RKT', armor: 'ARM', health: 'HP', bribe: '$' };
-    for (const pk of pickups) {
-        if (pk.timer > 0) continue;
-        const bounce = Math.sin(nowSec * 5 + pk.x) * 3;
-        ctx.fillStyle = 'rgba(20, 19, 15, 0.3)';
-        ctx.beginPath();
-        ctx.arc(pk.x + 2, pk.y + 5, 16, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(pk.x, pk.y + bounce, 16, 0, Math.PI * 2);
-        ctx.fillStyle = INK;
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(pk.x, pk.y + bounce, 13.5, 0, Math.PI * 2);
-        ctx.fillStyle = PAPER;
-        ctx.fill();
-        ctx.strokeStyle = pk.color;
-        ctx.lineWidth = 4;
-        ctx.stroke();
-        ctx.fillStyle = INK;
-        ctx.font = '700 13px "Barlow Condensed", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(PICKUP_LABEL[pk.kind] || '?', pk.x, pk.y + bounce + 1);
-    }
+    for (const pk of pickups) drawPickup(pk, nowSec);
 
     // 4. DRAW PEDESTRIANS
     for (const p of peds) {
@@ -435,14 +398,6 @@ export function render() {
             ((p.x * 7) | 0) & 3,
             p.hair
         );
-        if (p.role === 'boss') {
-            // Red boss arrow highlight
-            ctx.strokeStyle = ROUTE;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 18 + Math.sin(nowSec * 8) * 3, 0, Math.PI * 2);
-            ctx.stroke();
-        }
     }
 
     // 5. DRAW PLAYER (When On Foot)
@@ -670,7 +625,7 @@ export function render() {
     for (const ft of floatingTexts) {
         const sp = worldToScreen(ft.x, ft.y, shakeX, shakeY);
         ctx.globalAlpha = Math.min(1, Math.max(0, ft.life / ft.maxLife) * 3);
-        ctx.font = '700 24px "Barlow Condensed", sans-serif';
+        ctx.font = `700 ${Math.round(24 * (ft.scale || 1))}px "Barlow Condensed", sans-serif`;
         ctx.textAlign = 'center';
         ctx.lineJoin = 'round';
         ctx.lineWidth = 5;
@@ -684,6 +639,172 @@ export function render() {
     drawNavigationArrows(shakeX, shakeY);
     drawRadar(nowSec);
 }
+
+// Fixed sidewalk booth: grounded, never bobs. Ringing/available phones are cyan with sound waves;
+// while a job is running (or you're in a car) the booth goes quiet and grey.
+function drawPayphone(ph, nowSec) {
+    const live = !mission.active;
+    const ringing = live && ph.ringPhase % 20 < 6;
+    ctx.save();
+    if (!live) ctx.globalAlpha = 0.5;
+    ctx.translate(ph.x, ph.y);
+    ctx.scale(1.3, 1.3);
+    ctx.translate(-ph.x, -ph.y);
+    ctx.fillStyle = 'rgba(20, 19, 15, 0.3)';
+    ctx.fillRect(ph.x - 7, ph.y - 6, 22, 24);
+    if (live) {
+        const g = ctx.createRadialGradient(ph.x, ph.y, 4, ph.x, ph.y, 30);
+        g.addColorStop(0, 'rgba(53, 200, 224, 0.28)');
+        g.addColorStop(1, 'rgba(53, 200, 224, 0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(ph.x, ph.y, 30, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    // frame
+    ctx.fillStyle = '#2a2d33';
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(ph.x - 9, ph.y - 14, 18, 26, 3);
+    ctx.fill();
+    ctx.stroke();
+    // header strip
+    ctx.fillStyle = live ? PHONE : '#7b7f86';
+    ctx.fillRect(ph.x - 8, ph.y - 13, 16, 7);
+    ctx.fillStyle = INK;
+    ctx.font = '700 6px "Barlow Condensed", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('PHONE', ph.x, ph.y - 9.5);
+    // glass + handset
+    ctx.fillStyle = '#14161a';
+    ctx.fillRect(ph.x - 6, ph.y - 4, 12, 12);
+    ctx.fillStyle = live ? HAZARD : '#8a8d93';
+    ctx.fillRect(ph.x - 4, ph.y - 2, 3, 8);
+    ctx.fillRect(ph.x + 1, ph.y - 2, 3, 8);
+    ctx.fillRect(ph.x - 4, ph.y - 2, 8, 2);
+    ctx.restore();
+    if (!live) return;
+
+    if (ringing) {
+        ctx.save();
+        ctx.strokeStyle = PHONE;
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        for (let i = 0; i < 3; i++) {
+            const t = (nowSec * 1.8 + i / 3) % 1;
+            ctx.globalAlpha = (1 - t) * 0.9;
+            const r = 18 + t * 28;
+            for (const side of [0, Math.PI]) {
+                ctx.beginPath();
+                ctx.arc(ph.x, ph.y - 2, r, side - 0.6, side + 0.6);
+                ctx.stroke();
+            }
+        }
+        ctx.restore();
+    }
+    if (Math.hypot(player.x - ph.x, player.y - ph.y) < 170) {
+        const bob = Math.sin(nowSec * 6) * 2;
+        const label = player.inCar ? 'ON FOOT' : 'CALL';
+        const by = ph.y - 44 + bob;
+        ctx.save();
+        ctx.font = '700 13px "Barlow Condensed", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const w = ctx.measureText(label).width + 14;
+        ctx.fillStyle = PAPER;
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(ph.x - w / 2, by - 9, w, 18, 6);
+        ctx.moveTo(ph.x - 4, by + 9);
+        ctx.lineTo(ph.x, by + 14);
+        ctx.lineTo(ph.x + 4, by + 9);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = INK;
+        ctx.fillText(label, ph.x, by + 1);
+        ctx.restore();
+    }
+}
+
+// Floating arcade pickup: color-coded pulsing ground ring, hover bob and an occasional glint
+function drawPickup(pk, nowSec) {
+    const seed = pk.seed || 0;
+    if (pk.timer > 0) {
+        // collected: only a faint dashed mark shows the spot will come back
+        ctx.save();
+        ctx.globalAlpha = 0.25;
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 5]);
+        ctx.beginPath();
+        ctx.arc(pk.x, pk.y + 3, 14, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        return;
+    }
+    const bounce = Math.sin(nowSec * 5 + seed) * 3;
+    const ringR = 22 + Math.sin(nowSec * 4 + seed) * 3;
+    ctx.save();
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = pk.color;
+    ctx.beginPath();
+    ctx.arc(pk.x, pk.y + 3, ringR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.85;
+    ctx.strokeStyle = pk.color;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = 'rgba(20, 19, 15, 0.3)';
+    ctx.beginPath();
+    ctx.arc(pk.x + 2, pk.y + 5, 16 - bounce * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(pk.x, pk.y + bounce, 16, 0, Math.PI * 2);
+    ctx.fillStyle = INK;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(pk.x, pk.y + bounce, 13.5, 0, Math.PI * 2);
+    ctx.fillStyle = PAPER;
+    ctx.fill();
+    ctx.strokeStyle = pk.color;
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    ctx.fillStyle = INK;
+    ctx.font = '700 13px "Barlow Condensed", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(PICKUP_LABEL[pk.kind] || '?', pk.x, pk.y + bounce + 1);
+
+    // glint: a 4-point sparkle for ~0.25s every 2.4s
+    const gp = (nowSec + seed) % 2.4;
+    if (gp < 0.25) {
+        const sz = 7 * Math.sin((gp / 0.25) * Math.PI);
+        const gx = pk.x + 10;
+        const gy = pk.y + bounce - 11;
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(gx, gy - sz);
+        ctx.lineTo(gx + sz * 0.25, gy - sz * 0.25);
+        ctx.lineTo(gx + sz, gy);
+        ctx.lineTo(gx + sz * 0.25, gy + sz * 0.25);
+        ctx.lineTo(gx, gy + sz);
+        ctx.lineTo(gx - sz * 0.25, gy + sz * 0.25);
+        ctx.lineTo(gx - sz, gy);
+        ctx.lineTo(gx - sz * 0.25, gy - sz * 0.25);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+    }
+}
+
+const PICKUP_LABEL = { uzi: 'SMG', rocket: 'RKT', armor: 'ARM', health: 'HP', bribe: '$' };
 
 // Persistent wanted-car checklist beside the export bay
 const BOARD_ROWS = [
@@ -1313,10 +1434,17 @@ export function drawVehicle(c, nowSec) {
 }
 
 // Orbiting Navigation Arrows around Player!
+// Gold = go there, red = kill/destroy it, cyan = a ringing payphone. The arrow reads out live meters and
+// hands off to a bouncing chevron over the target once it is on screen.
+let navBlend = 0;
+let navLastT = 0;
 export function drawNavigationArrows(shakeX, shakeY) {
     const pScreen = worldToScreen(player.x, player.y, shakeX, shakeY);
+    const now = performance.now() * 0.001;
+    const dt = Math.min(0.1, now - navLastT);
+    navLastT = now;
 
-    // 1. Yellow Arrow -> Active Mission Target OR Nearest Ringing Payphone
+    // 1. Main arrow -> active mission target OR nearest payphone
     let targetX = null;
     let targetY = null;
     let arrowColor;
@@ -1324,9 +1452,8 @@ export function drawNavigationArrows(shakeX, shakeY) {
     if (mission.active) {
         targetX = mission.targetX;
         targetY = mission.targetY;
-        arrowColor = ROUTE;
+        arrowColor = mission.kind === 'kill' ? ROUTE : HAZARD;
     } else {
-        // Point to nearest payphone
         let bestD = Infinity;
         for (const ph of payphones) {
             const d = Math.hypot(ph.x - player.x, ph.y - player.y);
@@ -1336,11 +1463,32 @@ export function drawNavigationArrows(shakeX, shakeY) {
                 targetY = ph.y;
             }
         }
-        arrowColor = HAZARD;
+        arrowColor = PHONE;
     }
 
-    if (targetX !== null && Math.hypot(targetX - player.x, targetY - player.y) > 95) {
-        drawSingleArrow(pScreen.x, pScreen.y, Math.atan2(targetY - player.y, targetX - player.x), 68, arrowColor);
+    if (targetX === null) {
+        navBlend = 0;
+    } else {
+        const dist = Math.hypot(targetX - player.x, targetY - player.y);
+        const label = `${Math.round(dist * METERS_PER_PX)}m`;
+        // only job targets hand off to a chevron; a booth already has its own waves + CALL bubble
+        const handoff = mission.active && isOnScreen(targetX, targetY, -60);
+        navBlend += ((handoff ? 1 : 0) - navBlend) * Math.min(1, dt * 8);
+        if (dist > 95 && navBlend < 0.99) {
+            drawSingleArrow(
+                pScreen.x,
+                pScreen.y,
+                Math.atan2(targetY - player.y, targetX - player.x),
+                68,
+                arrowColor,
+                label,
+                1 - navBlend
+            );
+        }
+        if (navBlend > 0.01) {
+            const sp = worldToScreen(targetX, targetY, shakeX, shakeY);
+            drawTargetChevron(sp.x, sp.y - 46 - Math.abs(Math.sin(now * 6)) * 8, arrowColor, label, navBlend);
+        }
     }
 
     // 2. Blue Arrow -> Nearest Spray-B-Gone bay when Wanted!
@@ -1361,8 +1509,52 @@ export function drawNavigationArrows(shakeX, shakeY) {
     }
 }
 
-export function drawSingleArrow(cx, cy, angle, orbitRadius, color) {
+// Bouncing downward chevron above the target, with the distance readout over it
+function drawTargetChevron(x, y, color, label, alpha) {
     ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(x, y);
+    ctx.fillStyle = color;
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, 14);
+    ctx.lineTo(-13, -4);
+    ctx.lineTo(-5, -4);
+    ctx.lineTo(-5, -10);
+    ctx.lineTo(5, -10);
+    ctx.lineTo(5, -4);
+    ctx.lineTo(13, -4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    drawDistancePill(0, -24, label);
+    ctx.restore();
+}
+
+function drawDistancePill(x, y, label) {
+    ctx.font = '700 15px "Barlow Condensed", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const w = ctx.measureText(label).width + 12;
+    ctx.fillStyle = INK;
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2, y - 9, w, 18, 6);
+    ctx.fill();
+    ctx.fillStyle = PAPER;
+    ctx.fillText(label, x, y + 1);
+}
+
+export function drawSingleArrow(cx, cy, angle, orbitRadius, color, label = null, alpha = 1) {
+    if (label) {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        drawDistancePill(cx + Math.cos(angle) * (orbitRadius + 34), cy + Math.sin(angle) * (orbitRadius + 34), label);
+        ctx.restore();
+    }
+    ctx.save();
+    ctx.globalAlpha = alpha;
     ctx.translate(cx + Math.cos(angle) * orbitRadius, cy + Math.sin(angle) * orbitRadius);
     ctx.rotate(angle);
     ctx.scale(1.25, 1.25);

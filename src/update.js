@@ -18,12 +18,22 @@ import {
 } from './city.js';
 import { damagePed, damagePlayer, destroyCar, findAimTarget, fireWeapon, triggerExplosion } from './combat.js';
 import { collideCarFoliage, steerAroundTrunks, trunkBlocks, updateFoliage } from './foliage.js';
-import { CAR_H, CAR_HIT_SPEED, T_ROAD_X, WEAPONS, flatCount, flatSpeedMul, isLaw, isSolidTile } from './config.js';
+import {
+    CAR_H,
+    CAR_HIT_SPEED,
+    PICKUP_RESPAWN,
+    T_ROAD_X,
+    WEAPONS,
+    flatCount,
+    flatSpeedMul,
+    isLaw,
+    isSolidTile
+} from './config.js';
 import { getDistrictAt } from './districts.js';
 import { PUNK_HAIR, pedLook } from './palette.js';
 import { addDecal, createCar, pickCarType, spawnRandomPed } from './entities.js';
 import { buzz } from './haptics.js';
-import { showPager, spawnFloatingText, updateDistrictName, updateHUD } from './hud.js';
+import { showPager, spawnFloatingText, trackHpLoss, updateDistrictName, updateHUD } from './hud.js';
 import { updateEmergency, updateMedic, updateRescueCarAI, sprayWater } from './emergency.js';
 import { addCrime, footCopRoom, updateHeat } from './heat.js';
 import {
@@ -985,33 +995,55 @@ export function update(dt) {
 
     // --- PICKUPS ---
     for (const pk of pickups) {
+        pk.hintT = Math.max(0, (pk.hintT || 0) - dt);
         if (pk.timer > 0) {
             pk.timer -= dt;
             continue;
         }
-        if (Math.hypot(player.x - pk.x, player.y - pk.y) < 28) {
-            pk.timer = 25; // Respawns after 25s
-            audio.pickup();
-            if (pk.kind === 'health') {
-                player.hp = 100;
-                spawnFloatingText('MAX HEALTH!', pk.x, pk.y, '#d23a2a');
-            } else if (pk.kind === 'armor') {
-                player.armor = 100;
-                spawnFloatingText('BODY ARMOR!', pk.x, pk.y, '#5a8fd6');
-            } else if (pk.kind === 'uzi') {
-                player.ammo[2] += 120;
-                player.weaponIdx = 2;
-                spawnFloatingText('UZI SMG +120!', pk.x, pk.y, '#ffd400');
-            } else if (pk.kind === 'rocket') {
-                player.ammo[3] += 6;
-                player.weaponIdx = 3;
-                spawnFloatingText('ROCKETS +6!', pk.x, pk.y, '#ff8a2a');
-            } else if (pk.kind === 'bribe') {
-                player.wanted = Math.max(0, player.wanted - 2);
-                spawnFloatingText('COP BRIBE!', pk.x, pk.y, '#c084fc');
+        if (player.deadTimer > 0 || Math.hypot(player.x - pk.x, player.y - pk.y) >= 28) continue;
+        const px = player.x;
+        const py = player.y - 34;
+        let text = null;
+        let color = pk.color;
+        let full = null; // set when the pickup would be wasted: it stays put and says why
+        if (pk.kind === 'health') {
+            if (player.hp >= player.maxHp) full = 'HEALTH FULL';
+            else {
+                text = `+${Math.round(player.maxHp - player.hp)} HEALTH`;
+                player.hp = player.maxHp;
             }
-            updateHUD();
+        } else if (pk.kind === 'armor') {
+            if (player.armor >= 100) full = 'ARMOR FULL';
+            else {
+                text = `+${Math.round(100 - player.armor)} ARMOR`;
+                player.armor = 100;
+            }
+        } else if (pk.kind === 'uzi') {
+            player.ammo[2] += 120;
+            player.weaponIdx = 2;
+            text = 'UZI +120';
+        } else if (pk.kind === 'rocket') {
+            player.ammo[3] += 6;
+            player.weaponIdx = 3;
+            text = 'ROCKETS +6';
+        } else if (pk.kind === 'bribe') {
+            if (player.wanted <= 0) full = 'NO HEAT';
+            else {
+                player.wanted = Math.max(0, player.wanted - 2);
+                text = 'COP BRIBE!';
+            }
         }
+        if (full) {
+            if (pk.hintT <= 0) {
+                pk.hintT = 1.5;
+                spawnFloatingText(full, px, py, '#ece6d2', 0.85);
+            }
+            continue;
+        }
+        pk.timer = PICKUP_RESPAWN;
+        audio.pickup();
+        spawnFloatingText(text, px, py, color, 1.1);
+        updateHUD();
     }
 
     // --- PARTICLES & FLOATING TEXTS ---
@@ -1044,6 +1076,8 @@ export function update(dt) {
         updateMission(dt);
         updateDistrictName(dt);
     }
+
+    trackHpLoss();
 
     // --- DYNAMIC SPEED-ZOOM CAMERA ---
     const currentSpeed = player.inCar ? player.inCar.speed : 0;

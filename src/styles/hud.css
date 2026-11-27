@@ -238,8 +238,16 @@
     line-height: 1.15;
 }
 #hud-mission-timer .lbl {
-    color: var(--route);
+    background: var(--hazard);
+    color: var(--ink);
+    border-radius: 4px;
+    padding: 0 6px;
     margin-right: 6px;
+    text-transform: uppercase;
+}
+#hud-mission-timer.kill .lbl {
+    background: var(--route);
+    color: var(--paper);
 }
 #hud.paging #hud-mission-timer {
     display: none;
@@ -558,4 +566,51 @@
     font-size: clamp(17px, 2vw, 23px);
     letter-spacing: 0.04em;
     text-transform: uppercase;
+}
+
+/* Mission start: a smaller slam anchored high so the road ahead stays readable */
+#big-banner.job {
+    place-content: start center;
+    padding-top: 14vh;
+}
+#big-banner.job #big-banner-title {
+    font-size: clamp(24px, 3.6vw, 46px);
+}
+
+/* Taking damage: crimson screen-edge vignette + health meter bump */
+#damage-flash {
+    --a: 0.3;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(ellipse at center, transparent 45%, rgba(210, 20, 30, 0.95) 120%);
+}
+#damage-flash.hit {
+    animation: dmg-flash 0.22s ease-out forwards;
+}
+@keyframes dmg-flash {
+    from {
+        opacity: var(--a);
+    }
+    to {
+        opacity: 0;
+    }
+}
+.meter-row.hit {
+    animation: hp-bump 0.25s ease-out;
+    transform-origin: left center;
+}
+.meter-row.hit #hud-health-bar {
+    animation: hp-flash 0.25s ease-out;
+}
+@keyframes hp-bump {
+    40% {
+        transform: scale(1.15);
+    }
+}
+@keyframes hp-flash {
+    from {
+        background: #fff;
+    }
 }
