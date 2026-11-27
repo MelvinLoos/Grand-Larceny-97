@@ -1,5 +1,5 @@
 import { audio } from './audio.js';
-import { STATIONS, WEAPONS } from './config.js';
+import { STATIONS, WEAPONS, flatCount } from './config.js';
 import { DISTRICTS, getDistrictAt } from './districts.js';
 import { HAZARD } from './palette.js';
 import { floatingTexts, game, mission, player } from './state.js';
@@ -128,6 +128,9 @@ export function updateHUD() {
 
     $('hud-wanted').classList.toggle('probation', player.probation > 0);
     const car = player.inCar;
+    const flats = car ? flatCount(car) : 0;
+    $('hud-tires').hidden = flats === 0;
+    if (flats) $('hud-tires-lbl').textContent = flats > 1 ? `FLAT TIRES ×${flats}` : 'FLAT TIRE';
     $('hud-bomb').hidden = !(car && car.hasBomb);
     $('hud-bomb').classList.toggle('armed', !!(car && car.bombArmed));
     $('touch-bomb').hidden = !(car && car.hasBomb && !car.bombArmed);

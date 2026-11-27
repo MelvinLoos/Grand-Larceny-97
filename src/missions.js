@@ -2,29 +2,16 @@ import { audio } from './audio.js';
 import { LANDMARKS } from './city.js';
 import { pedLook } from './palette.js';
 import { createCar } from './entities.js';
-import { addScore, showBigBanner, showPager, updateHUD } from './hud.js';
+import { addCrime, clearHeat } from './heat.js';
+import { addScore, showBigBanner, showPager, spawnFloatingText, updateHUD } from './hud.js';
 import { cars, mission, payphones, peds, player } from './state.js';
-
-// --- WANTED SYSTEM ---
-export function addCrime(amount) {
-    if (player.probation > 0) {
-        // Crime during probation: the cops get their heat back, plus this crime
-        amount += player.probationWanted;
-        player.probation = 0;
-        player.probationWanted = 0;
-        player.wanted = 0;
-    }
-    player.wanted = Math.min(4, player.wanted + amount);
-    player.wantedDecay = 18;
-    audio.dispatch();
-    updateHUD();
-}
 
 // --- PAYPHONE MISSIONS ---
 export function startPayphoneMission(phone) {
     audio.cash();
     const mIdx = mission.completedCount % 3;
     mission.active = true;
+    mission.alerted = false;
 
     if (mIdx === 0) {
         // Mission 1: Hot Car Delivery (parked in a Midtown gang courtyard)
@@ -131,8 +118,13 @@ export function updateMission(dt) {
                 mission.targetX = LANDMARKS.missions.drop.x;
                 mission.targetY = LANDMARKS.missions.drop.y;
                 mission.title = 'DELIVER CAR TO THE HARBOR YARD DROP-OFF!';
-                addCrime(1.2);
-                showPager('COPS SPOTTED YOU! DELIVER IT TO THE HARBOR YARD CRANE!');
+                // Intro pacing: one star on the first run, a little more once you know the ropes
+                addCrime('scripted', {
+                    amount: mission.completedCount === 0 ? 1 : 1.5 + Math.min(1, mission.completedCount * 0.15)
+                });
+                showPager(
+                    "CAR ALARM! NBPD IS SENDING A CRUISER - LOSE 'EM IN THE ALLEYS & DELIVER TO THE HARBOR YARD!"
+                );
                 updateHUD();
             }
         } else if (mission.stage === 2) {
@@ -153,6 +145,12 @@ export function updateMission(dt) {
         if (!van || van.hp <= 0) {
             completeMission(20000);
         } else {
+            if (!mission.alerted && van.hp < van.maxHp) {
+                // Armored guards radio it in: scripted heat that pushes later runs into roadblock territory
+                mission.alerted = true;
+                addCrime('scripted', { amount: mission.completedCount >= 3 ? 3 : 2.5 });
+                showPager('THE VAN CALLED IT IN! COPS ARE INBOUND - KEEP HITTING IT!');
+            }
             mission.targetX = van.x;
             mission.targetY = van.y;
         }
@@ -161,11 +159,18 @@ export function updateMission(dt) {
 
 export function completeMission(reward) {
     mission.active = false;
+    mission.alerted = false;
     mission.completedCount++;
+    clearHeat();
+    spawnFloatingText('HEAT CLEARED!', player.x, player.y - 56, '#7fb2f0', 1.3);
     player.multiplier = Math.min(9, player.multiplier + 1);
     addScore(reward, player.x, player.y - 30, 'MISSION');
     audio.cash();
-    showBigBanner('MISSION COMPLETE!', `+$${reward * player.multiplier} • MULTIPLIER x${player.multiplier}`, '#ffd400');
+    showBigBanner(
+        'MISSION COMPLETE!',
+        `HEAT CLEARED! +$${reward * player.multiplier} • MULTIPLIER x${player.multiplier}`,
+        '#ffd400'
+    );
     showPager('NICE WORK KID! ANSWER ANOTHER PAYPHONE FOR MORE WORK!');
     updateHUD();
 }

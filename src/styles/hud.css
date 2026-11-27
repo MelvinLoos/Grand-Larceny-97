@@ -124,6 +124,19 @@
         transform: none;
     }
 }
+#hud-tires {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    color: var(--route);
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.08em;
+}
+#hud-tires[hidden] {
+    display: none;
+}
 #hud-bomb {
     display: flex;
     align-items: center;
@@ -373,6 +386,15 @@
 }
 #hud-wanted.probation {
     animation: probation-blink 0.3s steps(2, jump-none) infinite;
+}
+/* Out-of-sight cooldown: a slow dim pulse, nothing like probation's rapid flash */
+#hud-wanted.cooling {
+    animation: cooling-pulse 1.6s ease-in-out infinite;
+}
+@keyframes cooling-pulse {
+    50% {
+        opacity: 0.35;
+    }
 }
 @keyframes probation-blink {
     50% {

@@ -26,6 +26,7 @@ const MIST = ['#22e5ff', '#ff2bd6', '#ffd400', '#a3e635', '#ffffff'];
 function check(b, car) {
     const spec = car.spec;
     if (b.type === 'spray') {
+        if (spec.isEmergency) return { ok: false, msg: 'NO EMERGENCY RIGS!' };
         if (spec.isPolice || spec.isTank) return { ok: false, msg: 'TOO HOT TO TOUCH!' };
         if (player.score >= SPRAY_COST) return { ok: true };
         if (car.hp <= car.maxHp * 0.25) return { ok: true, free: true }; // critical: "on the tab"
@@ -36,7 +37,7 @@ function check(b, car) {
         if (player.score < BOMB_COST) return { ok: false, msg: 'NEED $5,000 FOR A BOMB!' };
         return { ok: true };
     }
-    if (spec.isPolice || spec.isTank) return { ok: false, msg: 'NO COPS OR TANKS!' };
+    if (spec.isPolice || spec.isTank || spec.isEmergency) return { ok: false, msg: 'NO COPS, TANKS OR RESCUE RIGS!' };
     if (!spec.exportValue || car.hp < car.maxHp * 0.25) return { ok: false, msg: 'TOO WRECKED TO EXPORT!' };
     return { ok: true };
 }
@@ -60,6 +61,8 @@ function serve(b, car, chk) {
             spawnFloatingText('-$1,000', car.x, car.y - 30, '#ffd400');
         }
         car.hp = car.maxHp;
+        const hadFlats = car.poppedTires > 0;
+        car.poppedTires = 0; // fresh rubber on all four corners
         let id;
         do id = Math.floor(Math.random() * VEHICLE_PALETTE.length);
         while (VEHICLE_PALETTE[id] === car.color);
@@ -74,7 +77,11 @@ function serve(b, car, chk) {
         audio.chime();
         showBigBanner(
             'RESPRAYED!',
-            chk.free ? 'ON THE TAB — FULL REPAIR, NEW PAINT' : 'FRESH PAINT, FULL REPAIR, 5s PROBATION',
+            chk.free
+                ? 'ON THE TAB — FULL REPAIR, NEW PAINT'
+                : hadFlats
+                  ? 'NEW TIRES, FRESH PAINT, 5s PROBATION'
+                  : 'FRESH PAINT, FULL REPAIR, 5s PROBATION',
             '#7fb2f0'
         );
         updateHUD();

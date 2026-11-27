@@ -26,6 +26,117 @@ const DEFS = {
 const HULL_RING = { x: 48, y: 78 };
 const TURRET_PIVOT = { x: 47, y: 118 };
 
+// --- LIVERIES: procedural paint jobs baked once onto the shared truck / sports sprites (no extra image files) ---
+const TRUCK_GREY = 189; // luminance of the truck's grey box panels
+const GLYPHS = {
+    S: ['.####', '#....', '#....', '.###.', '....#', '....#', '####.'],
+    W: ['#...#', '#...#', '#...#', '#.#.#', '#.#.#', '##.##', '#...#'],
+    A: ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+    T: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..']
+};
+// Box roof of the truck sprite, in sprite pixels (nose up): x 7..88, y 67..186
+const BOX = { cx: 48, cy: 127, x0: 7, x1: 88, y0: 67, y1: 186 };
+
+// Pixel lettering, rotated to read lengthwise along the roof
+function pixelText(g, text, cx, cy, scale, color) {
+    const w = text.length * 5 + (text.length - 1);
+    g.save();
+    g.translate(cx, cy);
+    g.rotate(-Math.PI / 2);
+    g.fillStyle = color;
+    [...text].forEach((ch, i) =>
+        GLYPHS[ch].forEach((row, r) =>
+            [...row].forEach((v, c) => {
+                if (v === '#')
+                    g.fillRect(-(w * scale) / 2 + (i * 6 + c) * scale, (-7 * scale) / 2 + r * scale, scale, scale);
+            })
+        )
+    );
+    g.restore();
+}
+
+const LIVERIES = {
+    swat: {
+        body: '#171d2e',
+        cab: '#0e111b',
+        ref: TRUCK_GREY,
+        paint(g) {
+            pixelText(g, 'SWAT', BOX.cx, BOX.cy, 4, '#f4f4f5');
+            g.fillStyle = '#f4f4f5';
+            g.fillRect(BOX.x0 + 6, BOX.y0 + 6, 3, BOX.y1 - BOX.y0 - 12);
+            g.fillRect(BOX.x1 - 8, BOX.y0 + 6, 3, BOX.y1 - BOX.y0 - 12);
+        },
+        lights: [{ x0: 24, x1: 72, y: 34, h: 8, c: ['#d23a2a', '#3b82f6'] }]
+    },
+    ambulance: {
+        body: '#f6f3ec',
+        cab: '#e6e2d6',
+        ref: TRUCK_GREY,
+        paint(g) {
+            g.fillStyle = '#d6302a';
+            g.fillRect(BOX.x0 + 8, BOX.y0 + 5, 7, BOX.y1 - BOX.y0 - 10); // side stripes
+            g.fillRect(BOX.x1 - 14, BOX.y0 + 5, 7, BOX.y1 - BOX.y0 - 10);
+            g.fillRect(BOX.cx - 20, BOX.cy - 6, 40, 12); // red cross
+            g.fillRect(BOX.cx - 6, BOX.cy - 20, 12, 40);
+        },
+        lights: [{ x0: 24, x1: 72, y: 34, h: 8, c: ['#d23a2a', '#f4f4f5'] }]
+    },
+    firetruck: {
+        body: '#c8281e',
+        cab: '#a41e17',
+        ref: TRUCK_GREY,
+        paint(g) {
+            g.fillStyle = '#d9dde3'; // roof ladder: two rails and rungs
+            g.fillRect(BOX.cx - 18, BOX.y0 + 8, 5, 104);
+            g.fillRect(BOX.cx + 13, BOX.y0 + 8, 5, 104);
+            g.fillStyle = '#aeb4bd';
+            for (let y = BOX.y0 + 12; y < BOX.y0 + 108; y += 12) g.fillRect(BOX.cx - 18, y, 36, 3);
+            g.strokeStyle = '#9aa1ab'; // coiled hose at the tail
+            g.lineWidth = 5;
+            g.beginPath();
+            g.arc(BOX.cx, BOX.y1 - 16, 11, 0, Math.PI * 2);
+            g.stroke();
+            g.fillStyle = '#f2c21b'; // gold trim
+            g.fillRect(BOX.x0 + 5, BOX.y0 + 4, 3, BOX.y1 - BOX.y0 - 8);
+            g.fillRect(BOX.x1 - 7, BOX.y0 + 4, 3, BOX.y1 - BOX.y0 - 8);
+        },
+        lights: [{ x0: 24, x1: 72, y: 34, h: 8, c: ['#ffb020', '#d23a2a'] }]
+    },
+    fbi: {
+        body: '#34373d',
+        ref: BODY_GREY,
+        lights: [{ x0: 26, x1: 38, y: 70, h: 3, c: ['#d23a2a', '#3b82f6'] }] // dash strobe behind the windshield
+    }
+};
+// Roof light bars per sprite, in sprite pixels (police.png is 64x128, the truck 96x192)
+const LIGHTS = { police: [{ x0: 16, x1: 47, y: 61, h: 6, c: ['#d23a2a', '#3b82f6'] }] };
+
+// Repaint the truck's blue cab (and nothing else: the windshield is a different hue)
+function remapAccent(src, hex) {
+    const c = cv(src.width, src.height);
+    const g = c.getContext('2d');
+    g.drawImage(src, 0, 0);
+    const im = g.getImageData(0, 0, c.width, c.height);
+    const d = im.data;
+    const [tr, tg, tb] = hexRgb(hex);
+    for (let i = 0; i < d.length; i += 4) {
+        if (!d[i + 3] || d[i + 1] - d[i] < 30 || d[i + 2] - d[i] < 40) continue;
+        const k = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 103;
+        d[i] = Math.min(255, tr * k);
+        d[i + 1] = Math.min(255, tg * k);
+        d[i + 2] = Math.min(255, tb * k);
+    }
+    g.putImageData(im, 0, 0);
+    return c;
+}
+
+function bakeLivery(raw, lv) {
+    let c = recolor(raw, lv.body, false, lv.ref);
+    if (lv.cab) c = remapAccent(c, lv.cab);
+    if (lv.paint) lv.paint(c.getContext('2d'));
+    return c;
+}
+
 const SKINS = {}; // car type key -> skin
 const DOORS = new Map(); // colour -> 12x5 door flap canvas
 
@@ -78,7 +189,7 @@ function boxScale(src, tw, th) {
 }
 
 // Grey mask pixels (not outline, not coloured glass/lights, optionally not pure white) take the paint
-function recolor(src, hex, protect) {
+function recolor(src, hex, protect, ref = BODY_GREY) {
     const c = cv(src.width, src.height);
     const g = c.getContext('2d');
     g.drawImage(src, 0, 0);
@@ -94,7 +205,7 @@ function recolor(src, hex, protect) {
         if (Math.max(r, gg, b) - mn > GREY_DELTA) continue;
         const lum = 0.299 * r + 0.587 * gg + 0.114 * b;
         if (lum <= DARK_CUT || (protect && mn >= 250)) continue;
-        const k = lum / BODY_GREY;
+        const k = lum / ref;
         d[i] = Math.min(255, tr * k);
         d[i + 1] = Math.min(255, tg * k);
         d[i + 2] = Math.min(255, tb * k);
@@ -140,7 +251,8 @@ function buildSkin(spec, imgs) {
     const dw = hull.width * k;
     const tw = Math.round(dw * RES);
     const th = Math.round(spec.l * RES);
-    const raw = toCanvas(hull);
+    const lv = LIVERIES[spec.livery];
+    const raw = lv ? bakeLivery(toCanvas(hull), lv) : toCanvas(hull);
     const skin = {
         ...buildPiece(raw, tw, th),
         raw,
@@ -149,7 +261,10 @@ function buildSkin(spec, imgs) {
         k,
         tw,
         th,
-        def: DEFS[spec.sprite],
+        def: lv?.cab ? { ...DEFS[spec.sprite], door: lv.cab } : DEFS[spec.sprite],
+        lights: lv?.lights || LIGHTS[spec.sprite] || null,
+        rw: hull.width,
+        rh: hull.height,
         tints: new Map()
     };
     skin.tintable = !!spec.tint;

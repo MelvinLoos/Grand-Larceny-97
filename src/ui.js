@@ -170,7 +170,7 @@ export function setupEvents() {
             else if (e.code === 'Digit4') cycleWeapon(3);
             else if (e.code === 'KeyR' && player.inCar) cycleRadio();
             else if (e.code === 'KeyH' && player.inCar) {
-                if (player.inCar.spec.isPolice) {
+                if (player.inCar.spec.isPolice || player.inCar.spec.isEmergency) {
                     player.inCar.sirenOn = !player.inCar.sirenOn;
                 }
                 audio.horn(player.inCar);

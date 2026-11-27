@@ -1,6 +1,7 @@
 // --- PERSISTENT LOOPS: player engine, tire screech, doppler sirens, nearby traffic hum ---
 // Nodes are built once at unlock; every frame only AudioParams are nudged with setTargetAtTime.
 import { isRoadTileType, tileAtWorld } from '../city.js';
+import { flatCount } from '../config.js';
 import { camera, cars, player } from '../state.js';
 import { clamp } from './core.js';
 
@@ -10,6 +11,14 @@ const HUM_RANGE = 500;
 const SHIFT_BAND = 0.02; // speed-ratio hysteresis so cruising on a shift point never yo-yos the pitch
 const EXIT_MUFFLE = 0.3; // seconds the radio stays muffled after bailing out
 const RADIO_OPEN = 5500;
+
+// Siren voicings: wail (police), yelp (FBI), hi-lo two-tone (European ambulance), deep slow wail (fire engine)
+const SIRENS = {
+    wail: { type: 'square', base: 950, lfoType: 'triangle', rate: 0.33, near: 3.2, depth: 300 },
+    yelp: { type: 'square', base: 1050, lfoType: 'triangle', rate: 4.2, near: 5.5, depth: 260 },
+    hilo: { type: 'square', base: 800, lfoType: 'square', rate: 1.1, near: 1.1, depth: 170 },
+    fire: { type: 'sawtooth', base: 560, lfoType: 'triangle', rate: 0.22, near: 0.5, depth: 200 }
+};
 
 const SEDAN = {
     t1: 'sawtooth',
@@ -150,6 +159,7 @@ export const loops = {
         S.lfo.frequency.value = 3.5;
         const sd = ctx.createGain();
         sd.gain.value = 120;
+        S.sd = sd;
         S.lfo.connect(sd);
         sd.connect(S.bp.frequency);
         S.gain = ctx.createGain();
@@ -157,6 +167,23 @@ export const loops = {
         S.src.connect(S.bp);
         S.bp.connect(S.gain);
         S.gain.connect(this.engineGain);
+
+        // Fire-engine water cannon: one persistent hiss loop, driven by whoever sprays this frame
+        const H = (this.hose = {});
+        H.src = this.noiseSource();
+        H.src.start();
+        H.bp = ctx.createBiquadFilter();
+        H.bp.type = 'bandpass';
+        H.bp.frequency.value = 2600;
+        H.bp.Q.value = 0.6;
+        H.gain = ctx.createGain();
+        H.gain.gain.value = 0;
+        H.pan = ctx.createStereoPanner();
+        H.src.connect(H.bp);
+        H.bp.connect(H.gain);
+        H.gain.connect(H.pan);
+        H.pan.connect(this.sfxGain);
+        this._hoseAt = null;
 
         // Sirens (2 voices) and traffic hum (3 voices), each with its own panner
         const voice = (build) => {
@@ -181,7 +208,7 @@ export const loops = {
                 d.gain.value = 300;
                 lfo.connect(d);
                 d.connect(o.frequency);
-                return { o, lfo };
+                return { o, lfo, d, mode: null };
             })
         );
         this.hums = [0, 1, 2].map(() =>
@@ -240,6 +267,23 @@ export const loops = {
         this.updateJoints(p);
         this.updateSirens();
         this.updateHums();
+        this.updateHose();
+    },
+
+    // Called every frame a fire cannon fires; the loop dies on its own a few frames later
+    hoseAt(x, y) {
+        this._hoseAt = { x, y, t: this.ctx ? this.ctx.currentTime : 0 };
+    },
+
+    updateHose() {
+        const H = this.hose;
+        const now = this.ctx.currentTime;
+        const h = this._hoseAt;
+        if (h && now - h.t < 0.12) {
+            const s = this.spatialParams(h.x, h.y, 1000);
+            H.pan.pan.setTargetAtTime(s.pan, now, 0.05);
+            H.gain.gain.setTargetAtTime(0.16 * s.gain, now, 0.04);
+        } else H.gain.gain.setTargetAtTime(0, now, 0.08);
     },
 
     carChanged(next) {
@@ -307,6 +351,15 @@ export const loops = {
             else target = clamp(((car.slip || 0) - 70) / 220, 0, 1);
             S.bp.frequency.setTargetAtTime(1100 + 550 * clamp(spd / 400, 0, 1), now, 0.06);
         }
+        // Blown tires: the same chain retuned into a gritty metallic rim scrape on any surface
+        const rim =
+            car && !car.airborne && flatCount(car) > 0 && (car.speed || 0) > 60 ? clamp(car.speed / 260, 0.3, 1) : 0;
+        S.bp.Q.setTargetAtTime(rim ? 2.5 : 9, now, 0.08);
+        S.sd.gain.setTargetAtTime(rim ? 600 : 120, now, 0.08);
+        if (rim) {
+            S.bp.frequency.setTargetAtTime(3000 + 900 * rim, now, 0.05);
+            target = Math.max(target, 0.9 * rim);
+        }
         S.gain.gain.setTargetAtTime(target * 0.14, now, 0.05);
     },
 
@@ -326,7 +379,7 @@ export const loops = {
         const c = this._cands;
         c.length = 0;
         for (const car of cars) {
-            if (!car.sirenOn || car.hp <= 0 || car.sink > 0) continue;
+            if (!car.sirenOn || car.lightsOnly || car.hp <= 0 || car.sink > 0) continue;
             const d = Math.hypot(car.x - L.x, car.y - L.y);
             if (d < SIREN_RANGE) c.push({ car, d });
         }
@@ -336,8 +389,16 @@ export const loops = {
             if (!e) return v.g.gain.setTargetAtTime(0, now, 0.08);
             const own = e.car === this.car;
             const s = this.spatialParams(e.car.x, e.car.y, SIREN_RANGE);
-            // wail normally, yelp once the cruiser is on top of you
-            v.lfo.frequency.setTargetAtTime(!own && e.d < 350 ? 3.2 : 0.33, now, 0.1);
+            // wail normally, yelp once the cruiser is on top of you; each service has its own voicing
+            const m = SIRENS[e.car.spec.siren] || SIRENS.wail;
+            if (v.mode !== m) {
+                v.mode = m;
+                v.o.type = m.type;
+                v.lfo.type = m.lfoType;
+                v.o.frequency.setTargetAtTime(m.base, now, 0.02);
+                v.d.gain.setTargetAtTime(m.depth, now, 0.02);
+            }
+            v.lfo.frequency.setTargetAtTime(!own && e.d < 350 ? m.near : m.rate, now, 0.1);
             let det = 0;
             if (!own && e.d > 1) {
                 const ux = (L.x - e.car.x) / e.d;

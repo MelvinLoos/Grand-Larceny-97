@@ -64,9 +64,15 @@ export const SHIRT_COLORS = [
 ];
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 export const PUNK_HAIR = ['#c13a8a', '#22e5ff', '#a3e635', '#14130f', '#ff2bd6'];
+// Shirt colours of the new on-foot roles
+export const ROLE_COLORS = { swat: '#161d2e', fed: '#23262b', medic: '#f4f1ea', cop: '#1d4ed8' };
 export function pedLook(role, hairPool = null) {
     const hair =
-        role === 'boss' ? '#fef08a' : role === 'cop' ? pick(HAIR_COLORS.slice(0, 4)) : pick(hairPool || HAIR_COLORS);
+        role === 'boss'
+            ? '#fef08a'
+            : role === 'cop' || role === 'swat' || role === 'fed' || role === 'medic'
+              ? pick(HAIR_COLORS.slice(0, 4))
+              : pick(hairPool || HAIR_COLORS);
     return { hair, skin: pick(SKIN_TONES) };
 }
 

@@ -12,8 +12,9 @@ import {
     tileAtWorld
 } from './city.js';
 import { triggerWastedOrBusted } from './combat.js';
-import { MAP_SIZE, TILE, T_ROAD_H, T_ROAD_V, T_ROAD_X } from './config.js';
-import { pedLook } from './palette.js';
+import { MAP_SIZE, TILE, T_ROAD_H, T_ROAD_V, T_ROAD_X, WANTED_TIERS, flatCount, flatSpeedMul } from './config.js';
+import { spawnLawPed } from './entities.js';
+import { deployCrew } from './lawforce.js';
 import { cars, mapGrid, peds, player } from './state.js';
 
 // --- SMART TRAFFIC & POLICE DRIVING AI ---
@@ -40,7 +41,8 @@ export function driveAICarToward(c, targetX, targetY, desiredSpeed, dt) {
 
     // Slow down proportionally on sharp turns so vehicles don't swing wide onto sidewalks
     const cornerFactor = Math.max(0.45, 1 - Math.abs(diff) * 0.55);
-    const finalTargetSpd = desiredSpeed * cornerFactor;
+    const flats = flatCount(c);
+    const finalTargetSpd = desiredSpeed * cornerFactor * (flats ? flatSpeedMul(c) : 1);
 
     const fx = Math.cos(c.angle);
     const fy = Math.sin(c.angle);
@@ -52,7 +54,7 @@ export function driveAICarToward(c, targetX, targetY, desiredSpeed, dt) {
 
     const accelRate = finalTargetSpd < fwd ? 6.5 : 3.8;
     fwd += (finalTargetSpd - fwd) * accelRate * dt;
-    lat *= 0.78; // High lateral tire grip keeps AI cleanly inside lanes!
+    lat *= flats ? 0.94 : 0.78; // High lateral tire grip keeps AI cleanly inside lanes (blown tires slide)!
 
     c.vx = fx * fwd + rx * lat;
     c.vy = fy * fwd + ry * lat;
@@ -254,74 +256,120 @@ export function updateTrafficCarAI(c, dt) {
     driveAICarToward(c, targetX, targetY, desiredSpeed, dt);
 }
 
+// Next waypoint along the road-weighted flow field `field` (police pursuit, ambulances, fire trucks)
+export function flowTarget(c, field) {
+    const tx = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(c.x / TILE)));
+    const ty = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(c.y / TILE)));
+    let bestCost = field[ty][tx];
+    let bestDir = c.roadDir;
+
+    for (let d = 0; d < 4; d++) {
+        const ntx = tx + DIR_VECS[d].dx;
+        const nty = ty + DIR_VECS[d].dy;
+        if (ntx < 0 || nty < 0 || ntx >= MAP_SIZE || nty >= MAP_SIZE) continue;
+        const cost = field[nty][ntx];
+        if (cost < bestCost) {
+            bestCost = cost;
+            bestDir = d;
+        }
+    }
+
+    c.roadDir = bestDir;
+    const ntx = tx + DIR_VECS[bestDir].dx;
+    const nty = ty + DIR_VECS[bestDir].dy;
+    if (isRoadCell(ntx, nty)) {
+        // Stay in fast right-hand lane while en route down avenues
+        return {
+            x: bestDir === 1 || bestDir === 3 ? getLaneCoord(ntx, bestDir) : (ntx + 0.5) * TILE,
+            y: bestDir === 0 || bestDir === 2 ? getLaneCoord(nty, bestDir) : (nty + 0.5) * TILE
+        };
+    }
+    return { x: (ntx + 0.5) * TILE, y: (nty + 0.5) * TILE };
+}
+
 export function updatePoliceCarAI(c, dt) {
+    const level = Math.max(1, Math.min(4, Math.floor(player.wanted)));
+    const mul = c.spec.pursuitSpeed ?? WANTED_TIERS[level].speed;
     const distToPlayer = Math.hypot(player.x - c.x, player.y - c.y);
     const clearSight = distToPlayer < 420 && hasDriveLine(c.x, c.y, player.x, player.y);
+    const pc = player.inCar;
 
     let targetX = player.x;
     let targetY = player.y;
+    let pursuitSpeed;
+    let pullOver = false;
 
     if (!clearSight) {
         // Navigate city avenues via the road-weighted flow-field!
-        const tx = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(c.x / TILE)));
-        const ty = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(c.y / TILE)));
-        let bestCost = policeFlowDist[ty][tx];
-        let bestDir = c.roadDir;
-
-        for (let d = 0; d < 4; d++) {
-            const ntx = tx + DIR_VECS[d].dx;
-            const nty = ty + DIR_VECS[d].dy;
-            if (ntx < 0 || nty < 0 || ntx >= MAP_SIZE || nty >= MAP_SIZE) continue;
-            const cost = policeFlowDist[nty][ntx];
-            if (cost < bestCost) {
-                bestCost = cost;
-                bestDir = d;
+        const t = flowTarget(c, policeFlowDist);
+        targetX = t.x;
+        targetY = t.y;
+        pursuitSpeed = 335 * mul;
+    } else if (pc && distToPlayer > 120) {
+        pursuitSpeed = (distToPlayer > 110 ? 370 : 240) * mul;
+        const pa = pc.angle;
+        if (level === 1 && !c.spec.isFed && !c.spec.isSwat) {
+            // Level 1: tail at a polite distance and try to pull the player over, no head-on rams
+            if (pc.speed < 40) {
+                pullOver = true;
+                targetX = player.x + Math.cos(pa) * 90;
+                targetY = player.y + Math.sin(pa) * 90;
+            } else if (distToPlayer < 170) {
+                targetX = player.x - Math.cos(pa) * 70;
+                targetY = player.y - Math.sin(pa) * 70;
+                pursuitSpeed = Math.max(60, pc.speed * 0.95);
             }
-        }
-
-        c.roadDir = bestDir;
-        const ntx = tx + DIR_VECS[bestDir].dx;
-        const nty = ty + DIR_VECS[bestDir].dy;
-        if (isRoadCell(ntx, nty)) {
-            // Stay in fast right-hand lane while en route down avenues
-            targetX = bestDir === 1 || bestDir === 3 ? getLaneCoord(ntx, bestDir) : (ntx + 0.5) * TILE;
-            targetY = bestDir === 0 || bestDir === 2 ? getLaneCoord(nty, bestDir) : (nty + 0.5) * TILE;
+        } else if (level === 2 && !c.spec.isFed) {
+            // Level 2: box-in. One unit hugs the rear quarter, the other cuts the player off
+            if (c.pursuitRole === 'cutoff') {
+                targetX = player.x + pc.vx * 0.6;
+                targetY = player.y + pc.vy * 0.6;
+            } else {
+                const side = Math.sign((c.y - player.y) * Math.cos(pa) - (c.x - player.x) * Math.sin(pa)) || 1;
+                targetX = player.x - Math.cos(pa) * 42 + -Math.sin(pa) * 34 * side;
+                targetY = player.y - Math.sin(pa) * 42 + Math.cos(pa) * 34 * side;
+            }
         } else {
-            targetX = (ntx + 0.5) * TILE;
-            targetY = (nty + 0.5) * TILE;
+            // Level 3-4: lead fast getaway cars to intercept, full ram
+            targetX = player.x + pc.vx * 0.45;
+            targetY = player.y + pc.vy * 0.45;
         }
-    } else if (player.inCar && distToPlayer > 120) {
-        // Lead fast getaway cars slightly to intercept!
-        targetX = player.x + player.inCar.vx * 0.32;
-        targetY = player.y + player.inCar.vy * 0.32;
+    } else {
+        pursuitSpeed = (distToPlayer > 110 ? 370 : 240) * mul;
     }
 
-    const pursuitSpeed = clearSight ? (distToPlayer > 110 ? 370 : 240) : 335;
+    // Tactical crews: SWAT vans brake and unload troopers, FBI cars drop agents on a hurt or stranded chase
+    if (c.spec.isSwat && !c.deployed && clearSight && distToPlayer < 280) {
+        c.deployT += dt;
+        pursuitSpeed = 0;
+        if (c.deployT > 1.2) deployCrew(c);
+    } else if (
+        c.spec.isFed &&
+        !c.deployed &&
+        ((!pc && distToPlayer < 200) ||
+            c.hp < c.maxHp * 0.3 ||
+            (clearSight && pc && pc.speed < 40 && distToPlayer < 200))
+    ) {
+        deployCrew(c);
+    }
+
+    if (pullOver && Math.hypot(targetX - c.x, targetY - c.y) < 40) pursuitSpeed = 0;
     driveAICarToward(c, targetX, targetY, pursuitSpeed, dt);
 
-    // Deploy an armed officer on foot if player is on foot in a park/plaza nearby, or bust directly if right next to cruiser!
-    if (!player.inCar && player.deadTimer <= 0) {
-        if (distToPlayer < 52 && c.speed < 190) {
-            triggerWastedOrBusted('BUSTED!');
-        } else if (!c.deployedCop && distToPlayer < 165 && clearSight && Math.floor(player.wanted) >= 2) {
+    // Deploy an armed officer on foot if the player is on foot nearby (or pulled over), or bust directly if right next to the cruiser!
+    if (c.typeKey === 'police' && player.deadTimer <= 0) {
+        if (!pc) {
+            if (distToPlayer < 52 && c.speed < 190) {
+                triggerWastedOrBusted('BUSTED!');
+                return;
+            }
+        }
+        if (!c.deployedCop && distToPlayer < 165 && clearSight && (!pc || (pc.speed < 25 && level === 1))) {
             c.deployedCop = true;
             const sideAng = c.angle + Math.PI * 0.5;
             const ox = c.x + Math.cos(sideAng) * 30;
             const oy = c.y + Math.sin(sideAng) * 30;
-            if (!isSolidAt(ox, oy, 8)) {
-                peds.push({
-                    x: ox,
-                    y: oy,
-                    angle: Math.atan2(player.y - oy, player.x - ox),
-                    speed: 118,
-                    color: '#1d4ed8',
-                    role: 'cop',
-                    ...pedLook('cop'),
-                    hp: 65,
-                    panicTimer: 0,
-                    shootTimer: 0.5
-                });
-            }
+            if (!isSolidAt(ox, oy, 8)) spawnLawPed('cop', ox, oy, Math.atan2(player.y - oy, player.x - ox));
         }
     }
 }

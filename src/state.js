@@ -23,6 +23,8 @@ export const bullets = [];
 export const particles = [];
 export const pickups = [];
 export const floatingTexts = [];
+export const roadblocks = []; // level 3+ tactical blocks (see lawforce.js)
+export const spikeStrips = [];
 export const foliage = []; // trees, groves, bushes (see foliage.js)
 export const foliageGrid = new Map(); // tile index (ty * MAP_SIZE + tx) -> foliage on that tile
 
@@ -48,7 +50,7 @@ export const player = {
     score: 0,
     multiplier: 1,
     wanted: 0,
-    wantedDecay: 0,
+    unseenTimer: 0, // seconds since any cop last had line of sight (drives natural heat cooldown)
     inCar: null,
     weaponIdx: 1,
     ammo: [Infinity, 99, 150, 8],
@@ -61,6 +63,26 @@ export const player = {
     probationWanted: 0,
     swimming: false, // in the river on foot
     breath: 3.5 // seconds of swimming left
+};
+
+// Heat / law-enforcement bookkeeping (see heat.js)
+export const heat = {
+    cooldowns: {}, // crime category -> seconds until it can add heat again
+    dispatchCd: 0, // seconds before a lost pursuer is replaced
+    fillTimer: 0, // stagger between filling pursuit slots
+    lastLevel: 0,
+    cooling: false, // out-of-sight cooldown active (HUD slow pulse)
+    losTimer: 0,
+    seen: false,
+    roadblockCd: 0
+};
+
+// Ambulance / fire-truck dispatch bookkeeping (see emergency.js)
+export const emergency = {
+    casualties: [], // recent ped deaths { x, y, t, decal }
+    ambulanceCd: 0,
+    fireCd: 0,
+    medics: []
 };
 
 // Harbor Export orders: which models are still wanted (reset after the $25,000 bonus)
@@ -76,6 +98,7 @@ export const mission = {
     targetY: 0,
     targetEntity: null,
     timer: 0,
+    alerted: false, // armored-van guards have radioed it in (scripted heat fires once)
     completedCount: 0
 };
 // Scalar view size (was viewW / viewH)

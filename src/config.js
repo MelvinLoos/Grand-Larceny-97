@@ -70,6 +70,30 @@ export const WEAPONS = [
     }
 ];
 
+// Law enforcement roles on foot (cop = beat officer, swat = SWAT trooper, fed = FBI agent)
+export const isLaw = (p) => p.role === 'cop' || p.role === 'swat' || p.role === 'fed';
+
+// Number of blown tires (poppedTires is a 4-bit mask: FL, FR, RL, RR)
+export const flatCount = (c) => {
+    let n = 0;
+    for (let m = c.poppedTires || 0; m; m &= m - 1) n++;
+    return n;
+};
+// Top-speed multiplier for blown tires: ~65% with 1-2 flats, ~45% with 3-4
+export const flatSpeedMul = (c) => {
+    const n = flatCount(c);
+    return n === 0 ? 1 : n <= 2 ? 0.65 : 0.45;
+};
+
+// Wanted-level tiers: active pursuit cap, speed multiplier, and seconds before a lost unit is replaced
+export const WANTED_TIERS = [
+    { cap: 0, speed: 0, replace: 0, foot: 0, fire: 2 },
+    { cap: 1, speed: 0.88, replace: 12, foot: 0, fire: 1.6 },
+    { cap: 2, speed: 1.0, replace: 8, foot: 3, fire: 1.1 },
+    { cap: 3, speed: 1.06, replace: 8, foot: 5, fire: 0.85 },
+    { cap: 4, speed: 1.12, replace: 6, foot: 6, fire: 0.85 }
+];
+
 // Radio stations (style picks the procedural generator in audio/radio.js)
 export const STATIONS = {
     rush: { freq: '104.5', band: 'FM', name: 'RUSH 104', tag: 'Jungle at illegal speeds.', style: 'jungle' },
@@ -229,6 +253,81 @@ export const CAR_TYPES = {
         value: 1500,
         mass: 1.1,
         stations: { nbpd: 1 }
+    },
+    // --- LEVEL 4 LAW: liveries are baked onto the truck / sports sprites at startup (vehicles.js) ---
+    swat_van: {
+        name: 'SWAT ENFORCER',
+        sprite: 'truck',
+        livery: 'swat',
+        w: 34,
+        l: 66,
+        maxSpeed: 400,
+        accel: 230,
+        grip: 0.95,
+        hp: 420,
+        colors: ['#141a2b'],
+        isPolice: true,
+        isSwat: true,
+        pursuitSpeed: 0.82,
+        siren: 'wail',
+        value: 2500,
+        mass: 2.6,
+        stations: { nbpd: 1 }
+    },
+    fbi_car: {
+        name: 'FBI INTERCEPTOR',
+        sprite: 'sports',
+        livery: 'fbi',
+        w: 30,
+        l: 56,
+        maxSpeed: 560,
+        accel: 420,
+        grip: 0.9,
+        hp: 190,
+        colors: ['#26282c'],
+        isPolice: true,
+        isFed: true,
+        pursuitSpeed: 1.12,
+        siren: 'yelp',
+        value: 2200,
+        mass: 1.1,
+        stations: { nbpd: 1 }
+    },
+    // --- EMERGENCY SERVICES ---
+    ambulance: {
+        name: 'PARAMEDIC AMBULANCE',
+        sprite: 'truck',
+        livery: 'ambulance',
+        w: 33,
+        l: 64,
+        maxSpeed: 380,
+        accel: 240,
+        grip: 0.94,
+        hp: 230,
+        colors: ['#f4f1ea'],
+        isEmergency: true,
+        siren: 'hilo',
+        value: 900,
+        mass: 2.0,
+        stations: { talk: 1, off: 1 }
+    },
+    firetruck: {
+        name: 'CITY FIRE ENGINE',
+        sprite: 'truck',
+        livery: 'firetruck',
+        w: 36,
+        l: 74,
+        maxSpeed: 340,
+        accel: 200,
+        grip: 0.95,
+        hp: 340,
+        colors: ['#c0281f'],
+        isEmergency: true,
+        turret: true,
+        siren: 'fire',
+        value: 1200,
+        mass: 3.0,
+        stations: { talk: 1, off: 1 }
     },
     tank: {
         name: 'BATTLE TANK',
