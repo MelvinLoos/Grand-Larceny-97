@@ -1,8 +1,8 @@
 import { audio } from './audio.js';
-import { DIR_VECS, applyWallFeelers, isSolidAt, policeFlowDist, tileAtWorld } from './city.js';
+import { DIR_VECS, applyWallFeelers, isOnScreen, isSolidAt, policeFlowDist, tileAtWorld } from './city.js';
 import { fireWeapon, triggerWastedOrBusted } from './combat.js';
 import { CAR_H, MAP_SIZE, TILE, T_ROAD_H, T_ROAD_V, WANTED_TIERS } from './config.js';
-import { addDecal, createCar, spawnLawPed } from './entities.js';
+import { addCar, addDecal, createCar, spawnLawPed } from './entities.js';
 import { steerAroundTrunks, trunkBlocks } from './foliage.js';
 import { buzz } from './haptics.js';
 import { addCrime } from './heat.js';
@@ -102,28 +102,99 @@ export function updateSpikes() {
     }
 }
 
-// --- TACTICAL CREWS ---
-// SWAT vans unload 3 armoured troopers, FBI interceptors drop 2 agents
+// --- CREWS ---
+// A cruiser unloads its officers onto the pavement beside its doors (driver side first):
+// beat cops from a patrol car, 3 troopers from a SWAT van, 2 agents from an FBI interceptor
 export function deployCrew(c) {
     c.deployed = true;
-    const role = c.spec.isSwat ? 'swat' : 'fed';
-    const n = c.spec.isSwat ? 3 : 2;
+    const role = c.spec.isSwat ? 'swat' : c.spec.isFed ? 'fed' : 'cop';
+    const n = Math.max(1, c.crewCount);
+    const reach = c.spec.w * 0.9 + 12;
     for (let i = 0; i < n; i++) {
-        const side = i % 2 === 0 ? 1 : -1;
+        const side = i % 2 === 0 ? -1 : 1; // -1 = driver (left) door
         const back = c.angle + Math.PI;
-        const x = c.x + Math.cos(c.angle + (Math.PI / 2) * side) * (c.spec.w * 0.9 + 12) + Math.cos(back) * i * 12;
-        const y = c.y + Math.sin(c.angle + (Math.PI / 2) * side) * (c.spec.w * 0.9 + 12) + Math.sin(back) * i * 12;
-        if (isSolidAt(x, y, 8)) continue;
-        spawnLawPed(role, x, y, Math.atan2(player.y - y, player.x - x));
+        let x = c.x + Math.cos(c.angle + (Math.PI / 2) * side) * reach + Math.cos(back) * Math.floor(i / 2) * 14;
+        let y = c.y + Math.sin(c.angle + (Math.PI / 2) * side) * reach + Math.sin(back) * Math.floor(i / 2) * 14;
+        if (isSolidAt(x, y, 8)) {
+            // that side is walled in: try the other door, else climb out where the car stands
+            x = c.x + Math.cos(c.angle - (Math.PI / 2) * side) * reach;
+            y = c.y + Math.sin(c.angle - (Math.PI / 2) * side) * reach;
+            if (isSolidAt(x, y, 8)) {
+                x = c.x;
+                y = c.y;
+            }
+        }
+        spawnLawPed(role, x, y, Math.atan2(player.y - y, player.x - x), { cruiser: c });
     }
     audio.door(c);
 }
 
+// Where a cop stands to work a car door: just outside the driver's (left) side
+export function driverDoorPoint(car) {
+    const a = car.angle - Math.PI / 2;
+    const d = car.spec.w / 2 + 12;
+    return { x: car.x + Math.cos(a) * d, y: car.y + Math.sin(a) * d };
+}
+
+// Dismounted officers with the player far away (or the heat gone) walk back to their ride.
+// Returns true once the officer has climbed back in and should be removed.
+export function returnToCruiser(p, dt) {
+    const c = p.cruiser;
+    const door = driverDoorPoint(c);
+    const dd = Math.hypot(door.x - p.x, door.y - p.y);
+    if (dd < 20) {
+        c.crewCount++;
+        c.doorT = 0.5;
+        return true;
+    }
+    const ang = steerAroundTrunks(p.x, p.y, applyWallFeelers(p.x, p.y, Math.atan2(door.y - p.y, door.x - p.x), 28));
+    p.angle = ang;
+    const nx = p.x + Math.cos(ang) * p.speed * dt;
+    const ny = p.y + Math.sin(ang) * p.speed * dt;
+    if (!isSolidAt(nx, ny, 8) && !trunkBlocks(p.x, p.y, nx, ny, 8)) {
+        p.x = nx;
+        p.y = ny;
+    }
+    return false;
+}
+
+// A parked cruiser whose crew is out: re-manned once they are all back aboard, tidied up when abandoned
+export function updateStrandedCruiser(c) {
+    let out = 0;
+    for (const p of peds) if (p.cruiser === c && p.hp > 0) out++;
+    if (out > 0) return;
+    if (c.crewCount > 0) {
+        c.stranded = false;
+        c.deployed = false;
+        c.driver = true;
+        c.aiMode = 'traffic';
+        c.lightsOnly = false;
+        c.sirenOn = false;
+        c.handbrake = false;
+    } else if (Math.hypot(c.x - player.x, c.y - player.y) > 1800 && !isOnScreen(c.x, c.y, 300)) {
+        c.despawn = true; // crew gone for good and nobody is looking: reaped after the vehicle loop
+    }
+}
+
 // --- LAW PEDS ON FOOT (cop / swat / fed): approach, hold cover at roadblocks, shoot, arrest ---
+// ONLY an officer on foot ever arrests: reach you on foot, or wrench open the door of your stopped car
+const GRAB_RANGE = 28;
+const ARREST_TIME = 0.45;
+const PULL_TIME = 0.6;
+const STOPPED = 35; // a car slower than this can be grabbed through its door
+
 export function updateLawPed(p, dt, distP, canSee) {
     const level = Math.max(1, Math.min(4, Math.floor(player.wanted)));
+    const pc = player.inCar;
+    const isCop = p.role === 'cop';
     const aim = Math.atan2(player.y - p.y, player.x - p.x);
     const range = p.role === 'swat' ? 380 : p.role === 'fed' ? 360 : 340;
+    // Beat cops head for the driver's door of a halted car; everyone else (and any moving car) is just chased
+    const door = isCop && pc && !pc.airborne && pc.sink <= 0 && pc.speed < STOPPED ? driverDoorPoint(pc) : null;
+    const tx = door ? door.x : player.x;
+    const ty = door ? door.y : player.y;
+    const distT = Math.hypot(tx - p.x, ty - p.y);
+    const closeIn = isCop && level <= 2; // levels 1-2: arrest, don't stand off and shoot
 
     if (p.cover) {
         // Roadblock officers hold their post behind the cruisers
@@ -134,7 +205,7 @@ export function updateLawPed(p, dt, distP, canSee) {
             p.y += Math.sin(a) * p.speed * dt;
         }
     } else {
-        let moveAng = aim;
+        let moveAng = Math.atan2(ty - p.y, tx - p.x);
         if (!canSee) {
             // Follow flow-field around building corners!
             const ptx = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(p.x / TILE)));
@@ -150,7 +221,8 @@ export function updateLawPed(p, dt, distP, canSee) {
             }
         }
         p.angle = steerAroundTrunks(p.x, p.y, applyWallFeelers(p.x, p.y, moveAng, 28));
-        if (distP > (p.role === 'swat' ? 150 : 135) || !canSee) {
+        const holdOff = p.role === 'swat' ? 150 : 135;
+        if (closeIn ? distT > 12 || !canSee : distP > holdOff || !canSee) {
             const nx = p.x + Math.cos(p.angle) * p.speed * dt;
             const ny = p.y + Math.sin(p.angle) * p.speed * dt;
             if (!isSolidAt(nx, ny, 8) && !trunkBlocks(p.x, p.y, nx, ny, 8)) {
@@ -160,18 +232,52 @@ export function updateLawPed(p, dt, distP, canSee) {
         }
     }
 
-    // Beat cops arrest an on-foot player who lets them get close (levels 1-2)
-    if (p.role === 'cop' && !player.inCar && level <= 2 && distP < 32) {
-        p.arrestT = (p.arrestT || 0) + dt;
-        if (p.arrestT > 1) {
-            p.arrestT = 0;
-            triggerWastedOrBusted('BUSTED!');
-            return;
+    if (isCop && !p.cover) {
+        if (distP < 60) p.closeSeen = true;
+        else if (p.closeSeen && distP > 140) p.provoked = true; // bolted from the grab: they open up
+        if (distP < 70 && !pc && (p.freezeT || 0) <= 0) {
+            p.freezeT = 5;
+            spawnFloatingText('FREEZE!', p.x, p.y - 30, '#5a8fd6', 1.2);
+            audio.yelp(p.x, p.y);
         }
-    } else p.arrestT = 0;
+        p.freezeT = Math.max(0, (p.freezeT || 0) - dt);
+
+        if (!pc) {
+            // On foot: close enough to grab, for a beat, once the exit grace is over
+            p.pullT = 0;
+            if (distP <= GRAB_RANGE && player.exitGrace <= 0) {
+                p.arrestT = (p.arrestT || 0) + dt;
+                if (p.arrestT >= ARREST_TIME) {
+                    p.arrestT = 0;
+                    triggerWastedOrBusted('BUSTED!');
+                    return;
+                }
+            } else p.arrestT = 0;
+        } else if (door && distT <= 16) {
+            // At the door of a halted car: yank it open and drag the driver out
+            p.arrestT = 0;
+            if (!p.pullT) {
+                pc.doorT = 0.5;
+                audio.door(pc);
+                spawnFloatingText('FREEZE!', p.x, p.y - 30, '#5a8fd6', 1.2);
+            }
+            p.pullT = (p.pullT || 0) + dt;
+            p.angle = Math.atan2(pc.y - p.y, pc.x - p.x);
+            if (p.pullT >= PULL_TIME) {
+                p.pullT = 0;
+                triggerWastedOrBusted('BUSTED!');
+                return;
+            }
+        } else {
+            p.arrestT = 0;
+            p.pullT = 0;
+        }
+    }
 
     p.shootTimer -= dt;
-    if (canSee && p.shootTimer <= 0 && distP < range) {
+    // Beat cops on a low heat hold fire unless you shot first or ran from them
+    const mayFire = !isCop || level >= 3 || p.provoked;
+    if (mayFire && canSee && p.shootTimer <= 0 && distP < range) {
         p.angle = aim;
         if (p.role === 'swat') {
             // Uzi burst: 3 rounds, then a breather
@@ -244,7 +350,7 @@ export function spawnRoadblock(force = false) {
         const c = createCar('police', p.x, p.y, ang, 'parked');
         c.lightsOnly = true;
         c.roadblock = rb;
-        cars.push(c);
+        addCar(c);
 
         // Standing officer taking cover behind the cruiser
         const cv = at(34, side * (off - 4));
@@ -259,7 +365,7 @@ export function spawnRoadblock(force = false) {
         van.lightsOnly = true;
         van.deployed = true;
         van.roadblock = rb;
-        cars.push(van);
+        addCar(van);
     }
 
     // The spike strip lies across the gap, where you will drive over it

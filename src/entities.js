@@ -12,6 +12,17 @@ export function addDecal(type, x, y, angle = 0, size = 10, color = 'rgba(0,0,0,0
 }
 
 // --- SPAWNING VEHICLES, PEDESTRIANS, PICKUPS ---
+let nextCarId = 1;
+
+// The only way a car enters the world: a car object is never inserted twice
+export function addCar(c) {
+    if (!cars.includes(c)) cars.push(c);
+    return c;
+}
+
+// Foot crew a cruiser carries: they climb out when it is pinned or the player is on foot nearby
+const CREW = { police: () => 1 + Math.floor(Math.random() * 2), fbi_car: () => 2, swat_van: () => 3 };
+
 export function createCar(typeKey, x, y, angle = 0, aiMode = 'traffic') {
     const spec = CAR_TYPES[typeKey];
     // Grey-mask civilians get a district paint (paletteID indexes VEHICLE_PALETTE); liveried cars keep their own
@@ -25,6 +36,7 @@ export function createCar(typeKey, x, y, angle = 0, aiMode = 'traffic') {
     const initDir = angleToRoadDir(angle);
     const surf = surfaceAt(x, y);
     return {
+        id: nextCarId++, // unique identity, survives traffic recycling
         typeKey,
         spec,
         x,
@@ -61,7 +73,10 @@ export function createCar(typeKey, x, y, angle = 0, aiMode = 'traffic') {
         honkCooldown: 0,
         stuckTimer: 0,
         reverseTimer: 0,
-        deployedCop: false,
+        crewCount: CREW[typeKey]?.() ?? 0, // officers still aboard; 0 once they are out on foot
+        dismount: null, // { state: 'backoff' | 'park', t } while a cruiser unloads
+        pinT: 0, // seconds spent wedged against the player's stopped car
+        stranded: false, // crew out on foot, cruiser parked with lights flashing
         pursuit: false, // actively hunting the player (capped per wanted level, see heat.js)
         pursuitRole: 'chase', // level 2 box-in: 'chase' hugs the rear quarter, 'cutoff' leads the target
         deployed: false, // SWAT / FBI crew already out of the vehicle
@@ -109,16 +124,16 @@ export function populateWorld() {
     player.breath = SWIM_TIME;
 
     // Parked cars on the Central Park north plaza (off active traffic lanes!)
-    for (const pc of LANDMARKS.parkedCars) cars.push(createCar(pc.type, pc.x, pc.y, pc.angle, 'parked'));
+    for (const pc of LANDMARKS.parkedCars) addCar(createCar(pc.type, pc.x, pc.y, pc.angle, 'parked'));
 
     // Secret Battle Tank behind the container stacks in the Harbor yard!
-    cars.push(createCar('tank', LANDMARKS.tank.x, LANDMARKS.tank.y, LANDMARKS.tank.angle, 'parked'));
+    addCar(createCar('tank', LANDMARKS.tank.x, LANDMARKS.tank.y, LANDMARKS.tank.angle, 'parked'));
 
     // Populate Traffic Cars cleanly aligned inside right-hand lanes, mix by district
     for (let i = 0; i < 55; i++) {
         const spot = pickRoadSpawnAnywhere();
         if (!spot || Math.hypot(spot.x - player.x, spot.y - player.y) < 240) continue;
-        cars.push(createCar(pickCarType(getDistrictAt(spot.x, spot.y)), spot.x, spot.y, spot.angle, 'traffic'));
+        addCar(createCar(pickCarType(getDistrictAt(spot.x, spot.y)), spot.x, spot.y, spot.angle, 'traffic'));
     }
 
     // Spawn Regular Pedestrians

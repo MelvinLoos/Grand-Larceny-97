@@ -1,10 +1,17 @@
 import { audio } from './audio.js';
 import { LANDMARKS } from './city.js';
 import { pedLook } from './palette.js';
-import { createCar } from './entities.js';
+import { addCar, createCar } from './entities.js';
 import { addCrime, clearHeat } from './heat.js';
 import { addScore, showBigBanner, showPager, spawnFloatingText, updateHUD } from './hud.js';
 import { cars, mission, payphones, peds, player } from './state.js';
+
+// A retried mission must never leave its old vehicle behind: it would stack on the new one at the same spot
+function clearMissionCars() {
+    for (let i = cars.length - 1; i >= 0; i--) {
+        if (cars[i].missionCar && cars[i] !== player.inCar) cars.splice(i, 1);
+    }
+}
 
 // --- PAYPHONE MISSIONS ---
 export function startPayphoneMission(phone) {
@@ -12,6 +19,7 @@ export function startPayphoneMission(phone) {
     const mIdx = mission.completedCount % 3;
     mission.active = true;
     mission.alerted = false;
+    clearMissionCars();
 
     if (mIdx === 0) {
         // Mission 1: Hot Car Delivery (parked in a Midtown gang courtyard)
@@ -19,7 +27,8 @@ export function startPayphoneMission(phone) {
         mission.stage = 1;
         const hotCar = createCar('hellcrab', LANDMARKS.missions.hotCar.x, LANDMARKS.missions.hotCar.y, 0, 'parked');
         hotCar.color = '#e2559b'; // Neon Pink Boss GTS
-        cars.push(hotCar);
+        hotCar.missionCar = true;
+        addCar(hotCar);
         mission.targetEntity = hotCar;
         mission.targetX = hotCar.x;
         mission.targetY = hotCar.y;
@@ -72,7 +81,8 @@ export function startPayphoneMission(phone) {
         armored.color = '#e0a21b';
         armored.hp = 260;
         armored.maxHp = 260;
-        cars.push(armored);
+        armored.missionCar = true;
+        addCar(armored);
         mission.targetEntity = armored;
         mission.targetX = armored.x;
         mission.targetY = armored.y;

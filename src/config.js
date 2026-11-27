@@ -25,6 +25,7 @@ export const MIN_LAUNCH_SPEED = 220;
 export const STUNT_MIN_DIST = 180;
 export const SINK_TIME = 1.8;
 export const SWIM_TIME = 3.5;
+export const CAR_HIT_SPEED = 45; // a car must be at least this fast (px/s) and driving INTO someone to hurt them
 export const CAR_H = 16; // cars further apart than this vertically don't touch
 
 // Per-tile behaviour table. flowCost feeds the police flow-field (Infinity = impassable).
