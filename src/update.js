@@ -1,7 +1,6 @@
 import { updatePoliceCarAI, updateTrafficCarAI } from './ai.js';
 import { audio } from './audio.js';
 import {
-    DIR_VECS,
     applyWallFeelers,
     blockerAt,
     isWallAt,
@@ -12,19 +11,21 @@ import {
     isSidewalkAt,
     isSolidAt,
     pickRoadSpawnNear,
-    policeFlowDist,
     tileAtWorld,
     updatePoliceFlowField,
     walkBlockedAt
 } from './city.js';
 import { damagePed, damagePlayer, destroyCar, findAimTarget, fireWeapon, triggerExplosion } from './combat.js';
 import { collideCarFoliage, steerAroundTrunks, trunkBlocks, updateFoliage } from './foliage.js';
-import { CAR_H, MAP_SIZE, TILE, T_ROAD_X, WEAPONS, isSolidTile } from './config.js';
+import { CAR_H, T_ROAD_X, WEAPONS, flatCount, flatSpeedMul, isLaw, isSolidTile } from './config.js';
 import { getDistrictAt } from './districts.js';
 import { PUNK_HAIR, pedLook } from './palette.js';
 import { addDecal, createCar, pickCarType, spawnRandomPed } from './entities.js';
 import { buzz } from './haptics.js';
 import { showPager, spawnFloatingText, updateDistrictName, updateHUD } from './hud.js';
+import { updateEmergency, updateMedic, updateRescueCarAI, sprayWater } from './emergency.js';
+import { addCrime, footCopRoom, updateHeat } from './heat.js';
+import { maybePopByBullet, updateLawPed, updateRimSparks, updateRoadblocks, updateSpikes } from './lawforce.js';
 import { updateMission } from './missions.js';
 import { updateBays } from './shops.js';
 import { updateRiver } from './river.js';
@@ -143,16 +144,7 @@ export function update(dt) {
         }
     }
 
-    // Wanted Level Decay & Police Spawning
-    if (player.wanted > 0 && player.wanted < 2) {
-        player.wantedDecay -= dt;
-        if (player.wantedDecay <= 0) {
-            player.wanted = Math.max(0, Math.floor(player.wanted) - 1);
-            player.wantedDecay = 15;
-            updateHUD();
-        }
-    }
-
+    // Probation after a respray: lie low or the heat comes back
     if (player.probation > 0) {
         player.probation -= dt;
         if (player.probation <= 0) {
@@ -170,17 +162,11 @@ export function update(dt) {
         }
     }
 
-    const activePoliceCars = cars.filter(
-        (c) => c.spec.isPolice && c.hp > 0 && Math.hypot(c.x - player.x, c.y - player.y) < 1250
-    );
-    if (Math.floor(player.wanted) > activePoliceCars.length && Math.random() < dt * 1.1) {
-        const spot = pickRoadSpawnNear(player.x, player.y, 580, 920);
-        if (spot) {
-            const copCar = createCar('police', spot.x, spot.y, spot.angle, 'police');
-            copCar.sirenOn = true;
-            cars.push(copCar);
-        }
-    }
+    // Heat: line-of-sight cooldown, capped pursuit dispatch, roadblocks, spike strips, ambulances & fire trucks
+    updateHeat(dt);
+    updateRoadblocks(dt);
+    updateSpikes();
+    updateEmergency(dt);
 
     // --- PLAYER CONTROLS ---
     player.fireTimer = Math.max(0, player.fireTimer - dt);
@@ -199,6 +185,8 @@ export function update(dt) {
             // Driving Physics
             const car = player.inCar;
             const spec = car.spec;
+            const flats = flatCount(car);
+            const hbrake = brake && !spec.turret; // Space is the fire key in a fire engine
 
             if (car.airborne || car.sink > 0) {
                 // Wheels off the ground (or going under): no steering, no braking, no screech
@@ -242,10 +230,10 @@ export function update(dt) {
                 }
 
                 // Handbrake drift!
-                if (brake) {
+                if (hbrake) {
                     forwardSpeed *= 1 - 3.2 * dt;
                     lateralSpeed *= 0.965;
-                    if (Math.hypot(car.vx, car.vy) > 130) {
+                    if (!flats && Math.hypot(car.vx, car.vy) > 130) {
                         addDecal(
                             'skid',
                             car.x - forwardX * 18 + rightX * 10,
@@ -262,8 +250,9 @@ export function update(dt) {
                         );
                     }
                 } else {
-                    lateralSpeed *= spec.grip;
-                    if (Math.abs(lateralSpeed) > 75) {
+                    // Blown tires: permanently loose tail-slide
+                    lateralSpeed *= flats ? 1 - (1 - spec.grip) * (flats >= 3 ? 0.25 : 0.45) : spec.grip;
+                    if (!flats && Math.abs(lateralSpeed) > 75) {
                         addDecal(
                             'skid',
                             car.x - forwardX * 18 + rightX * 10,
@@ -281,7 +270,9 @@ export function update(dt) {
                     }
                 }
 
-                forwardSpeed = Math.max(-spec.maxSpeed * 0.42, Math.min(spec.maxSpeed, forwardSpeed));
+                const topSpeed = spec.maxSpeed * flatSpeedMul(car);
+                if (forwardSpeed > topSpeed) forwardSpeed += (topSpeed - forwardSpeed) * Math.min(1, 5 * dt);
+                forwardSpeed = Math.max(-topSpeed * 0.42, Math.min(topSpeed, forwardSpeed));
 
                 // Steering scales smoothly with vehicle movement (Tank can pivot in place!)
                 const steerFactor = spec.isTank
@@ -295,12 +286,28 @@ export function update(dt) {
                     if (right) car.angle += steerFactor * dt;
                 }
 
+                if (flats) {
+                    // Pulls toward the blown side (right wheels are bits 1 and 3)
+                    const pc = car.poppedTires;
+                    const pull = ((pc >> 1) & 1) + ((pc >> 3) & 1) - (pc & 1) - ((pc >> 2) & 1);
+                    car.angle += pull * 0.2 * Math.min(1, Math.abs(forwardSpeed) / 200) * dt;
+                    updateRimSparks(car, dt);
+                }
+
                 car.vx = Math.cos(car.angle) * forwardSpeed + -Math.sin(car.angle) * lateralSpeed;
                 car.vy = Math.sin(car.angle) * forwardSpeed + Math.cos(car.angle) * lateralSpeed;
                 car.speed = Math.hypot(car.vx, car.vy);
                 car.slip = Math.abs(lateralSpeed); // read by the screech loop
-                car.handbrake = !!brake;
+                car.handbrake = !!hbrake;
                 car.throttle = Math.abs(throttle);
+
+                // Fire engine roof cannon: Fire / Space blasts a pressurised jet
+                if (
+                    spec.turret &&
+                    (mouse.down || keys['ControlLeft'] || keys['ControlRight'] || keys['Fire'] || brake)
+                ) {
+                    sprayWater(car, dt);
+                }
 
                 // Tank main cannon!
                 if (spec.isTank && (mouse.down || keys['ControlLeft'] || keys['Fire']) && player.fireTimer <= 0) {
@@ -398,11 +405,13 @@ export function update(dt) {
         if (c.doorT > 0) c.doorT -= dt;
 
         // Tank turret: slews toward the cursor (recent mouse) else back onto the hull heading
-        if (c.spec.isTank) {
-            c.targetAngle =
-                c === player.inCar && performance.now() - mouse.movedAt < 3000
-                    ? Math.atan2(mouse.worldY - c.y, mouse.worldX - c.x)
-                    : c.angle;
+        if (c.spec.isTank || c.spec.turret) {
+            const aim = c.rescue?.kind === 'fire' && c.rescue.target ? c.rescue.target : null;
+            c.targetAngle = aim
+                ? Math.atan2(aim.y - c.y, aim.x - c.x)
+                : c === player.inCar && performance.now() - mouse.movedAt < 3000
+                  ? Math.atan2(mouse.worldY - c.y, mouse.worldX - c.x)
+                  : c.angle;
             const dA = normalizeAngle(c.targetAngle - c.turretAngle);
             const step = 2.5 * dt;
             c.turretAngle = normalizeAngle(c.turretAngle + (Math.abs(dA) <= step ? dA : Math.sign(dA) * step));
@@ -411,16 +420,16 @@ export function update(dt) {
         // AI Traffic & Police Pursuit Logic
         const free = !c.airborne && !(c.sink > 0); // wheels on the ground and above water
         if (c !== player.inCar && c.driver && free) {
-            if (c.spec.isPolice && Math.floor(player.wanted) >= 1) {
-                c.aiMode = 'police';
-                c.sirenOn = true;
-            } else if (c.aiMode === 'police' && Math.floor(player.wanted) === 0) {
+            // Only dispatched pursuers hunt the player (capped per wanted level, see heat.js)
+            if (c.aiMode === 'police' && !c.pursuit) {
                 c.aiMode = 'traffic';
                 c.sirenOn = false;
             }
 
             if (c.aiMode === 'police') {
                 updatePoliceCarAI(c, dt);
+            } else if (c.aiMode === 'rescue') {
+                updateRescueCarAI(c, dt);
             } else if (c.aiMode === 'traffic') {
                 updateTrafficCarAI(c, dt);
 
@@ -461,6 +470,7 @@ export function update(dt) {
                 c.x = nx;
             } else if (hx !== true && hx.breakable && Math.hypot(c.vx, c.vy) > 140) {
                 breakBarrier(hx);
+                if (c === player.inCar) addCrime('prop', { x: c.x, y: c.y });
                 c.vx *= 0.82;
                 c.vy *= 0.82;
                 c.x = nx;
@@ -482,6 +492,7 @@ export function update(dt) {
                 c.y = ny;
             } else if (hy !== true && hy.breakable && Math.hypot(c.vx, c.vy) > 140) {
                 breakBarrier(hy);
+                if (c === player.inCar) addCrime('prop', { x: c.x, y: c.y });
                 c.vx *= 0.82;
                 c.vy *= 0.82;
                 c.y = ny;
@@ -526,6 +537,10 @@ export function update(dt) {
                 const relV = Math.hypot(c.vx - o.vx, c.vy - o.vy);
                 if (relV > 140) {
                     bump(c, relV);
+                    if (c === player.inCar || o === player.inCar) {
+                        const other = c === player.inCar ? o : c;
+                        addCrime(other.spec.isPolice ? 'copBump' : 'bump', { x: other.x, y: other.y });
+                    }
                     // Battle Tank crushes cars instantly!
                     if (c.spec.isTank && c === player.inCar && o.hp > 0) {
                         destroyCar(o, true);
@@ -614,6 +629,18 @@ export function update(dt) {
             continue;
         }
 
+        // Knocked back by a water cannon blast
+        if (p.kbx || p.kby) {
+            const kx = p.x + p.kbx * dt;
+            const ky = p.y + p.kby * dt;
+            if (!isSolidAt(kx, p.y, 8)) p.x = kx;
+            if (!isSolidAt(p.x, ky, 8)) p.y = ky;
+            const k = Math.max(0, 1 - 4 * dt);
+            p.kbx *= k;
+            p.kby *= k;
+            if (Math.abs(p.kbx) + Math.abs(p.kby) < 12) p.kbx = p.kby = 0;
+        }
+
         // Reflexively dodge fast oncoming cars!
         if (p.role === 'civilian' || p.role === 'hallelujah') {
             for (const c of cars) {
@@ -639,7 +666,9 @@ export function update(dt) {
 
         const distP = Math.hypot(player.x - p.x, player.y - p.y);
         if (
-            ((p.role === 'civilian' && distP > 2600) || (p.role === 'gangster' && distP > 2200)) &&
+            ((p.role === 'civilian' && distP > 2600) ||
+                (p.role === 'gangster' && distP > 2200) ||
+                (isLaw(p) && !p.cover && distP > 1800)) &&
             Math.random() < dt * 0.4
         ) {
             peds.splice(i, 1);
@@ -647,43 +676,12 @@ export function update(dt) {
         }
         const canSeePlayer = distP < 420 && hasLineOfSight(p.x, p.y, player.x, player.y);
 
-        if (p.role === 'cop' && Math.floor(player.wanted) >= 1 && distP < 520 && player.deadTimer <= 0) {
-            let moveAng = Math.atan2(player.y - p.y, player.x - p.x);
-            if (!canSeePlayer) {
-                // Follow flow-field around building corners!
-                const ptx = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(p.x / TILE)));
-                const pty = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(p.y / TILE)));
-                let bestCost = policeFlowDist[pty][ptx];
-                for (const dv of DIR_VECS) {
-                    const ntx = ptx + dv.dx;
-                    const nty = pty + dv.dy;
-                    if (
-                        ntx >= 0 &&
-                        nty >= 0 &&
-                        ntx < MAP_SIZE &&
-                        nty < MAP_SIZE &&
-                        policeFlowDist[nty][ntx] < bestCost
-                    ) {
-                        bestCost = policeFlowDist[nty][ntx];
-                        moveAng = Math.atan2((nty + 0.5) * TILE - p.y, (ntx + 0.5) * TILE - p.x);
-                    }
-                }
-            }
-            p.angle = steerAroundTrunks(p.x, p.y, applyWallFeelers(p.x, p.y, moveAng, 28));
-            p.shootTimer -= dt;
-            if (distP > 135 || !canSeePlayer) {
-                const nx = p.x + Math.cos(p.angle) * p.speed * dt;
-                const ny = p.y + Math.sin(p.angle) * p.speed * dt;
-                if (!isSolidAt(nx, ny, 8) && !trunkBlocks(p.x, p.y, nx, ny, 8)) {
-                    p.x = nx;
-                    p.y = ny;
-                }
-            }
-            if (canSeePlayer && p.shootTimer <= 0 && distP < 340) {
-                p.shootTimer = 0.85;
-                p.angle = Math.atan2(player.y - p.y, player.x - p.x);
-                fireWeapon(p.x, p.y, p.angle, 1, false);
-            }
+        if (p.role === 'medic') {
+            updateMedic(p, dt);
+        } else if (isLaw(p) && Math.floor(player.wanted) >= 1 && distP < 520 && player.deadTimer <= 0) {
+            updateLawPed(p, dt, distP, canSeePlayer);
+        } else if (p.cover) {
+            p.angle = Math.atan2(player.y - p.y, player.x - p.x); // roadblock officer holding the line
         } else if ((p.role === 'boss' || p.role === 'guard') && distP < 400 && player.deadTimer <= 0) {
             const aimAng = Math.atan2(player.y - p.y, player.x - p.x);
             p.angle = steerAroundTrunks(p.x, p.y, canSeePlayer ? aimAng : applyWallFeelers(p.x, p.y, aimAng, 30));
@@ -797,7 +795,8 @@ export function update(dt) {
 
     // Keep city lively with ambient pedestrians
     if (peds.length < 75 && Math.random() < dt * 2) {
-        spawnRandomPed(Math.floor(player.wanted) >= 2 && Math.random() < 0.25 ? 'cop' : 'civilian', true);
+        const lvl = Math.floor(player.wanted);
+        spawnRandomPed(lvl >= 2 && Math.random() < 0.25 && footCopRoom(lvl) ? 'cop' : 'civilian', true);
     }
 
     // --- UPDATE BULLETS ---
@@ -835,6 +834,7 @@ export function update(dt) {
                     if (!b.explosive) {
                         audio.impact(c.x, c.y, 'metal');
                         c.hp -= b.damage;
+                        maybePopByBullet(c, b);
                         if (c.hp <= 0) destroyCar(c, b.fromPlayer);
                     }
                     hit = true;

@@ -9,7 +9,9 @@ const HORNS = {
     blitz: { a: 311, b: 392, type: 'sawtooth', dur: 0.3, lp: 1800, gain: 0.07 },
     van: { a: 185, b: 233, type: 'sawtooth', dur: 0.5, lp: 900, gain: 0.1 },
     hauler: { a: 156, b: 196, type: 'sawtooth', dur: 0.62, lp: 800, gain: 0.11 },
-    tank: { a: 140, b: 175, type: 'square', dur: 0.6, lp: 700, gain: 0.08 }
+    tank: { a: 140, b: 175, type: 'square', dur: 0.6, lp: 700, gain: 0.08 },
+    ambulance: { a: 520, b: 655, type: 'square', dur: 0.3, lp: 2600, gain: 0.07 },
+    firetruck: { a: 104, b: 131, type: 'sawtooth', dur: 0.8, lp: 650, gain: 0.13 }
 };
 
 export const sfx = {
@@ -140,6 +142,75 @@ export const sfx = {
                 Q: 6
             });
         }
+    },
+
+    // Pressurised tire blowout: sharp crack, thump of the rim dropping, long hiss
+    tirePop(x, y) {
+        const v = this.voice(x, y, 1000);
+        this.noise(v, { ftype: 'highpass', freq: 2400, dur: 0.05, gain: 0.32, attack: 0.002 });
+        this.tone(v, { type: 'sine', f0: 150, f1: 48, dur: 0.14, gain: 0.3 });
+        this.noise(v, {
+            ftype: 'highpass',
+            freq: 5200,
+            freq1: 2600,
+            fdur: 0.9,
+            dur: 0.9,
+            at: 0.04,
+            gain: 0.14,
+            attack: 0.01
+        });
+        this.tone(v, { type: 'square', f0: 90, f1: 55, dur: 0.18, at: 0.05, gain: 0.07, freq: 500 });
+    },
+
+    // Defibrillator: rising charge whine, then the zap
+    defib(x, y) {
+        const v = this.voice(x, y, 800);
+        this.tone(v, { type: 'sawtooth', f0: 400, f1: 2400, dur: 0.55, gain: 0.05, freq: 3600 });
+        this.noise(v, { ftype: 'highpass', freq: 3500, dur: 0.12, at: 0.56, gain: 0.22 });
+        this.tone(v, { type: 'square', f0: 140, f1: 60, dur: 0.14, at: 0.56, gain: 0.14, freq: 900 });
+    },
+
+    // Fire engine air horn: deep two-note blast, twice
+    airHorn(x, y) {
+        const v = this.voice(x, y, 1500);
+        for (const at of [0, 0.62]) {
+            for (const f of [104, 131]) {
+                this.tone(v, {
+                    type: 'sawtooth',
+                    f0: f,
+                    dur: 0.5,
+                    hold: 0.36,
+                    at,
+                    gain: 0.12,
+                    freq: 650,
+                    attack: 0.02
+                });
+            }
+        }
+    },
+
+    // Scanner chatter on the SFX bus so escalation is audible outside a cop car: longer and more urgent at level 4
+    scanner(urgent = false) {
+        if (!this.ctx || this.ctx.state !== 'running') return;
+        const now = this.ctx.currentTime;
+        if (now - (this._lastScan || -9) < 1.5) return;
+        this._lastScan = now;
+        const v = this.voice();
+        const n = urgent ? 9 : 6;
+        this.noise(v, { ftype: 'bandpass', freq: 2000, Q: 1, dur: 0.04, gain: 0.07 });
+        for (let i = 0; i < n; i++) {
+            const f = (urgent ? 150 : 115) * (0.9 + Math.random() * 0.4);
+            this.formant(v, {
+                f0: f,
+                f1: f * (0.8 + Math.random() * 0.4),
+                dur: 0.1,
+                at: 0.08 + i * 0.13,
+                gain: 0.06,
+                vowel: VOWELS[Math.floor(Math.random() * VOWELS.length)]
+            });
+        }
+        this.noise(v, { ftype: 'bandpass', freq: 1800, Q: 1, dur: 0.05, at: 0.1 + n * 0.13, gain: 0.07 });
+        if (urgent) this.tone(v, { type: 'square', f0: 1700, dur: 0.07, at: 0.1 + n * 0.13 + 0.12, gain: 0.03 });
     },
 
     // Suspension compression thud + brief tire chirp

@@ -50,6 +50,8 @@ import {
     peds,
     pickups,
     player,
+    roadblocks,
+    spikeStrips,
     view
 } from './state.js';
 
@@ -325,6 +327,10 @@ export function render() {
         ctx.rotate(d.angle);
         if (d.type === 'corpse') {
             GRIME.drawCorpse(ctx, d.size | 0, d.color, d.head);
+        } else if (d.type === 'scrape') {
+            // Rim scrape from a blown tire: a thin bright gouge, not rubber
+            ctx.fillStyle = 'rgba(226, 218, 196, 0.3)';
+            ctx.fillRect(-d.size, -0.8, d.size * 2, 1.6);
         } else if (d.type === 'skid') {
             ctx.fillStyle = 'rgba(20, 19, 15, 0.30)';
             ctx.fillRect(-d.size, -2.5, d.size * 2, 5);
@@ -339,6 +345,8 @@ export function render() {
 
     // 2b. FOLIAGE GROUND PASS: drop shadows + trunks (canopies are drawn with the buildings)
     drawFoliageGround(ctx, visibleFoliage);
+
+    drawLawProps(nowSec0, halfW, halfH);
 
     // 3. DRAW RINGING PAYPHONES & PICKUPS
     const nowSec = performance.now() * 0.001;
@@ -1057,6 +1065,64 @@ function drawCarTop(c, nowSec, l, w) {
     }
 }
 
+// Spike strips (glittering steel) and wooden police sawhorses laid out by roadblocks
+function drawLawProps(nowSec, halfW, halfH) {
+    for (const s of spikeStrips) {
+        if (Math.abs(s.x - camera.x) > halfW + 60 || Math.abs(s.y - camera.y) > halfH + 60) continue;
+        ctx.save();
+        ctx.translate(s.x, s.y);
+        ctx.rotate(s.angle);
+        const L = s.len;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillRect(-L / 2 + 2, -2.5, L, 7);
+        ctx.fillStyle = '#4b5563';
+        ctx.fillRect(-L / 2, -3.5, L, 7);
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-L / 2, -3.5, L, 7);
+        let i = 0;
+        for (let x = -L / 2 + 3; x < L / 2 - 2; x += 5, i++) {
+            ctx.fillStyle = '#e5e7eb';
+            ctx.beginPath();
+            ctx.moveTo(x, -3.5);
+            ctx.lineTo(x + 2, -7.5);
+            ctx.lineTo(x + 4, -3.5);
+            ctx.moveTo(x, 3.5);
+            ctx.lineTo(x + 2, 7.5);
+            ctx.lineTo(x + 4, 3.5);
+            ctx.fill();
+            if (Math.sin(nowSec * 6 + i * 1.7) > 0.85) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(x + 1, -1, 2, 2); // glint
+            }
+        }
+        ctx.restore();
+    }
+    for (const rb of roadblocks) {
+        for (const pr of rb.props) {
+            if (pr.hit && pr.life <= 0) continue;
+            if (Math.abs(pr.x - camera.x) > halfW + 40 || Math.abs(pr.y - camera.y) > halfH + 40) continue;
+            ctx.save();
+            ctx.translate(pr.x, pr.y);
+            ctx.rotate(pr.angle);
+            if (pr.hit) ctx.globalAlpha = Math.max(0, pr.life / 0.8);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.fillRect(-14, -2, 30, 9);
+            ctx.fillStyle = '#f5f1e6';
+            ctx.fillRect(-15, -4, 30, 8);
+            ctx.fillStyle = '#e8731a';
+            for (let k = 0; k < 4; k++) ctx.fillRect(-15 + k * 8, -4, 4, 8);
+            ctx.strokeStyle = INK;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-15, -4, 30, 8);
+            ctx.fillStyle = INK;
+            ctx.fillRect(-12, -6, 2, 3);
+            ctx.fillRect(10, -6, 2, 3);
+            ctx.restore();
+        }
+    }
+}
+
 function drawVehicleVector(c, nowSec) {
     const w = c.spec.w;
     const l = c.spec.l;
@@ -1135,9 +1201,9 @@ function drawVehicleVector(c, nowSec) {
         // Flashing Red & Blue Police Lightbar!
         if (c.spec.isPolice && c.hp > 0) {
             const flash = Math.floor(nowSec * 10) % 2 === 0;
-            ctx.fillStyle = c.sirenOn ? (flash ? '#d23a2a' : '#3b82f6') : '#64748b';
+            ctx.fillStyle = c.sirenOn || c.lightsOnly ? (flash ? '#d23a2a' : '#3b82f6') : '#64748b';
             ctx.fillRect(-4, -w * 0.32, 7, w * 0.3);
-            ctx.fillStyle = c.sirenOn ? (flash ? '#3b82f6' : '#d23a2a') : '#64748b';
+            ctx.fillStyle = c.sirenOn || c.lightsOnly ? (flash ? '#3b82f6' : '#d23a2a') : '#64748b';
             ctx.fillRect(-4, 1, 7, w * 0.3);
         }
 
@@ -1156,9 +1222,6 @@ function drawVehicleVector(c, nowSec) {
 
     ctx.restore();
 }
-
-// Police lightbar on police.png, in sprite pixels
-const LIGHTBAR = { x0: 16, x1: 47, y: 61, h: 6 };
 
 // Pass 1 (ground): every car's shadow before any body, so a shadow never lands on a neighbouring car
 export function drawVehicleShadow(c) {
@@ -1208,20 +1271,21 @@ export function drawVehicle(c, nowSec) {
         ctx.drawImage(tealOf(skin), -w / 2, -l / 2, w, l);
         ctx.globalAlpha = 1 - 0.45 * Math.min(1, c.sink);
     }
-    if (c.spec.isPolice && c.hp > 0 && c.sirenOn) {
+    if (skin.lights && c.hp > 0 && (c.sirenOn || c.lightsOnly)) {
         const flash = Math.floor(nowSec * 10) % 2 === 0;
         const k = skin.k;
-        const { x0, x1, y, h } = LIGHTBAR;
-        const mid = (x0 + x1) / 2;
-        for (const [a, b, left] of [
-            [x0, mid, true],
-            [mid, x1, false]
-        ]) {
-            ctx.fillStyle = flash === left ? '#d23a2a' : '#3b82f6';
-            ctx.fillRect((a - 32) * k, (y - 64) * k, (b - a) * k, h * k);
-            ctx.globalAlpha = 0.3;
-            ctx.fillRect((a - 32) * k - 2, (y - 64) * k - 2, (b - a) * k + 4, h * k + 4);
-            ctx.globalAlpha = 1;
+        for (const { x0, x1, y, h, c: cols } of skin.lights) {
+            const mid = (x0 + x1) / 2;
+            for (const [a, b, left] of [
+                [x0, mid, true],
+                [mid, x1, false]
+            ]) {
+                ctx.fillStyle = flash === left ? cols[0] : cols[1];
+                ctx.fillRect((a - skin.rw / 2) * k, (y - skin.rh / 2) * k, (b - a) * k, h * k);
+                ctx.globalAlpha = 0.3;
+                ctx.fillRect((a - skin.rw / 2) * k - 2, (y - skin.rh / 2) * k - 2, (b - a) * k + 4, h * k + 4);
+                ctx.globalAlpha = 1;
+            }
         }
     }
     ctx.restore();

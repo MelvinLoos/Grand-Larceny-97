@@ -127,7 +127,8 @@ function setupButtons() {
         document.getElementById('touch-horn'),
         () => {
             if (player.inCar) {
-                if (player.inCar.spec.isPolice) player.inCar.sirenOn = !player.inCar.sirenOn;
+                if (player.inCar.spec.isPolice || player.inCar.spec.isEmergency)
+                    player.inCar.sirenOn = !player.inCar.sirenOn;
                 audio.horn(player.inCar);
             } else {
                 cycleWeapon();

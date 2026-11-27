@@ -615,23 +615,24 @@ function heapPop() {
     return top;
 }
 
-export function updatePoliceFlowField() {
+// Fills `dist` with road-weighted path cost to the tile under (wx, wy); police and rescue vehicles share it
+export function buildFlowField(dist, wx, wy) {
     for (let y = 0; y < MAP_SIZE; y++) {
-        policeFlowDist[y].fill(9999);
+        dist[y].fill(9999);
     }
-    const ptx = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(player.x / TILE)));
-    const pty = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(player.y / TILE)));
-    if (isSolidTile(mapGrid[pty][ptx]) && isSolidPoint(player.x, player.y)) return;
+    const ptx = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(wx / TILE)));
+    const pty = Math.max(0, Math.min(MAP_SIZE - 1, Math.floor(wy / TILE)));
+    if (isSolidTile(mapGrid[pty][ptx]) && isSolidPoint(wx, wy)) return;
 
     flowHeap.length = 0;
-    policeFlowDist[pty][ptx] = 0;
+    dist[pty][ptx] = 0;
     heapPush(0, pty * MAP_SIZE + ptx);
 
     while (flowHeap.length > 0) {
         const [cost, idx] = heapPop();
         const cx = idx % MAP_SIZE;
         const cy = (idx / MAP_SIZE) | 0;
-        if (cost > policeFlowDist[cy][cx]) continue;
+        if (cost > dist[cy][cx]) continue;
 
         for (const dv of DIR_VECS) {
             const ntx = cx + dv.dx;
@@ -641,12 +642,16 @@ export function updatePoliceFlowField() {
             const stepCost = TILE_PROPS[mapGrid[nty][ntx]].flowCost;
             if (stepCost === Infinity || (mapGrid[nty][ntx] === T_BAY && isBayShut(ntx, nty))) continue;
             const nextCost = cost + stepCost;
-            if (nextCost < policeFlowDist[nty][ntx]) {
-                policeFlowDist[nty][ntx] = nextCost;
+            if (nextCost < dist[nty][ntx]) {
+                dist[nty][ntx] = nextCost;
                 heapPush(nextCost, nty * MAP_SIZE + ntx);
             }
         }
     }
+}
+
+export function updatePoliceFlowField() {
+    buildFlowField(policeFlowDist, player.x, player.y);
 }
 
 // Right-hand lane spawn on a given road tile, or null if blocked by another car

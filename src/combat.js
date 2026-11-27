@@ -1,13 +1,13 @@
 import { audio } from './audio.js';
 import { hasLineOfSight, isSolidAt, normalizeAngle, walkBlockedAt } from './city.js';
 import { surfaceAt } from './river.js';
-import { SWIM_TIME, TILE, WEAPONS } from './config.js';
+import { SWIM_TIME, TILE, WEAPONS, isLaw } from './config.js';
 import { addDecal } from './entities.js';
-import { addScore, hideRadio, showBigBanner, showRadio, updateHUD } from './hud.js';
+import { addScore, hideRadio, showBigBanner, showRadio, spawnFloatingText, updateHUD } from './hud.js';
 import { buzz } from './haptics.js';
-import { addCrime } from './missions.js';
+import { addCrime, clearHeat } from './heat.js';
 import { pedLook } from './palette.js';
-import { bullets, camera, cars, decals, game, mission, particles, peds, player } from './state.js';
+import { bullets, camera, cars, decals, emergency, game, mission, particles, peds, player } from './state.js';
 
 // --- AIM ASSIST (touch) ---
 export function findAimTarget(x, y, facing) {
@@ -28,7 +28,7 @@ export function findAimTarget(x, y, facing) {
     };
     for (const p of peds) {
         if (p.hp <= 0) continue;
-        const mul = p.role === 'boss' ? 0.5 : p.role === 'cop' && player.wanted >= 1 ? 0.7 : 1;
+        const mul = p.role === 'boss' ? 0.5 : isLaw(p) && player.wanted >= 1 ? 0.7 : 1;
         consider(p, mul);
     }
     const t = mission.targetEntity;
@@ -105,11 +105,22 @@ export function toggleEnterExitVehicle() {
                 shootTimer: 0.8
             });
             audio.yelp(bestCar.x, bestCar.y);
-            addCrime(bestCar.spec.isPolice ? 1.2 : 0.45);
+            addCrime(bestCar.spec.isPolice ? 'copJack' : 'jack', { x: bestCar.x, y: bestCar.y });
             alertGangs(bestCar.x, bestCar.y);
             addScore(150, bestCar.x, bestCar.y - 20, 'JACKED');
         }
 
+        // Hijacking an ambulance: one free +25 HP medkit per vehicle
+        if (bestCar.typeKey === 'ambulance' && !bestCar.medkitUsed) {
+            bestCar.medkitUsed = true;
+            player.hp = Math.min(player.maxHp, player.hp + 25);
+            spawnFloatingText('+25 HP MEDKIT', bestCar.x, bestCar.y - 30, '#f87171');
+        }
+        // Whatever it was doing (hunting you, blocking the road, rescuing) is over
+        bestCar.pursuit = false;
+        bestCar.roadblock = null;
+        bestCar.lightsOnly = false;
+        bestCar.rescue = null;
         bestCar.aiMode = 'player';
         bestCar.driver = true;
         bestCar.doorT = 0.5;
@@ -193,6 +204,7 @@ export function fireWeapon(x, y, angle, weaponIdx, fromPlayer = true) {
     });
 
     if (fromPlayer) {
+        addCrime('shots', { x, y });
         alertGangs(x, y);
         // Alert nearby pedestrians
         for (const p of peds) {
@@ -261,8 +273,9 @@ export function destroyCar(car, byPlayer = true) {
     }
     if (byPlayer) {
         addScore(car.spec.value, car.x, car.y, 'BOOM!');
-        addCrime(car.spec.isPolice ? 1.5 : 0.7);
+        addCrime(car.spec.isPolice ? 'copWreck' : 'wreck', { x: car.x, y: car.y });
     }
+    car.burnT = 20 + Math.random() * 10; // the wreck burns until a fire truck douses it
     setTimeout(() => {
         triggerExplosion(car.x, car.y, 130, byPlayer);
     }, 60);
@@ -272,14 +285,19 @@ export function damagePed(ped, amount, byPlayer = true) {
     ped.hp -= amount;
     if (ped.hp <= 0) {
         addDecal('corpse', ped.x, ped.y, Math.random() * 6.28, (Math.random() * 3) | 0, ped.color);
-        decals[decals.length - 1].head = ped.skin || '#fed7aa';
+        const corpse = decals[decals.length - 1];
+        corpse.head = ped.skin || '#fed7aa';
+        // Casualties are logged for the paramedics (2+ nearby sends an ambulance)
+        if (ped.role !== 'medic' && ped.role !== 'boss') {
+            emergency.casualties.push({ x: ped.x, y: ped.y, age: 0, decal: corpse, claimed: false });
+        }
     }
     addDecal('blood', ped.x, ped.y, 0, 7 + Math.random() * 5, 'rgba(185, 28, 28, 0.75)');
     if (ped.hp <= 0) {
         if (byPlayer) {
-            const pts = ped.role === 'cop' ? 500 : ped.role === 'boss' ? 2500 : 100;
+            const pts = ped.role === 'cop' ? 500 : isLaw(ped) ? 900 : ped.role === 'boss' ? 2500 : 100;
             addScore(pts, ped.x, ped.y);
-            addCrime(ped.role === 'cop' ? 1.1 : 0.35);
+            addCrime(isLaw(ped) ? 'copKill' : 'assault', { x: ped.x, y: ped.y });
 
             // Check HALLELUJAH! (Did player wipe out all orange joggers?)
             if (ped.role === 'hallelujah') {
@@ -320,9 +338,7 @@ export function triggerWastedOrBusted(reason, subOverride = null) {
     player.inCar = null;
     hideRadio();
     player.multiplier = 1;
-    player.wanted = 0;
-    player.probation = 0;
-    player.probationWanted = 0;
+    clearHeat();
     if (mission.active) {
         mission.active = false;
     }

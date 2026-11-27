@@ -6,8 +6,12 @@ import './styles/manual.css';
 import './styles/responsive.css';
 import * as city from './city.js';
 import * as river from './river.js';
+import * as emergency from './emergency.js';
+import * as heat from './heat.js';
+import * as lawforce from './lawforce.js';
 import * as stunts from './stunts.js';
 import { audio } from './audio.js';
+import * as combat from './combat.js';
 import { LANDMARKS, buildCity } from './city.js';
 import { populateWorld } from './entities.js';
 import { bakeFoliage, plantFoliage } from './foliage.js';
@@ -89,4 +93,41 @@ async function init() {
 init();
 
 // Dev-only console hook for poking at the world (stripped from production builds)
-if (import.meta.env.DEV) window.__gl = { city, river, stunts, state, LANDMARKS, audio };
+if (import.meta.env.DEV) {
+    window.__gl = {
+        city,
+        river,
+        stunts,
+        state,
+        LANDMARKS,
+        audio,
+        heat,
+        lawforce,
+        emergency,
+        // Scripted poking for playtests
+        setWanted(n) {
+            state.player.wanted = n;
+            state.player.unseenTimer = 0;
+            updateHUD();
+        },
+        popTires: (n = 2) => state.player.inCar && lawforce.popTires(state.player.inCar, n),
+        roadblock: () => lawforce.spawnRoadblock(true),
+        wreckNear() {
+            const { cars, player } = state;
+            const c = cars
+                .filter((o) => o.hp > 0 && o !== player.inCar && o.typeKey !== 'tank')
+                .sort(
+                    (a, b) => Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y)
+                )[0];
+            if (c) combat.destroyCar(c, false);
+            return c?.typeKey;
+        },
+        killPeds(n = 2) {
+            const { peds, player } = state;
+            peds.filter((p) => p.role === 'civilian' && p.hp > 0)
+                .sort((a, b) => Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y))
+                .slice(0, n)
+                .forEach((p) => combat.damagePed(p, 999, false));
+        }
+    };
+}

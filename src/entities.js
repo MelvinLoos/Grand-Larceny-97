@@ -2,7 +2,7 @@ import { LANDMARKS, angleToRoadDir, isSidewalkAt, isSolidAt, pickRoadSpawnAnywhe
 import { CAR_TYPES, MAP_SIZE, SWIM_TIME, TILE, pickStation } from './config.js';
 import { DISTRICTS, getDistrictAt, pickWeighted } from './districts.js';
 import { surfaceAt } from './river.js';
-import { PUNK_HAIR, pedLook, SHIRT_COLORS, VEHICLE_PALETTE } from './palette.js';
+import { PUNK_HAIR, ROLE_COLORS, pedLook, SHIRT_COLORS, VEHICLE_PALETTE } from './palette.js';
 import { showPager, updateHUD } from './hud.js';
 import { bullets, camera, cars, decals, floatingTexts, particles, peds, pickups, player } from './state.js';
 
@@ -50,7 +50,7 @@ export function createCar(typeKey, x, y, angle = 0, aiMode = 'traffic') {
         hp: spec.hp,
         maxHp: spec.hp,
         aiMode, // 'traffic', 'parked', 'police', 'player', 'target'
-        sirenOn: !!spec.isPolice && aiMode === 'police',
+        sirenOn: (!!spec.isPolice && aiMode === 'police') || aiMode === 'rescue',
         driver: aiMode !== 'parked',
         burnTimer: 0,
         turnCooldown: 0,
@@ -62,6 +62,16 @@ export function createCar(typeKey, x, y, angle = 0, aiMode = 'traffic') {
         stuckTimer: 0,
         reverseTimer: 0,
         deployedCop: false,
+        pursuit: false, // actively hunting the player (capped per wanted level, see heat.js)
+        pursuitRole: 'chase', // level 2 box-in: 'chase' hugs the rear quarter, 'cutoff' leads the target
+        deployed: false, // SWAT / FBI crew already out of the vehicle
+        deployT: 0,
+        poppedTires: 0, // bitmask 0..15 of blown tires (see lawforce.js)
+        burnT: 0, // seconds of wreck fire left (fire trucks douse it)
+        medkitUsed: false,
+        lightsOnly: false, // roadblock cruiser: strobing but silent
+        roadblock: null,
+        rescue: null, // ambulance / fire-truck job (see emergency.js)
         radioStation: pickStation(spec) // sticks with the car: jack it and you hear what they were playing
     };
 }
@@ -177,4 +187,25 @@ export function spawnRandomPed(role = 'civilian', nearPlayer = false) {
         }
     }
     return null;
+}
+
+// On-foot law enforcement / medic: one factory so every role gets the same stats everywhere
+const LAW_HP = { cop: 65, swat: 110, fed: 70, medic: 40 };
+export function spawnLawPed(role, x, y, angle = 0, extra = {}) {
+    const p = {
+        x,
+        y,
+        angle,
+        speed: role === 'swat' ? 125 : role === 'medic' ? 96 : 118,
+        color: ROLE_COLORS[role],
+        role,
+        ...pedLook(role),
+        hp: LAW_HP[role],
+        panicTimer: 0,
+        shootTimer: 0.6 + Math.random() * 0.5,
+        burst: 0,
+        ...extra
+    };
+    peds.push(p);
+    return p;
 }
