@@ -6,16 +6,13 @@ import {
     hasDriveLine,
     isRoadCell,
     isRoadTileType,
-    isSolidAt,
     normalizeAngle,
     policeFlowDist,
     tileAtWorld
 } from './city.js';
-import { triggerWastedOrBusted } from './combat.js';
 import { MAP_SIZE, TILE, T_ROAD_H, T_ROAD_V, T_ROAD_X, WANTED_TIERS, flatCount, flatSpeedMul } from './config.js';
-import { spawnLawPed } from './entities.js';
 import { deployCrew } from './lawforce.js';
-import { cars, mapGrid, peds, player } from './state.js';
+import { cars, heat, mapGrid, peds, player } from './state.js';
 
 // --- SMART TRAFFIC & POLICE DRIVING AI ---
 export function driveAICarToward(c, targetX, targetY, desiredSpeed, dt) {
@@ -338,38 +335,69 @@ export function updatePoliceCarAI(c, dt) {
         pursuitSpeed = (distToPlayer > 110 ? 370 : 240) * mul;
     }
 
-    // Tactical crews: SWAT vans brake and unload troopers, FBI cars drop agents on a hurt or stranded chase
-    if (c.spec.isSwat && !c.deployed && clearSight && distToPlayer < 280) {
-        c.deployT += dt;
-        pursuitSpeed = 0;
-        if (c.deployT > 1.2) deployCrew(c);
-    } else if (
-        c.spec.isFed &&
-        !c.deployed &&
-        ((!pc && distToPlayer < 200) ||
-            c.hp < c.maxHp * 0.3 ||
-            (clearSight && pc && pc.speed < 40 && distToPlayer < 200))
-    ) {
-        deployCrew(c);
+    // Cruisers never arrest. A pinned, stopped or stranded-on-foot target makes the crew pile out instead
+    if (!c.dismount && c.crewCount > 0 && !c.stranded && wantsDismount(c, pc, distToPlayer, clearSight, dt)) {
+        const wedged = pc && distToPlayer < (c.spec.l + pc.spec.l) * 0.75;
+        c.dismount = { state: wedged ? 'backoff' : 'park', t: wedged ? 0.45 : 0 };
+    }
+    if (c.dismount) {
+        runDismount(c, dt, level);
+        return;
     }
 
     if (pullOver && Math.hypot(targetX - c.x, targetY - c.y) < 40) pursuitSpeed = 0;
     driveAICarToward(c, targetX, targetY, pursuitSpeed, dt);
+}
 
-    // Deploy an armed officer on foot if the player is on foot nearby (or pulled over), or bust directly if right next to the cruiser!
-    if (c.typeKey === 'police' && player.deadTimer <= 0) {
-        if (!pc) {
-            if (distToPlayer < 52 && c.speed < 190) {
-                triggerWastedOrBusted('BUSTED!');
-                return;
-            }
-        }
-        if (!c.deployedCop && distToPlayer < 165 && clearSight && (!pc || (pc.speed < 25 && level === 1))) {
-            c.deployedCop = true;
-            const sideAng = c.angle + Math.PI * 0.5;
-            const ox = c.x + Math.cos(sideAng) * 30;
-            const oy = c.y + Math.sin(sideAng) * 30;
-            if (!isSolidAt(ox, oy, 8)) spawnLawPed('cop', ox, oy, Math.atan2(player.y - oy, player.x - ox));
+// When does a pursuit vehicle stop and unload its crew?
+function wantsDismount(c, pc, dist, clearSight, dt) {
+    // Wedged against / stopped beside the player's halted car: 0.5s of mutual standstill
+    if (pc && clearSight && pc.speed < 35 && c.speed < 35 && dist < 165) {
+        c.pinT += dt;
+        if (c.pinT >= 0.5) return true;
+    } else c.pinT = Math.max(0, c.pinT - dt * 2);
+    if (!pc && clearSight && dist < (c.spec.isFed ? 200 : c.spec.isSwat ? 280 : 220)) return true;
+    if (c.spec.isSwat && clearSight && dist < 280) return true;
+    return !!c.spec.isFed && c.hp < c.maxHp * 0.3;
+}
+
+// backoff: ease the nose off the player's car; park: brake to a halt. Then the doors open.
+function runDismount(c, dt, level) {
+    const d = c.dismount;
+    const fx = Math.cos(c.angle);
+    const fy = Math.sin(c.angle);
+    if (d.state === 'backoff') {
+        d.t -= dt;
+        c.vx += (-fx * 85 - c.vx) * Math.min(1, 9 * dt); // reverse ~35px, no throttle
+        c.vy += (-fy * 85 - c.vy) * Math.min(1, 9 * dt);
+        if (d.t <= 0) c.dismount = { state: 'park', t: 0 };
+    } else {
+        d.t += dt;
+        const k = Math.max(0, 1 - 7 * dt);
+        c.vx *= k;
+        c.vy *= k;
+        if (Math.hypot(c.vx, c.vy) < 30 || d.t > 1.2) {
+            unloadCruiser(c, level);
+            return;
         }
     }
+    c.handbrake = d.state === 'park';
+    c.speed = Math.hypot(c.vx, c.vy);
+}
+
+// Park it, open the doors, officers out. The empty cruiser sits there flashing (and can be stolen)
+function unloadCruiser(c, level) {
+    c.vx = c.vy = c.speed = 0;
+    c.handbrake = true;
+    c.dismount = null;
+    c.doorT = 0.5;
+    deployCrew(c);
+    c.crewCount = 0;
+    c.driver = false;
+    c.aiMode = 'parked';
+    c.lightsOnly = true;
+    c.sirenOn = false;
+    c.stranded = true;
+    c.pursuit = false; // frees the pursuit slot; dispatch tops it up after the usual replacement delay
+    heat.dispatchCd = Math.max(heat.dispatchCd, WANTED_TIERS[level].replace);
 }

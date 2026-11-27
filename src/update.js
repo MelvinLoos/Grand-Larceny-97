@@ -9,6 +9,7 @@ import {
     hasLineOfSight,
     isRoadTileType,
     isSidewalkAt,
+    isOnScreen,
     isSolidAt,
     pickRoadSpawnNear,
     tileAtWorld,
@@ -17,7 +18,7 @@ import {
 } from './city.js';
 import { damagePed, damagePlayer, destroyCar, findAimTarget, fireWeapon, triggerExplosion } from './combat.js';
 import { collideCarFoliage, steerAroundTrunks, trunkBlocks, updateFoliage } from './foliage.js';
-import { CAR_H, T_ROAD_X, WEAPONS, flatCount, flatSpeedMul, isLaw, isSolidTile } from './config.js';
+import { CAR_H, CAR_HIT_SPEED, T_ROAD_X, WEAPONS, flatCount, flatSpeedMul, isLaw, isSolidTile } from './config.js';
 import { getDistrictAt } from './districts.js';
 import { PUNK_HAIR, pedLook } from './palette.js';
 import { addDecal, createCar, pickCarType, spawnRandomPed } from './entities.js';
@@ -25,7 +26,15 @@ import { buzz } from './haptics.js';
 import { showPager, spawnFloatingText, updateDistrictName, updateHUD } from './hud.js';
 import { updateEmergency, updateMedic, updateRescueCarAI, sprayWater } from './emergency.js';
 import { addCrime, footCopRoom, updateHeat } from './heat.js';
-import { maybePopByBullet, updateLawPed, updateRimSparks, updateRoadblocks, updateSpikes } from './lawforce.js';
+import {
+    maybePopByBullet,
+    returnToCruiser,
+    updateLawPed,
+    updateRimSparks,
+    updateRoadblocks,
+    updateSpikes,
+    updateStrandedCruiser
+} from './lawforce.js';
 import { updateMission } from './missions.js';
 import { updateBays } from './shops.js';
 import { updateRiver } from './river.js';
@@ -124,6 +133,50 @@ function updateGangs(dt) {
     });
 }
 
+// Oriented-box test of a walker (circle radius r) against a car hull.
+// Returns { nx, ny, depth }: the unit push-out direction (car -> walker) and how far inside they are, or null.
+function carHullContact(c, x, y, r) {
+    const fx = Math.cos(c.angle);
+    const fy = Math.sin(c.angle);
+    const dx = x - c.x;
+    const dy = y - c.y;
+    const lx = dx * fx + dy * fy;
+    const ly = -dx * fy + dy * fx;
+    const hl = c.spec.l / 2;
+    const hw = c.spec.w / 2;
+    const qx = Math.max(-hl, Math.min(hl, lx));
+    const qy = Math.max(-hw, Math.min(hw, ly));
+    let ex = lx - qx;
+    let ey = ly - qy;
+    const d = Math.hypot(ex, ey);
+    let depth;
+    if (d > 0) {
+        if (d >= r) return null;
+        depth = r - d;
+        ex /= d;
+        ey /= d;
+    } else {
+        // Centre inside the hull: leave through the nearest side
+        const px = hl - Math.abs(lx);
+        const py = hw - Math.abs(ly);
+        if (py <= px) {
+            ex = 0;
+            ey = ly >= 0 ? 1 : -1;
+            depth = py + r;
+        } else {
+            ex = lx >= 0 ? 1 : -1;
+            ey = 0;
+            depth = px + r;
+        }
+    }
+    return { nx: ex * fx - ey * fy, ny: ex * fy + ey * fx, depth };
+}
+
+// Fast enough, and heading into the walker rather than past or away from them
+function carStrikes(c, spd, ct) {
+    return spd >= CAR_HIT_SPEED && c.vx * ct.nx + c.vy * ct.ny > 0.35 * spd;
+}
+
 // --- MAIN SIMULATION LOOP ---
 export function update(dt) {
     // Respawn handling after WASTED / BUSTED
@@ -170,6 +223,8 @@ export function update(dt) {
 
     // --- PLAYER CONTROLS ---
     player.fireTimer = Math.max(0, player.fireTimer - dt);
+    player.carHitT = Math.max(0, player.carHitT - dt);
+    player.exitGrace = Math.max(0, player.exitGrace - dt);
 
     const up = keys['KeyW'] || keys['ArrowUp'];
     const down = keys['KeyS'] || keys['ArrowDown'];
@@ -434,7 +489,11 @@ export function update(dt) {
                 updateTrafficCarAI(c, dt);
 
                 // Recycle far-away traffic cars onto nearby avenues so streets around player stay lively
-                if (c !== mission.targetEntity && Math.hypot(c.x - player.x, c.y - player.y) > 1950) {
+                if (
+                    c !== mission.targetEntity &&
+                    Math.hypot(c.x - player.x, c.y - player.y) > 1950 &&
+                    !isOnScreen(c.x, c.y, 200)
+                ) {
                     const spot = pickRoadSpawnNear(player.x, player.y, 820, 1350);
                     if (spot) {
                         // Re-roll the model for the district it lands in, so traffic shifts as you cross town
@@ -447,6 +506,7 @@ export function update(dt) {
                         );
                         delete c._grime;
                         delete c._gs;
+                        fresh.id = c.id; // same car object, same identity
                         Object.assign(c, fresh);
                         c.vx = Math.cos(spot.angle) * c.cruiseSpeed;
                         c.vy = Math.sin(spot.angle) * c.cruiseSpeed;
@@ -457,10 +517,13 @@ export function update(dt) {
             // Parked car friction
             c.vx *= 1 - 4 * dt;
             c.vy *= 1 - 4 * dt;
+            if (c.stranded) updateStrandedCruiser(c);
         }
 
         // Integrate position & wall bounce, in sub-steps so a fast car can't skip a thin parapet
         const rad = c.spec.w * 0.52;
+        const safeX = c.x;
+        const safeY = c.y;
         const steps = Math.min(6, Math.max(1, Math.ceil((Math.hypot(c.vx, c.vy) * dt) / 10)));
         const sdt = dt / steps;
         for (let k = 0; k < steps; k++) {
@@ -509,6 +572,13 @@ export function update(dt) {
             }
         }
 
+        // A NaN / Infinity position or velocity must never spread: roll back to the last good spot
+        if (!Number.isFinite(c.x + c.y + c.vx + c.vy)) {
+            c.x = Number.isFinite(safeX) ? safeX : player.x;
+            c.y = Number.isFinite(safeY) ? safeY : player.y;
+            c.vx = c.vy = c.speed = 0;
+        }
+
         // Ramps, flight, landing, plunging into the river
         updateCarVertical(c, dt);
 
@@ -518,13 +588,20 @@ export function update(dt) {
         // Car-to-Car Collisions
         for (let j = i + 1; j < cars.length; j++) {
             const o = cars[j];
-            const dx = o.x - c.x;
-            const dy = o.y - c.y;
-            const dist = Math.hypot(dx, dy);
+            let dx = o.x - c.x;
+            let dy = o.y - c.y;
+            let dist = Math.hypot(dx, dy);
             const minDist = (c.spec.w + o.spec.w) * 0.78;
-            if (dist > 0 && dist < minDist && sameLevel(c, o)) {
-                const nxCol = dx / dist;
-                const nyCol = dy / dist;
+            if (dist < minDist && sameLevel(c, o)) {
+                if (dist < 0.001) {
+                    // Exactly stacked: push apart along a fixed axis instead of dividing by zero
+                    dx = -Math.sin(c.angle);
+                    dy = Math.cos(c.angle);
+                    dist = 0;
+                }
+                const len = dist || 1;
+                const nxCol = dx / len;
+                const nyCol = dy / len;
                 const overlap = minDist - dist;
                 const cm = c.spec.mass || 1;
                 const om = o.spec.mass || 1;
@@ -560,27 +637,42 @@ export function update(dt) {
             }
         }
 
-        // Running over Pedestrians!
-        const carSpd = Math.hypot(c.vx, c.vy);
-        if (carSpd > 75 && free && c.z <= CAR_H) {
+        // Cars vs people on foot. A fast car driving INTO someone hurts and bowls them over;
+        // a parked, stopped or creeping car (or one driving away) is just a solid hull that shoves you clear.
+        if (free && c.z <= CAR_H) {
+            const carSpd = Math.hypot(c.vx, c.vy);
+            const reach = c.spec.l / 2 + 16;
             for (const p of peds) {
-                if (p.hp <= 0) continue;
-                if (Math.hypot(p.x - c.x, p.y - c.y) < c.spec.w * 0.78) {
-                    damagePed(p, 150, c === player.inCar);
-                    if (c === player.inCar) {
-                        audio.thump(p.x, p.y);
-                    }
+                if (p.hp <= 0 || p.role === 'medic') continue;
+                if (Math.abs(p.x - c.x) > reach || Math.abs(p.y - c.y) > reach) continue;
+                const ct = carHullContact(c, p.x, p.y, 7);
+                if (!ct) continue;
+                if (carStrikes(c, carSpd, ct)) {
+                    damagePed(p, Math.min(150, carSpd * 2), c === player.inCar);
+                    if (c === player.inCar) audio.thump(p.x, p.y);
+                } else if (!isSolidAt(p.x + ct.nx * ct.depth, p.y + ct.ny * ct.depth, 8)) {
+                    p.x += ct.nx * ct.depth;
+                    p.y += ct.ny * ct.depth;
                 }
             }
-            // AI Car hitting Player on foot
-            if (
-                !player.inCar &&
-                player.deadTimer <= 0 &&
-                Math.hypot(player.x - c.x, player.y - c.y) < c.spec.w * 0.72
-            ) {
-                damagePlayer(carSpd * 0.12);
-                player.x += (c.vx / carSpd) * 26;
-                player.y += (c.vy / carSpd) * 26;
+            if (!player.inCar && player.deadTimer <= 0 && Math.abs(player.x - c.x) < reach + 6) {
+                const ct = carHullContact(c, player.x, player.y, 11);
+                if (ct && carStrikes(c, carSpd, ct) && player.carHitT <= 0) {
+                    player.carHitT = 0.35;
+                    audio.thump(player.x, player.y);
+                    damagePlayer(carSpd * 0.12);
+                    const kx = player.x + (c.vx / carSpd) * 26;
+                    const ky = player.y + (c.vy / carSpd) * 26;
+                    if (!walkBlockedAt(kx, player.y, 11)) player.x = kx;
+                    if (!walkBlockedAt(player.x, ky, 11)) player.y = ky;
+                } else if (ct) {
+                    const px = player.x + ct.nx * ct.depth;
+                    const py = player.y + ct.ny * ct.depth;
+                    if (!walkBlockedAt(px, py, 11)) {
+                        player.x = px;
+                        player.y = py;
+                    }
+                }
             }
         }
 
@@ -676,7 +768,21 @@ export function update(dt) {
         }
         const canSeePlayer = distP < 420 && hasLineOfSight(p.x, p.y, player.x, player.y);
 
-        if (p.role === 'medic') {
+        // Dismounted crew: go back to the cruiser when you are far away (or the heat is off), unless it is gone
+        if (p.cruiser && (p.cruiser.hp <= 0 || p.cruiser.aiMode === 'player' || !cars.includes(p.cruiser))) {
+            p.cruiser = null;
+        }
+        if (p.cruiser) {
+            if (distP > 420 || Math.floor(player.wanted) < 1 || player.deadTimer > 0) p.retreat = true;
+            else if (distP < 300) p.retreat = false;
+        }
+
+        if (p.cruiser && p.retreat) {
+            if (returnToCruiser(p, dt)) {
+                peds.splice(i, 1);
+                continue;
+            }
+        } else if (p.role === 'medic') {
             updateMedic(p, dt);
         } else if (isLaw(p) && Math.floor(player.wanted) >= 1 && distP < 520 && player.deadTimer <= 0) {
             updateLawPed(p, dt, distP, canSeePlayer);

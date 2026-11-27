@@ -1,7 +1,7 @@
 import { audio } from './audio.js';
 import { hasLineOfSight, pickRoadSpawnNear, tileAtWorld } from './city.js';
 import { T_ROAD_H, T_ROAD_V, T_ROAD_X, T_PAVEMENT, WANTED_TIERS, isLaw } from './config.js';
-import { createCar } from './entities.js';
+import { addCar, createCar } from './entities.js';
 import { showPager, updateHUD } from './hud.js';
 import { cars, heat, mission, peds, player, roadblocks } from './state.js';
 
@@ -86,6 +86,9 @@ export function releasePursuer(c) {
     c.pursuit = false;
     if (c.aiMode === 'police') c.aiMode = 'traffic';
     c.sirenOn = false;
+    c.dismount = null; // a half-finished unload is abandoned with the chase
+    c.pinT = 0;
+    if (!c.stranded) c.handbrake = false;
 }
 
 export function clearHeat() {
@@ -145,7 +148,7 @@ function fillSlot(level, units) {
     if (!spot) return false;
     const c = createCar(type, spot.x, spot.y, spot.angle, 'police');
     startPursuit(c);
-    cars.push(c);
+    addCar(c);
     return true;
 }
 

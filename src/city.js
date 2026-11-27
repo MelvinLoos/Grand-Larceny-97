@@ -17,7 +17,7 @@ import {
 } from './config.js';
 import { D_MIDTOWN, DISTRICTS, buildingMeta, containerMeta, districtAtTile, pickWeighted } from './districts.js';
 import { carveRiver, lowBarrierAt, surfaceAt } from './river.js';
-import { bays, bldgMeta, cars, mapGrid, payphones, player } from './state.js';
+import { bays, bldgMeta, camera, cars, mapGrid, payphones, player, view } from './state.js';
 
 // --- CITY GENERATION ---
 // 60x60 tiles. Avenues every 4 tiles (x or y % 4 === 2) incl. a full perimeter loop (2 and 58),
@@ -654,6 +654,13 @@ export function updatePoliceFlowField() {
     buildFlowField(policeFlowDist, player.x, player.y);
 }
 
+// Is a world point inside (or within `margin` px of) the camera view? Nothing may pop in or out of existence there.
+export function isOnScreen(x, y, margin = 120) {
+    const hw = view.w / 2 / camera.zoom + margin;
+    const hh = view.h / 2 / camera.zoom + margin;
+    return Math.abs(x - camera.x) < hw && Math.abs(y - camera.y) < hh;
+}
+
 // Right-hand lane spawn on a given road tile, or null if blocked by another car
 function laneSpawnAt(tx, ty) {
     if (!isRoadCell(tx, ty)) return null;
@@ -672,6 +679,7 @@ function laneSpawnAt(tx, ty) {
     const sx = dir === 1 || dir === 3 ? getLaneCoord(tx, dir) : (tx + 0.5) * TILE;
     const sy = dir === 0 || dir === 2 ? getLaneCoord(ty, dir) : (ty + 0.5) * TILE;
 
+    if (isOnScreen(sx, sy)) return null;
     // Ensure no immediate overlap with existing cars
     for (const other of cars) {
         if (Math.hypot(other.x - sx, other.y - sy) < 85) return null;

@@ -2,7 +2,7 @@ import { driveAICarToward, flowTarget } from './ai.js';
 import { audio } from './audio.js';
 import { angleToRoadDir, buildFlowField, hasDriveLine, isSolidAt, normalizeAngle, pickRoadSpawnNear } from './city.js';
 import { MAP_SIZE } from './config.js';
-import { createCar, spawnLawPed } from './entities.js';
+import { addCar, createCar, spawnLawPed } from './entities.js';
 import { PUNK_HAIR, SHIRT_COLORS, pedLook } from './palette.js';
 import { camera, cars, decals, emergency, particles, peds, player } from './state.js';
 
@@ -73,7 +73,7 @@ function dispatchAmbulance() {
                 t: 0,
                 medics: []
             };
-            cars.push(c);
+            addCar(c);
             a.claimed = b.claimed = true;
             emergency.ambulanceCd = 35;
             return;
@@ -97,7 +97,7 @@ function dispatchFireTruck() {
     if (!spot) return;
     const c = createCar('firetruck', spot.x, spot.y, spot.angle, 'rescue');
     c.rescue = { kind: 'fire', state: 'drive', target: best, flow: newField(), flowT: 0, age: 0, hornT: 0 };
-    cars.push(c);
+    addCar(c);
     emergency.fireCd = 40;
     audio.airHorn(c.x, c.y);
 }

@@ -1,7 +1,8 @@
 import { audio } from './audio.js';
 import { hasLineOfSight, isSolidAt, normalizeAngle, walkBlockedAt } from './city.js';
 import { surfaceAt } from './river.js';
-import { SWIM_TIME, TILE, WEAPONS, isLaw } from './config.js';
+import { resetSwim } from './stunts.js';
+import { TILE, WEAPONS, isLaw } from './config.js';
 import { addDecal } from './entities.js';
 import { addScore, hideRadio, showBigBanner, showRadio, spawnFloatingText, updateHUD } from './hud.js';
 import { buzz } from './haptics.js';
@@ -70,6 +71,7 @@ export function toggleEnterExitVehicle() {
         car.driver = false;
         car.doorT = 0.5;
         player.inCar = null;
+        player.exitGrace = 0.8; // a cop standing at the door needs a moment to react
         audio.door(car);
         hideRadio();
         updateHUD();
@@ -121,9 +123,12 @@ export function toggleEnterExitVehicle() {
         bestCar.roadblock = null;
         bestCar.lightsOnly = false;
         bestCar.rescue = null;
+        bestCar.stranded = false; // a cruiser stolen from its crew stays stolen
+        bestCar.crewCount = 0;
         bestCar.aiMode = 'player';
         bestCar.driver = true;
         bestCar.doorT = 0.5;
+        resetSwim(); // climbing aboard ends any swim: never leave a stale breath bar behind
         player.inCar = bestCar;
         showRadio(bestCar.radioStation);
         audio.door(bestCar);
@@ -149,12 +154,13 @@ function bailOutOfSinking(car) {
     const sideAngle = car.angle - Math.PI * 0.5;
     player.x = best ? best.x : car.x + Math.cos(sideAngle) * (car.spec.w * 0.9 + 14);
     player.y = best ? best.y : car.y + Math.sin(sideAngle) * (car.spec.w * 0.9 + 14);
+    resetSwim();
     player.swimming = !best;
-    player.breath = SWIM_TIME;
     car.aiMode = 'parked';
     car.driver = false;
     car.doorT = 0.5;
     player.inCar = null;
+    player.exitGrace = 0.8;
     audio.door(car);
     hideRadio();
     updateHUD();
@@ -208,6 +214,7 @@ export function fireWeapon(x, y, angle, weaponIdx, fromPlayer = true) {
         alertGangs(x, y);
         // Alert nearby pedestrians
         for (const p of peds) {
+            if (isLaw(p) && Math.hypot(p.x - x, p.y - y) < 520) p.provoked = true; // cops return fire once you shoot
             if (Math.hypot(p.x - x, p.y - y) < 340 && p.role === 'civilian') {
                 p.panicTimer = 5;
                 p.angle = Math.atan2(p.y - y, p.x - x);
@@ -283,6 +290,7 @@ export function destroyCar(car, byPlayer = true) {
 
 export function damagePed(ped, amount, byPlayer = true) {
     ped.hp -= amount;
+    if (byPlayer && isLaw(ped)) ped.provoked = true;
     if (ped.hp <= 0) {
         addDecal('corpse', ped.x, ped.y, Math.random() * 6.28, (Math.random() * 3) | 0, ped.color);
         const corpse = decals[decals.length - 1];
@@ -335,8 +343,15 @@ export function triggerWastedOrBusted(reason, subOverride = null) {
     player.deadTimer = 3.2;
     player.deadReason = reason;
     buzz([60, 40, 120]);
+    const left = player.inCar;
+    if (left && left.hp > 0 && left.sink <= 0) {
+        // the car is abandoned where it stands, not left rolling under a ghost driver
+        left.aiMode = 'parked';
+        left.driver = false;
+    }
     player.inCar = null;
     hideRadio();
+    if (!subOverride) resetSwim(); // a drowning keeps its empty bar up under the banner; any other death clears it
     player.multiplier = 1;
     clearHeat();
     if (mission.active) {

@@ -3,7 +3,7 @@ import { triggerWastedOrBusted } from './combat.js';
 import { CAR_H, GRAVITY, LAUNCH_K, MIN_LAUNCH_SPEED, SINK_TIME, STUNT_MIN_DIST, SWIM_TIME, TILE } from './config.js';
 import { pickRoadSpawnNear } from './city.js';
 import { getDistrictAt } from './districts.js';
-import { createCar, pickCarType } from './entities.js';
+import { addCar, createCar, pickCarType } from './entities.js';
 import { buzz } from './haptics.js';
 import { addScore, showBigBanner } from './hud.js';
 import { HAZARD } from './palette.js';
@@ -94,6 +94,8 @@ function updateSink(c, dt) {
     c.vy *= k;
     c.speed = Math.hypot(c.vx, c.vy);
     c.sink += dt / SINK_TIME;
+    // The driver holds their breath for the whole plunge: the bar empties exactly as the car goes under
+    if (player.inCar === c) showBreath(Math.max(0, 1 - c.sink));
     if (Math.random() < dt * 14) {
         particles.push({
             x: c.x + (Math.random() - 0.5) * c.spec.w,
@@ -231,19 +233,20 @@ export const sameLevel = (a, b) => a.sink === 0 && b.sink === 0 && Math.abs(a.z 
 export function reapSunk() {
     for (let i = cars.length - 1; i >= 0; i--) {
         const c = cars[i];
-        if (!c.sunk) continue;
+        if (!c.sunk && !c.despawn) continue;
+        if (c === player.inCar) continue;
         cars.splice(i, 1);
-        if (c.aiMode === 'traffic') {
+        if (c.sunk && c.aiMode === 'traffic') {
             const spot = pickRoadSpawnNear(player.x, player.y, 820, 1350);
             if (spot)
-                cars.push(createCar(pickCarType(getDistrictAt(spot.x, spot.y)), spot.x, spot.y, spot.angle, 'traffic'));
+                addCar(createCar(pickCarType(getDistrictAt(spot.x, spot.y)), spot.x, spot.y, spot.angle, 'traffic'));
         }
     }
 }
 
 // --- ON FOOT IN THE WATER ---
 let breathEl = null;
-function showBreath(frac) {
+export function showBreath(frac) {
     breathEl ||= document.getElementById('hud-breath');
     if (!breathEl) return;
     const row = breathEl.closest('.breath-row');
@@ -265,12 +268,10 @@ export function updateSwim(dt) {
             player.breath = SWIM_TIME;
             splashAt(player.x, player.y, false);
         }
-        player.breath -= dt;
+        // Breath is the ONLY thing water takes: the bar maps 1:1 onto the drowning timer, no HP is drained
+        player.breath = Math.max(0, player.breath - dt);
         showBreath(player.breath / SWIM_TIME);
-        if (player.breath <= 0) {
-            resetSwim();
-            triggerWastedOrBusted('WASTED!', FISHES);
-        }
+        if (player.breath <= 0) triggerWastedOrBusted('WASTED!', FISHES); // the empty bar stays up under the banner
     } else if (player.swimming) resetSwim();
 }
 

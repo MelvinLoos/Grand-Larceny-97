@@ -62,7 +62,9 @@ export const player = {
     probation: 0, // seconds of flashing probation left after a respray
     probationWanted: 0,
     swimming: false, // in the river on foot
-    breath: 3.5 // seconds of swimming left
+    breath: 3.5, // seconds of swimming left
+    carHitT: 0, // cooldown so one car strike hurts once, not every frame
+    exitGrace: 0 // seconds after leaving a car during which no cop can grab you
 };
 
 // Heat / law-enforcement bookkeeping (see heat.js)
