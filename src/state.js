@@ -46,6 +46,7 @@ export const player = {
     angle: 0,
     hp: 100,
     maxHp: 100,
+    hpSeen: 100, // last HP the damage-feedback tracker saw
     armor: 25,
     score: 0,
     multiplier: 1,
@@ -95,6 +96,7 @@ export const mission = {
     active: false,
     stage: 0,
     type: '',
+    kind: '', // 'goto' (gold arrow) or 'kill' (red arrow)
     title: '',
     targetX: 0,
     targetY: 0,

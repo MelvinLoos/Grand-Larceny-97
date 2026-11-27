@@ -202,11 +202,12 @@ Motion has three verbs. Stickers slap on (fast scale-down from 1.12 with a sligh
 The palette is two print stocks (box black and map paper) and the inks printed on them. Hazard yellow is the one accent and means "press this" or "this is money".
 
 ### Primary
-- **Route Red** (route-red): the map's route ink. Health bar, current-target arrow, lit heat badges at high heat, mission "Job" label, explosive barrels, the target route line on the map.
-- **Hazard Yellow** (hazard-yellow): price-sticker yellow. The PLAY starburst, the '97 roundel, the box strip, the score sticker, primary buttons, focus rings, text selection, the payphone arrow, the player, Spray-B-Gone garages. Hover lifts to **Hazard Yellow Hi** (hazard-yellow-hi).
+- **Route Red** (route-red): the map's route ink. Health bar, the objective arrow and ring for kill/destroy jobs only, the damage vignette, lit heat badges at high heat, the "Job" label on a kill job, explosive barrels, the target route line on the map.
+- **Hazard Yellow** (hazard-yellow): price-sticker yellow. The PLAY starburst, the '97 roundel, the box strip, the score sticker, primary buttons, focus rings, text selection, the objective arrow, chevron and ground ring for go-to jobs, the player, pickup glints, Spray-B-Gone garages. Hover lifts to **Hazard Yellow Hi** (hazard-yellow-hi).
 
 ### Secondary
-- **Water Blue** (water-blue): the sea and the canvas backdrop, the Spray-B-Gone arrow, rooftop pools.
+- **Water Blue** (water-blue): the sea and the canvas backdrop, the Spray-B-Gone arrow, rooftop pools, armor pickups.
+- **Phone Cyan** (`#35c8e0`): payphone booth headers, their sound waves and the arrow to the nearest ringing phone. Greyed while a job runs. Pickup rings are color-coded: green health, blue armor, amber/orange weapons, gold bribes.
 - **Park Green** (park-green): park tiles, with darker tree canopies (#5d8e43) outlined in ink.
 - **Radio Amber** (radio-amber): the car radio's frequency readout only.
 

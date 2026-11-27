@@ -69,7 +69,7 @@ const ICONS = () => [
 function drawIcon(g, kind, x, y, r, t) {
     const pulse = 1 + Math.sin(t * 5 + x) * 0.18;
     if (kind === 'phone') {
-        g.fillStyle = '#ffd400';
+        g.fillStyle = mission.active ? 'rgba(20, 19, 15, 0.35)' : '#35c8e0';
         g.fillRect(x - r * 0.4, y - r * 0.4, r * 0.8, r * 0.8);
         return;
     }
@@ -90,7 +90,7 @@ function drawIcon(g, kind, x, y, r, t) {
         return;
     }
     if (kind === 'target') {
-        g.fillStyle = '#d23a2a';
+        g.fillStyle = mission.kind === 'kill' ? '#d23a2a' : HAZARD;
         g.beginPath();
         g.arc(x, y, r * pulse, 0, Math.PI * 2);
         g.fill();

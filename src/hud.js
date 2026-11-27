@@ -46,8 +46,9 @@ export function showPager(msg) {
     }, 5200);
 }
 
-export function showBigBanner(title, sub = '', color = '#ffd400') {
+export function showBigBanner(title, sub = '', color = '#ffd400', variant = '') {
     const wrap = document.getElementById('big-banner');
+    wrap.classList.toggle('job', variant === 'job');
     const titleEl = document.getElementById('big-banner-title');
     const subEl = document.getElementById('big-banner-sub');
     titleEl.textContent = title;
@@ -98,6 +99,27 @@ export function updateDistrictName(dt) {
     }, 2500);
 }
 
+// Restarts a one-shot CSS animation class
+function retrigger(el, cls) {
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+}
+
+// Single detector for every HP source (bullets, cars, blasts, drowning): flash the screen edge,
+// bump the health meter and pop the number. Small trickles accumulate until they reach 2.
+export function trackHpLoss() {
+    const lost = player.hpSeen - player.hp;
+    if (lost < 0) player.hpSeen = player.hp; // healed or respawned
+    if (lost < 2) return;
+    player.hpSeen = player.hp;
+    const flash = document.getElementById('damage-flash');
+    flash.style.setProperty('--a', Math.min(0.55, Math.max(0.18, lost / 40)).toFixed(2));
+    retrigger(flash, 'hit');
+    retrigger(document.getElementById('hud-health-bar').closest('.meter-row'), 'hit');
+    spawnFloatingText('-' + Math.round(lost), player.x, player.y - 34, '#ff3b30', 0.9);
+}
+
 export function updateHUD() {
     const $ = (id) => document.getElementById(id);
     $('hud-score').textContent = '$' + player.score.toLocaleString('en-US', { minimumIntegerDigits: 7 });
@@ -136,6 +158,7 @@ export function updateHUD() {
     $('touch-bomb').hidden = !(car && car.hasBomb && !car.bombArmed);
     $('hud-mission-timer').hidden = !mission.active;
     if (mission.active) $('mission-text').textContent = mission.title;
+    $('hud-mission-timer').classList.toggle('kill', mission.kind === 'kill');
 
     $('touch-controls').classList.toggle('on-foot', !player.inCar);
     $('touch-car-lbl').textContent = player.inCar ? 'EXIT' : 'CAR';

@@ -24,6 +24,7 @@ export function startPayphoneMission(phone) {
     if (mIdx === 0) {
         // Mission 1: Hot Car Delivery (parked in a Midtown gang courtyard)
         mission.type = 'steal_deliver';
+        mission.kind = 'goto';
         mission.stage = 1;
         const hotCar = createCar('hellcrab', LANDMARKS.missions.hotCar.x, LANDMARKS.missions.hotCar.y, 0, 'parked');
         hotCar.color = '#e2559b'; // Neon Pink Boss GTS
@@ -33,10 +34,12 @@ export function startPayphoneMission(phone) {
         mission.targetX = hotCar.x;
         mission.targetY = hotCar.y;
         mission.title = 'STEAL THE PINK HELLCRAB GTS IN MIDTOWN!';
+        showBigBanner('NEW JOB: STEAL THE PINK HELLCRAB', 'FOLLOW THE GOLD ARROW TO MIDTOWN', '#ffd400', 'job');
         showPager('MAMA VOLTA: STEAL THE PINK HELLCRAB GTS IN MIDTOWN & BRING IT TO THE HARBOR YARD!');
     } else if (mIdx === 1) {
         // Mission 2: Take Out Rival Syndicate Boss + Guards (on the Financial Plaza)
         mission.type = 'assassinate';
+        mission.kind = 'kill';
         mission.stage = 1;
         const bx = LANDMARKS.missions.boss.x;
         const by = LANDMARKS.missions.boss.y;
@@ -72,10 +75,17 @@ export function startPayphoneMission(phone) {
         mission.targetX = bx;
         mission.targetY = by;
         mission.title = 'ELIMINATE THE RIVAL CAPO IN DOWNTOWN FINANCIAL!';
+        showBigBanner(
+            'NEW JOB: TAKE OUT THE RIVAL CAPO',
+            'FOLLOW THE RED ARROW TO THE FINANCIAL PLAZA',
+            '#d23a2a',
+            'job'
+        );
         showPager('THE DENTIST: THE RIVAL CAPO IS ON THE FINANCIAL PLAZA. TIME FOR AN EXTRACTION.');
     } else {
         // Mission 3: Armored Van Destruction (cruising cleanly in eastbound lane)
         mission.type = 'destroy_car';
+        mission.kind = 'kill';
         mission.stage = 1;
         const armored = createCar('van', LANDMARKS.missions.vanSpawn.x, LANDMARKS.missions.vanSpawn.y, 0, 'traffic');
         armored.color = '#e0a21b';
@@ -88,6 +98,7 @@ export function startPayphoneMission(phone) {
         mission.targetY = armored.y;
         mission.title = 'BLOW UP THE GOLD ARMORED VAN!';
         player.ammo[3] += 5; // Bonus rockets!
+        showBigBanner('NEW JOB: BLOW UP THE ARMORED VAN', 'FOLLOW THE RED ARROW — +5 ROCKETS', '#d23a2a', 'job');
         showPager('COUSIN RICKY: BLOW UP THE GOLD ARMORED VAN! (+5 ROCKETS)');
     }
     updateHUD();
@@ -128,6 +139,7 @@ export function updateMission(dt) {
                 mission.targetX = LANDMARKS.missions.drop.x;
                 mission.targetY = LANDMARKS.missions.drop.y;
                 mission.title = 'DELIVER CAR TO THE HARBOR YARD DROP-OFF!';
+                showBigBanner('DELIVER IT', 'FOLLOW THE GOLD ARROW TO THE HARBOR YARD', '#ffd400', 'job');
                 // Intro pacing: one star on the first run, a little more once you know the ropes
                 addCrime('scripted', {
                     amount: mission.completedCount === 0 ? 1 : 1.5 + Math.min(1, mission.completedCount * 0.15)

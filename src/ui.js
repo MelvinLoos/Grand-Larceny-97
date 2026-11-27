@@ -75,7 +75,7 @@ export function startGame() {
         box.hidden = true;
         document.getElementById('hud').classList.add('on');
         updateHUD();
-        showPager('PAYPHONES ARE RINGING. FOLLOW THE YELLOW ARROW!');
+        showPager('PAYPHONES ARE RINGING. FOLLOW THE CYAN ARROW TO A PHONE BOOTH!');
     }, 720);
 }
 
