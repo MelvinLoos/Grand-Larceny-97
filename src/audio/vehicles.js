@@ -20,67 +20,70 @@ const SIRENS = {
     fire: { type: 'sawtooth', base: 560, lfoType: 'triangle', rate: 0.22, near: 0.5, depth: 200 }
 };
 
+// Warm, lowpassed voicings: triangle/sine bodies with a quiet octave harmonic so engines rumble
+// under the mix instead of buzzing. c0 -> c1 is the lowpass cutoff from idle to full throttle.
 const SEDAN = {
-    t1: 'sawtooth',
-    t2: 'triangle',
-    det: 5,
-    r2: 1,
-    g: [0.4, 0.5, 0.2],
-    f0: 48,
-    f1: 155,
+    t1: 'triangle',
+    t2: 'sine',
+    det: 0,
+    r2: 2,
+    g: [0.55, 0.15, 0.15],
+    f0: 45,
+    f1: 135,
     gears: 4,
-    ft: 'lowpass',
-    q: 1.5,
-    fm: 6,
+    c0: 150,
+    c1: 380,
+    q: 1.2,
     lfo: 0,
     lfod: 0
 };
+// Diesel chug: the sine at f is the sub (a sub-octave would sit at an inaudible 14Hz)
 const HEAVY = {
-    t1: 'square',
-    t2: 'sawtooth',
+    t1: 'triangle',
+    t2: 'sine',
     det: 0,
-    r2: 0.5,
-    g: [0.35, 0.3, 0.6],
+    r2: 1,
+    g: [0.5, 0.45, 0],
     f0: 28,
-    f1: 85,
+    f1: 78,
     gears: 3,
-    ft: 'lowpass',
-    q: 2,
-    fm: 5,
+    c0: 140,
+    c1: 220,
+    q: 1.4,
     lfo: 6,
     lfod: 0.55
 };
 const PROFILES = {
     sports: {
-        t1: 'sawtooth',
+        t1: 'triangle',
         t2: 'sawtooth',
-        det: 7,
+        det: 9,
         r2: 1,
-        g: [0.5, 0.5, 0],
-        f0: 65,
-        f1: 240,
+        g: [0.55, 0.18, 0.25],
+        f0: 52,
+        f1: 185,
         gears: 4,
-        ft: 'bandpass',
-        q: 3,
-        fm: 5,
+        c0: 180,
+        c1: 620,
+        q: 1.6,
         lfo: 0,
         lfod: 0
     },
     muscle: {
         t1: 'triangle',
-        t2: 'square',
+        t2: 'sine',
         det: 0,
-        r2: 0.5,
-        g: [0.6, 0.25, 0.4],
+        r2: 2,
+        g: [0.6, 0.12, 0.5],
         f0: 38,
         f1: 135,
         gears: 3,
-        ft: 'lowpass',
-        q: 8,
-        fm: 7,
-        lfo: 11,
-        lfod: 0.45,
-        wob: 3
+        c0: 140,
+        c1: 420,
+        q: 2,
+        lfo: 9,
+        lfod: 0.35,
+        wob: 2
     },
     sedan: SEDAN,
     taxi: SEDAN,
@@ -99,7 +102,7 @@ export const loops = {
             o.start();
             return o;
         };
-        E.o = [osc('sawtooth'), osc('sawtooth'), osc('sine')];
+        E.o = [osc('triangle'), osc('triangle'), osc('sine')];
         E.g = E.o.map((o) => {
             const g = ctx.createGain();
             g.gain.value = 0;
@@ -107,6 +110,7 @@ export const loops = {
             return g;
         });
         E.filter = ctx.createBiquadFilter();
+        E.filter.type = 'lowpass';
         E.am = ctx.createGain();
         E.out = ctx.createGain();
         E.out.gain.value = 0;
@@ -130,7 +134,7 @@ export const loops = {
         E.tn.start();
         const tf = ctx.createBiquadFilter();
         tf.type = 'bandpass';
-        tf.frequency.value = 2400;
+        tf.frequency.value = 900;
         tf.Q.value = 2;
         E.tAm = ctx.createGain();
         E.tAm.gain.value = 0.5;
@@ -216,7 +220,7 @@ export const loops = {
                 const o = osc('triangle');
                 o.frequency.value = 50;
                 const lp = ctx.createBiquadFilter();
-                lp.frequency.value = 500;
+                lp.frequency.value = 220;
                 o.connect(lp);
                 lp.connect(g);
                 return { o };
@@ -238,7 +242,6 @@ export const loops = {
         E.o[1].type = P.t2;
         E.o[1].detune.value = P.det;
         E.g.forEach((g, i) => (g.gain.value = P.g[i]));
-        E.filter.type = P.ft;
         E.filter.Q.value = P.q;
         E.lfo.frequency.value = P.lfo || 1;
         E.lfoDepth.gain.value = (P.lfod || 0) / 2;
@@ -335,9 +338,11 @@ export const loops = {
         E.o[0].frequency.setTargetAtTime(f, now, 0.04);
         E.o[1].frequency.setTargetAtTime(f * P.r2, now, 0.04);
         E.o[2].frequency.setTargetAtTime(f * 0.5, now, 0.04);
-        E.filter.frequency.setTargetAtTime(clamp(f * P.fm * (0.6 + 0.8 * thr), 80, 6000), now, 0.05);
-        E.out.gain.setTargetAtTime(0.12 + 0.14 * thr, now, 0.06);
-        E.tg.gain.setTargetAtTime(P.tread ? clamp(spd / 160, 0, 1) * 0.14 : 0, now, 0.08);
+        E.filter.frequency.setTargetAtTime(P.c0 + (P.c1 - P.c0) * clamp(0.5 * r + 0.5 * thr, 0, 1), now, 0.05);
+        // parked and off the gas the engine is a faint tick-over: 25% of its coasting level
+        const presence = Math.max(thr, clamp(spd / 80, 0, 1));
+        E.out.gain.setTargetAtTime(0.04 + 0.12 * presence + 0.1 * thr, now, 0.06);
+        E.tg.gain.setTargetAtTime(P.tread ? clamp(spd / 160, 0, 1) * 0.07 : 0, now, 0.08);
         if (P.tread) E.tLfo.frequency.setTargetAtTime(3 + spd / 12, now, 0.1);
     },
 
@@ -360,7 +365,7 @@ export const loops = {
             S.bp.frequency.setTargetAtTime(3000 + 900 * rim, now, 0.05);
             target = Math.max(target, 0.9 * rim);
         }
-        S.gain.gain.setTargetAtTime(target * 0.14, now, 0.05);
+        S.gain.gain.setTargetAtTime(target * 0.22, now, 0.05); // engine bus is quieter now: same level as before
     },
 
     // Steel bridge deck: an expansion joint every half tile under the wheels
@@ -371,6 +376,14 @@ export const loops = {
             this._joint = j;
             this.jointThud(car.x, car.y);
         }
+    },
+
+    // Pitch shift (cents) of a moving source heard by the moving listener
+    dopplerCents(car, d) {
+        if (d <= 1) return 0;
+        const L = this.listener;
+        const closing = ((car.vx - L.vx) * (L.x - car.x) + (car.vy - L.vy) * (L.y - car.y)) / d;
+        return 1200 * Math.log2(clamp(SOUND_SPEED / (SOUND_SPEED - closing), 0.8, 1.25));
     },
 
     updateSirens() {
@@ -399,14 +412,7 @@ export const loops = {
                 v.d.gain.setTargetAtTime(m.depth, now, 0.02);
             }
             v.lfo.frequency.setTargetAtTime(!own && e.d < 350 ? m.near : m.rate, now, 0.1);
-            let det = 0;
-            if (!own && e.d > 1) {
-                const ux = (L.x - e.car.x) / e.d;
-                const uy = (L.y - e.car.y) / e.d;
-                const closing = (e.car.vx - L.vx) * ux + (e.car.vy - L.vy) * uy;
-                det = 1200 * Math.log2(clamp(SOUND_SPEED / (SOUND_SPEED - closing), 0.8, 1.25));
-            }
-            v.o.detune.setTargetAtTime(det, now, 0.05);
+            v.o.detune.setTargetAtTime(own ? 0 : this.dopplerCents(e.car, e.d), now, 0.05);
             v.p.pan.setTargetAtTime(own ? 0 : s.pan, now, 0.05);
             v.g.gain.setTargetAtTime(own ? 0.05 : 0.09 * s.gain, now, 0.05);
         });
@@ -433,8 +439,9 @@ export const loops = {
                 now,
                 0.1
             );
+            v.o.detune.setTargetAtTime(this.dopplerCents(e.car, e.d), now, 0.08);
             v.p.pan.setTargetAtTime(s.pan, now, 0.08);
-            v.g.gain.setTargetAtTime(0.07 * s.gain, now, 0.08);
+            v.g.gain.setTargetAtTime(0.045 * s.gain, now, 0.08);
         });
     }
 };

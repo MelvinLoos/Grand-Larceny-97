@@ -1,5 +1,6 @@
 import {
     MAP_SIZE,
+    PHONE_RING_PERIOD,
     TILE,
     TILE_PROPS,
     T_ALLEY,
@@ -327,7 +328,7 @@ export function buildCity() {
         payphones.push({
             x: (pt.tx + 0.5) * TILE,
             y: (pt.ty + 0.5) * TILE,
-            ringPhase: Math.random() * 6,
+            ringPhase: Math.random() * PHONE_RING_PERIOD, // seconds into the ring cycle
             label: ph.label
         });
     }

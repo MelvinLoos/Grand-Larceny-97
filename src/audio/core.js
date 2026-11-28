@@ -62,7 +62,7 @@ export class AudioCore {
         comp.connect(ctx.destination);
         this.masterGain = this.gainTo(this.enabled ? MASTER : 0, comp);
         this.sfxGain = this.gainTo(0.9, this.masterGain);
-        this.engineGain = this.gainTo(0.6, this.masterGain);
+        this.engineGain = this.gainTo(0.38, this.masterGain); // rumble under radio + SFX, never over them
         this.radioGain = this.gainTo(0.5, this.masterGain);
 
         // One white-noise buffer for every screech, static, snare, spray and explosion

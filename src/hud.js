@@ -118,6 +118,7 @@ export function trackHpLoss() {
     retrigger(flash, 'hit');
     retrigger(document.getElementById('hud-health-bar').closest('.meter-row'), 'hit');
     spawnFloatingText('-' + Math.round(lost), player.x, player.y - 34, '#ff3b30', 0.9);
+    if (player.hp > 0) audio.playerHurt(lost);
 }
 
 export function updateHUD() {

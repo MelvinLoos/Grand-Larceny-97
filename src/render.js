@@ -2,6 +2,8 @@ import { DIR_VECS, LANDMARKS, bayByTile, isOnScreen, isRoadCell } from './city.j
 import {
     MAP_SIZE,
     METERS_PER_PX,
+    PHONE_RING_PERIOD,
+    PHONE_RING_ON,
     TILE,
     T_ALLEY,
     T_BAY,
@@ -644,7 +646,8 @@ export function render() {
 // while a job is running (or you're in a car) the booth goes quiet and grey.
 function drawPayphone(ph, nowSec) {
     const live = !mission.active;
-    const ringing = live && ph.ringPhase % 20 < 6;
+    const ringPhase = ph.ringPhase % PHONE_RING_PERIOD;
+    const ringing = live && ringPhase < PHONE_RING_ON + 0.35; // arcs linger a beat past the last bell
     ctx.save();
     if (!live) ctx.globalAlpha = 0.5;
     ctx.translate(ph.x, ph.y);
@@ -693,7 +696,7 @@ function drawPayphone(ph, nowSec) {
         ctx.lineWidth = 2.5;
         ctx.lineCap = 'round';
         for (let i = 0; i < 3; i++) {
-            const t = (nowSec * 1.8 + i / 3) % 1;
+            const t = (((ringPhase * 1.8 + i / 3) % 1) + 1) % 1;
             ctx.globalAlpha = (1 - t) * 0.9;
             const r = 18 + t * 28;
             for (const side of [0, Math.PI]) {
