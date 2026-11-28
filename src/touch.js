@@ -1,12 +1,15 @@
 import { audio } from './audio.js';
 import { toggleEnterExitVehicle } from './combat.js';
 import { buzz } from './haptics.js';
-import { keys, player, stick } from './state.js';
-import { cycleWeapon } from './ui.js';
+import { safeInsets } from './safe.js';
+import { game, keys, player, stick } from './state.js';
+import { cycleRadio, cycleWeapon, measureHud } from './ui.js';
 
 const RADIUS = 56;
 const DEADZONE = RADIUS * 0.18;
+const FOLLOW = RADIUS * 1.4; // past this the stick origin drags along with the thumb
 const MARGIN = RADIUS + 12;
+const SIREN_HOLD_MS = 300;
 
 let zone,
     base,
@@ -15,14 +18,20 @@ let zone,
     homeX = 0,
     homeY = 0;
 
+// The base is drawn at the stick origin, nudged only as far as needed to stay fully on screen
 function placeBase(x, y) {
-    base.style.transform = `translate(${x - RADIUS}px, ${y - RADIUS}px)`;
+    const s = safeInsets();
+    const bx = Math.min(Math.max(x, RADIUS + 4 + s.l), window.innerWidth - RADIUS - 4 - s.r);
+    const by = Math.min(Math.max(y, RADIUS + 4 + s.t), window.innerHeight - RADIUS - 4 - s.b);
+    base.style.transform = `translate(${bx - RADIUS}px, ${by - RADIUS}px)`;
 }
 
 function computeHome() {
     const r = zone.getBoundingClientRect();
-    homeX = Math.max(MARGIN, r.left + 24 + RADIUS + 8);
-    homeY = r.bottom - 24 - RADIUS - 8;
+    if (!r.width) return; // controls hidden
+    const s = safeInsets();
+    homeX = Math.max(MARGIN, r.left + s.l + 24 + RADIUS + 8);
+    homeY = r.bottom - s.b - 24 - RADIUS - 8;
     placeBase(homeX, homeY);
 }
 
@@ -40,6 +49,7 @@ function setupStick() {
     zone = document.getElementById('stick-zone');
     base = document.getElementById('stick-base');
     knob = document.getElementById('stick-knob');
+    // Origin of the thumb vector: exactly where the finger first lands (so a touch never starts deflected)
     let ox = 0,
         oy = 0;
     computeHome();
@@ -53,9 +63,8 @@ function setupStick() {
         audio.init();
         activeId = e.pointerId;
         zone.setPointerCapture(e.pointerId);
-        const r = zone.getBoundingClientRect();
-        ox = Math.min(Math.max(e.clientX, r.left + MARGIN), r.right - MARGIN);
-        oy = Math.min(Math.max(e.clientY, r.top + MARGIN), r.bottom - MARGIN);
+        ox = e.clientX;
+        oy = e.clientY;
         placeBase(ox, oy);
         base.classList.add('active');
         stick.active = true;
@@ -63,9 +72,19 @@ function setupStick() {
     });
 
     function move(e) {
-        const dx = e.clientX - ox;
-        const dy = e.clientY - oy;
-        const d = Math.hypot(dx, dy);
+        let dx = e.clientX - ox;
+        let dy = e.clientY - oy;
+        let d = Math.hypot(dx, dy);
+        if (d > FOLLOW) {
+            // Wide thumb sweep: slide the origin along so the stick re-centres under the thumb
+            const k = (d - FOLLOW) / d;
+            ox += dx * k;
+            oy += dy * k;
+            placeBase(ox, oy);
+            dx = e.clientX - ox;
+            dy = e.clientY - oy;
+            d = FOLLOW;
+        }
         const c = Math.min(d, RADIUS);
         const nx = d > 0 ? dx / d : 0;
         const ny = d > 0 ? dy / d : 0;
@@ -123,23 +142,63 @@ function setupButtons() {
         );
     });
     held(document.getElementById('touch-car'), toggleEnterExitVehicle, () => {});
+    held(document.getElementById('touch-radio'), cycleRadio, () => {});
+
+    // HORN: honk on press in a civilian car. Cop and emergency cars wait to tell a tap (honk) from a
+    // hold (>= SIREN_HOLD_MS toggles the siren; the button stays lit while it wails). On foot it is WEAPON.
+    const horn = document.getElementById('touch-horn');
+    let hornTimer = 0;
+    let hornCar = null;
+    let hornHeld = false;
     held(
-        document.getElementById('touch-horn'),
+        horn,
         () => {
-            if (player.inCar) {
-                if (player.inCar.spec.isPolice || player.inCar.spec.isEmergency)
-                    player.inCar.sirenOn = !player.inCar.sirenOn;
-                audio.horn(player.inCar);
-            } else {
-                cycleWeapon();
-            }
+            const car = player.inCar;
+            if (!car) return cycleWeapon();
+            hornCar = car.spec.isPolice || car.spec.isEmergency ? car : null;
+            hornHeld = false;
+            if (!hornCar) return audio.horn(car);
+            hornTimer = setTimeout(() => {
+                hornHeld = true;
+                hornCar.sirenOn = !hornCar.sirenOn;
+                horn.classList.toggle('siren-on', hornCar.sirenOn);
+                buzz(30);
+            }, SIREN_HOLD_MS);
         },
-        () => {}
+        () => {
+            clearTimeout(hornTimer);
+            if (hornCar && !hornHeld) audio.horn(hornCar);
+            hornCar = null;
+        }
     );
+}
+
+// Controls show on touch-first devices and, on hybrids (touch laptops), from the first finger to the next mouse click
+function setTouchUI(on) {
+    if (document.body.classList.contains('touch-ui') === on) return;
+    document.body.classList.toggle('touch-ui', on);
+    game.touchMode = on;
+    if (!on) clearStick();
+    requestAnimationFrame(() => {
+        if (on && activeId === null) computeHome();
+        measureHud();
+    });
 }
 
 export function setupTouch() {
     setupStick();
     setupButtons();
+    const touchFirst = window.matchMedia('(pointer: coarse)').matches;
+    setTouchUI(touchFirst);
+    if (!touchFirst) {
+        window.addEventListener(
+            'pointerdown',
+            (e) => {
+                if (e.pointerType === 'touch') setTouchUI(true);
+                else if (e.pointerType === 'mouse') setTouchUI(false);
+            },
+            true
+        );
+    }
     document.getElementById('touch-controls').addEventListener('contextmenu', (e) => e.preventDefault());
 }

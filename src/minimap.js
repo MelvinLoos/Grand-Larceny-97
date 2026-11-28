@@ -12,6 +12,7 @@ import {
     isSolidTile
 } from './config.js';
 import { LANDMARKS } from './city.js';
+import { safeInsets } from './safe.js';
 import { DISTRICTS, districtAtTile } from './districts.js';
 import { HAZARD, INK, PAPER, WATER } from './palette.js';
 import { RIVER } from './river.js';
@@ -219,7 +220,14 @@ export function openCityMap() {
     if (game.state === 'play') game.state = 'paused';
     document.getElementById('map-overlay').hidden = false;
     const cv = document.getElementById('citymap');
-    const size = Math.floor(Math.min(window.innerWidth * 0.94, window.innerHeight * 0.78, 880));
+    // Fit inside the safe area: beside the key and button on short landscape screens, above them otherwise
+    const s = safeInsets();
+    const availW = window.innerWidth - s.l - s.r - 16;
+    const availH = window.innerHeight - s.t - s.b - 16;
+    const compact = window.matchMedia('(max-height: 500px) and (orientation: landscape)').matches;
+    const size = Math.floor(
+        Math.max(120, compact ? Math.min(availH, availW - 244, 880) : Math.min(availW, availH - 150, 880))
+    );
     cv.width = cv.height = size;
     drawFullMap();
 }

@@ -106,7 +106,8 @@ export const mission = {
     completedCount: 0
 };
 // Scalar view size (was viewW / viewH)
-export const view = { w: 800, h: 600, dpr: 1, fit: 1 };
+// scale: 1 on desktop, < 1 on small screens (drives zoom); insetTop / shiftY frame the player in the area the HUD leaves clear
+export const view = { w: 800, h: 600, dpr: 1, fit: 1, short: 600, scale: 1, insetTop: 0, shiftY: 0 };
 
 // Misc mutable game flags that used to be loose top-level `let`s
 export const game = {
@@ -124,6 +125,7 @@ export const game = {
     radioTimer: null,
     policeFlowTimer: 0,
     dprCap: 2,
+    touchMode: false, // the on-screen touch controls are showing (see touch.js)
     frameEma: 16,
     slowTime: 0
 };

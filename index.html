@@ -78,6 +78,18 @@
                 <circle cx="12" cy="12" r="7" />
                 <path d="M12 2v5M12 17v5M2 12h5M17 12h5" />
             </symbol>
+            <symbol id="i-map" viewBox="0 0 24 24">
+                <path d="M3 6l6-2.5 6 2.5 6-2.5v14.5l-6 2.5-6-2.5-6 2.5zM9 3.5V18M15 6v14.5" />
+            </symbol>
+            <symbol id="i-radio" viewBox="0 0 24 24">
+                <path d="M3 9h18v11H3zM7 9l10-5.5" />
+                <circle cx="9" cy="14.5" r="2.5" />
+                <path d="M15 13h3M15 16h3" />
+            </symbol>
+            <symbol id="i-rotate" viewBox="0 0 24 24">
+                <path d="M7 3h10v18H7zM11 18h2" />
+                <path d="M20.5 9.5a8 8 0 0 0-3-3.5M3.5 14.5a8 8 0 0 0 3 3.5" />
+            </symbol>
             <symbol id="i-pause" viewBox="0 0 24 24"><path d="M6 4.5h4.2v15H6zM13.8 4.5H18v15h-4.2z" /></symbol>
             <symbol id="i-sound" viewBox="0 0 24 24">
                 <path d="M4 9.5v5h4l5 4v-13l-5 4z" />
@@ -174,6 +186,9 @@
                         >
                             <svg class="icon solid" aria-hidden="true"><use href="#i-pause" /></svg>
                         </button>
+                        <button id="btn-map" class="hud-btn" title="City map (M)" aria-label="City map">
+                            <svg class="icon" aria-hidden="true"><use href="#i-map" /></svg>
+                        </button>
                         <button
                             id="btn-sound"
                             class="hud-btn"
@@ -213,6 +228,14 @@
                     <div id="big-banner-sub"></div>
                 </div>
 
+                <div id="rotate-hint" hidden role="status">
+                    <svg class="icon" aria-hidden="true"><use href="#i-rotate" /></svg>
+                    <span>Turn your phone sideways for a wider view</span>
+                    <button id="btn-rotate-x" aria-label="Dismiss">
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                    </button>
+                </div>
+
                 <div id="touch-controls">
                     <div id="stick-zone" aria-hidden="true">
                         <div id="stick-base"><div id="stick-knob"></div></div>
@@ -226,13 +249,16 @@
                             <svg class="icon" aria-hidden="true"><use id="touch-horn-icon" href="#i-pistol" /></svg
                             ><span id="touch-horn-lbl">WEAPON</span>
                         </button>
-                        <button data-key="Space" class="pad-btn act brake">
+                        <button id="touch-brake" data-key="Space" class="pad-btn act brake">
                             <svg class="icon" aria-hidden="true"><use href="#i-brake" /></svg><span>BRAKE</span>
+                        </button>
+                        <button id="touch-radio" class="pad-btn act" hidden>
+                            <svg class="icon" aria-hidden="true"><use href="#i-radio" /></svg><span>RADIO</span>
                         </button>
                         <button id="touch-bomb" data-key="KeyB" class="pad-btn act brake" hidden>
                             <svg class="icon" aria-hidden="true"><use href="#i-bomb" /></svg><span>BOMB</span>
                         </button>
-                        <button data-key="Fire" class="pad-btn act fire">
+                        <button id="touch-fire" data-key="Fire" class="pad-btn act fire">
                             <svg class="icon" aria-hidden="true"><use href="#i-fire" /></svg><span>FIRE</span>
                         </button>
                     </div>
@@ -301,6 +327,9 @@
 
         <!-- Fold-out city map (M) -->
         <div id="map-overlay" hidden role="dialog" aria-modal="true" aria-label="City map">
+            <button id="btn-map-x" class="map-x" aria-label="Close map">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </button>
             <div class="map-wrap">
                 <canvas id="citymap" width="640" height="640"></canvas>
                 <ul class="map-key">

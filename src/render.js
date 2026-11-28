@@ -1,6 +1,10 @@
 import { DIR_VECS, LANDMARKS, bayByTile, isOnScreen, isRoadCell } from './city.js';
 import {
     MAP_SIZE,
+    DANGER_MAX_COUNT,
+    DANGER_MAX_ETA,
+    DANGER_MAX_MISS,
+    DANGER_MIN_SPEED,
     METERS_PER_PX,
     PHONE_RING_PERIOD,
     PHONE_RING_ON,
@@ -639,6 +643,7 @@ export function render() {
     ctx.globalAlpha = 1;
 
     drawNavigationArrows(shakeX, shakeY);
+    drawDangerChevrons(shakeX, shakeY, nowSec);
     drawRadar(nowSec);
 }
 
@@ -1509,6 +1514,45 @@ export function drawNavigationArrows(shakeX, shakeY) {
         if (bestSp && bestD > 95) {
             drawSingleArrow(pScreen.x, pScreen.y, Math.atan2(bestSp.ey - player.y, bestSp.ex - player.x), 86, WATER);
         }
+    }
+}
+
+// On foot, a fast car that will run you down and is still off screen gets a red edge chevron pointing at it
+function drawDangerChevrons(shakeX, shakeY, nowSec) {
+    if (player.inCar || player.deadTimer > 0) return;
+    const threats = [];
+    for (const c of cars) {
+        if (c.hp <= 0 || c.airborne || c.sink > 0) continue;
+        const speed = Math.hypot(c.vx, c.vy);
+        if (speed < DANGER_MIN_SPEED) continue;
+        const ux = c.vx / speed;
+        const uy = c.vy / speed;
+        const rx = player.x - c.x;
+        const ry = player.y - c.y;
+        const along = rx * ux + ry * uy;
+        if (along <= 0) continue; // driving away
+        const eta = along / speed;
+        if (eta >= DANGER_MAX_ETA || Math.abs(rx * uy - ry * ux) >= DANGER_MAX_MISS) continue;
+        if (isOnScreen(c.x, c.y, 0)) continue; // already visible: the player can see it coming
+        threats.push({ c, eta });
+    }
+    if (!threats.length) return;
+    threats.sort((a, b) => a.eta - b.eta);
+    const cx = view.w * 0.5;
+    const cy = view.h * 0.5;
+    const mx = 30;
+    const myTop = Math.max(30, view.insetTop + 24);
+    for (const { c, eta } of threats.slice(0, DANGER_MAX_COUNT)) {
+        const sp = worldToScreen(c.x, c.y, shakeX, shakeY);
+        const dx = sp.x - cx;
+        const dy = sp.y - cy;
+        // Where the ray from the screen centre to the car leaves the (HUD-inset) view rectangle
+        const t = Math.min(
+            (cx - mx) / Math.max(1e-3, Math.abs(dx)),
+            (dy < 0 ? cy - myTop : cy - 30) / Math.max(1e-3, Math.abs(dy))
+        );
+        const blink = 0.65 + 0.35 * Math.sin(nowSec * 22);
+        drawSingleArrow(cx + dx * t, cy + dy * t, Math.atan2(dy, dx), 0, '#ff3b30', null, eta < 0.6 ? 1 : blink);
     }
 }
 

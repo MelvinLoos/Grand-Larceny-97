@@ -26,8 +26,8 @@
 
 .st-status {
     position: absolute;
-    left: 12px;
-    top: 12px;
+    left: calc(12px + var(--safe-l));
+    top: calc(12px + var(--safe-t));
     background: var(--paper);
     border: 2px solid var(--ink);
     border-radius: 12px;
@@ -181,8 +181,8 @@
 
 .st-right {
     position: absolute;
-    right: 12px;
-    top: 12px;
+    right: calc(12px + var(--safe-r));
+    top: calc(12px + var(--safe-t));
     display: flex;
     align-items: flex-start;
     gap: 8px;
@@ -272,11 +272,24 @@
 .hud-btn:hover {
     background: var(--hazard);
 }
+#btn-map {
+    display: none;
+}
+body.touch-ui #btn-map {
+    display: grid;
+}
+body.touch-ui .hud-btn {
+    width: 44px;
+    height: 44px;
+}
+body.touch-ui #btn-weapon {
+    min-height: 44px;
+}
 
 #pager-box {
     position: absolute;
     left: 50%;
-    top: 12px;
+    top: calc(12px + var(--safe-t));
     transform: translate(-50%, -24px);
     opacity: 0;
     transition:
@@ -335,8 +348,8 @@
 
 #radar {
     position: absolute;
-    right: 12px;
-    top: 138px;
+    right: calc(12px + var(--safe-r));
+    top: calc(138px + var(--safe-t));
     width: 150px;
     height: 150px;
     border: 3px solid var(--ink);
@@ -356,6 +369,27 @@
     display: grid;
     place-items: center;
     background: rgba(13, 13, 12, 0.82);
+    padding: calc(8px + var(--safe-t)) calc(8px + var(--safe-r)) calc(8px + var(--safe-b)) calc(8px + var(--safe-l));
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+.map-x {
+    position: fixed;
+    top: calc(8px + var(--safe-t));
+    right: calc(8px + var(--safe-r));
+    z-index: 1;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: var(--paper);
+    color: var(--ink);
+    border: 2px solid var(--ink);
+    font-size: 22px;
+}
+.map-x:hover {
+    background: var(--hazard);
 }
 #map-overlay[hidden] {
     display: none;
@@ -412,8 +446,8 @@
 
 #district-label {
     position: absolute;
-    right: 18px;
-    bottom: 22px;
+    right: calc(18px + var(--safe-r));
+    bottom: calc(22px + var(--safe-b));
     transform: translateX(calc(100% + 40px));
     opacity: 0;
     transition:
@@ -450,7 +484,7 @@
 #radio {
     position: absolute;
     left: 50%;
-    bottom: 18px;
+    bottom: calc(18px + var(--safe-b));
     transform: translate(-50%, 16px);
     opacity: 0;
     transition:
@@ -613,4 +647,38 @@
     from {
         background: #fff;
     }
+}
+
+/* One-time nudge to turn a portrait phone sideways */
+#rotate-hint {
+    position: absolute;
+    left: 50%;
+    bottom: calc(236px + var(--safe-b));
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100% - 24px);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 4px 4px 12px;
+    border-radius: 12px;
+    background: var(--box);
+    color: var(--paper);
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 0.03em;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+    pointer-events: auto;
+}
+#rotate-hint > .icon {
+    font-size: 24px;
+    color: var(--hazard);
+}
+#btn-rotate-x {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    font-size: 18px;
+    color: var(--silver);
 }
