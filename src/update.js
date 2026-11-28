@@ -21,6 +21,11 @@ import { collideCarFoliage, steerAroundTrunks, trunkBlocks, updateFoliage } from
 import {
     CAR_H,
     CAR_HIT_SPEED,
+    DRIVE_LOOKAHEAD_PAD,
+    DRIVE_LOOKAHEAD_S,
+    FOOT_ZOOM,
+    MIN_DRIVE_ZOOM,
+    MIN_SPAN_FOOT,
     PICKUP_RESPAWN,
     T_ROAD_X,
     WEAPONS,
@@ -188,6 +193,49 @@ function carStrikes(c, spd, ct) {
 }
 
 // --- MAIN SIMULATION LOOP ---
+// Touch has no cursor: the turret tracks the best target near where it already points, else the hull heading
+function touchTurretAngle(c) {
+    const t = findAimTarget(c.x, c.y, c.turretAngle);
+    return t ? Math.atan2(t.y - c.y, t.x - c.x) : c.angle;
+}
+
+// --- DYNAMIC SPEED-ZOOM CAMERA ---
+// On foot: at least MIN_SPAN_FOOT world px along the short screen axis (desktop keeps FOOT_ZOOM).
+// Driving: zooms out with speed and leads the car, always keeping ~DRIVE_LOOKAHEAD_S of road in view ahead
+// along the actual direction of travel; the lead is capped per axis so tall/wide screens are treated alike.
+function updateCamera(dt) {
+    const car = player.inCar;
+    const sc = view.scale;
+    const leadK = 0.28 + 0.17 * (1 - sc); // desktop 0.28 (unchanged), phones up to 0.45
+    let zoomT = Math.min(FOOT_ZOOM, view.short / MIN_SPAN_FOOT);
+    let leadX = 0;
+    let leadY = 0;
+    if (car) {
+        const speed = Math.hypot(car.vx, car.vy);
+        zoomT = Math.max(0.6, 0.94 - (car.speed / 560) * 0.34) * sc;
+        if (speed > 1) {
+            const dx = Math.abs(car.vx / speed) || 1e-6;
+            const dy = Math.abs(car.vy / speed) || 1e-6;
+            const edge = Math.min(view.w / 2 / dx, view.h / 2 / dy); // CSS px from centre to the screen edge along travel
+            const need = speed * DRIVE_LOOKAHEAD_S + DRIVE_LOOKAHEAD_PAD;
+            const free = need - leadK * speed; // road still unseen once the full lead is applied
+            const zUnclamped = free > 0 ? edge / free : Infinity;
+            const zReq = leadK * speed * zUnclamped <= 0.35 * edge ? zUnclamped : (1.35 * edge) / need;
+            zoomT = Math.min(zoomT, zReq);
+        }
+        zoomT = Math.max(MIN_DRIVE_ZOOM, zoomT);
+        const maxX = (0.35 * view.w * 0.5) / camera.zoom;
+        const maxY = (0.35 * view.h * 0.5) / camera.zoom;
+        leadX = Math.max(-maxX, Math.min(maxX, car.vx * leadK));
+        leadY = Math.max(-maxY, Math.min(maxY, car.vy * leadK));
+    }
+    camera.targetZoom = zoomT;
+    camera.zoom += (zoomT - camera.zoom) * 3.5 * dt;
+    // view.shiftY lowers the player on screen when the HUD covers the top (camera centre stays the screen centre)
+    camera.x += (player.x + leadX - camera.x) * 6.5 * dt;
+    camera.y += (player.y + leadY - view.shiftY / camera.zoom - camera.y) * 6.5 * dt;
+}
+
 export function update(dt) {
     // Respawn handling after WASTED / BUSTED
     if (player.deadTimer > 0) {
@@ -476,7 +524,9 @@ export function update(dt) {
                 ? Math.atan2(aim.y - c.y, aim.x - c.x)
                 : c === player.inCar && performance.now() - mouse.movedAt < 3000
                   ? Math.atan2(mouse.worldY - c.y, mouse.worldX - c.x)
-                  : c.angle;
+                  : c === player.inCar && game.touchMode && (c.spec.isTank || keys['Fire'])
+                    ? touchTurretAngle(c)
+                    : c.angle;
             const dA = normalizeAngle(c.targetAngle - c.turretAngle);
             const step = 2.5 * dt;
             c.turretAngle = normalizeAngle(c.turretAngle + (Math.abs(dA) <= step ? dA : Math.sign(dA) * step));
@@ -1079,17 +1129,7 @@ export function update(dt) {
 
     trackHpLoss();
 
-    // --- DYNAMIC SPEED-ZOOM CAMERA ---
-    const currentSpeed = player.inCar ? player.inCar.speed : 0;
-    // Zooms out smoothly when driving fast so you can spot intersections ahead!
-    camera.targetZoom = (player.inCar ? Math.max(0.6, 0.94 - (currentSpeed / 560) * 0.34) : 1.06) * view.fit;
-    camera.zoom += (camera.targetZoom - camera.zoom) * 3.5 * dt;
-
-    // Camera looks slightly ahead of fast vehicles
-    const leadX = player.inCar ? player.inCar.vx * 0.28 : 0;
-    const leadY = player.inCar ? player.inCar.vy * 0.28 : 0;
-    camera.x += (player.x + leadX - camera.x) * 6.5 * dt;
-    camera.y += (player.y + leadY - camera.y) * 6.5 * dt;
+    updateCamera(dt);
     camera.shake = Math.max(0, camera.shake - dt * 32);
 
     // Update mouse world position

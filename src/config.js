@@ -4,6 +4,19 @@ export const MAP_SIZE = 60; // 60x60 city grid (8640 x 8640 world)
 export const DISTRICT_SPLIT = 30; // avenue that splits the city into 4 quadrant districts
 export const WORLD_SIZE = TILE * MAP_SIZE;
 
+// --- CAMERA (see update.js): phones are zoomed out until MIN_SPAN_FOOT world px fit along the short screen axis ---
+export const FOOT_ZOOM = 1.06; // on-foot zoom on any screen big enough
+export const MIN_SPAN_FOOT = 780; // ~5.4 tiles visible along the short axis on foot
+export const MIN_DRIVE_ZOOM = 0.36; // never zoom out further than this while driving
+export const DRIVE_LOOKAHEAD_S = 1.1; // seconds of road to keep in view ahead of a moving car
+export const DRIVE_LOOKAHEAD_PAD = 140; // plus this many world px
+
+// --- DANGER CHEVRONS: a fast car about to run down the walking player, still off screen (render.js) ---
+export const DANGER_MIN_SPEED = 240;
+export const DANGER_MAX_MISS = 75; // px the car's path may pass from the player
+export const DANGER_MAX_ETA = 1.15; // seconds
+export const DANGER_MAX_COUNT = 3;
+
 // Tile Types
 export const T_WATER = 0;
 export const T_GRASS = 1;

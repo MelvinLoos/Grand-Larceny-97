@@ -86,7 +86,14 @@
         justify-content: center;
     }
 }
+/* ---------- PHONE HUD ---------- */
+/* Portrait phones. Top bar: status (left) + cash and buttons (right). Under it one slot shared by the pager,
+   the job timer and the radio readout, with the radar beside it. --status-h is measured by ui.js. */
 @media (max-width: 520px) {
+    #hud {
+        --slot-top: calc(var(--safe-t) + 20px + max(var(--status-h, 114px), 88px));
+        --slot-right: calc(12px + var(--safe-r) + 96px);
+    }
     .st-status {
         padding: 8px 10px 6px;
         gap: 5px;
@@ -100,8 +107,19 @@
     .m-ar {
         width: 30px;
     }
+    .m-br {
+        width: 90px;
+    }
     #btn-weapon {
         font-size: 15px;
+    }
+    #hud-weapon-ammo {
+        padding-left: 6px;
+    }
+    .st-right {
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
     }
     .st-score {
         padding: 3px 5px 3px 10px;
@@ -115,23 +133,32 @@
         height: 26px;
         font-size: 12px;
     }
+    .hud-btns {
+        display: flex;
+        gap: 6px;
+    }
     .hud-btn {
-        width: 38px;
-        height: 38px;
+        width: 44px;
+        height: 44px;
         font-size: 18px;
     }
+    #pager-box,
+    #radio,
     #hud-mission-timer {
-        position: fixed;
-        left: 12px;
-        right: 12px;
-        top: 112px;
+        position: absolute;
+        top: var(--slot-top);
+        left: calc(12px + var(--safe-l));
+        right: var(--slot-right);
+        width: auto;
+        min-width: 0;
         max-width: none;
-        text-align: left;
-        font-size: 15px;
+        bottom: auto !important;
     }
     #pager-box {
-        top: 112px;
-        width: calc(100% - 24px);
+        transform: translateY(-12px);
+    }
+    #pager-box.show {
+        transform: none;
     }
     #pager-message {
         min-width: 0;
@@ -139,36 +166,235 @@
         flex: 1;
         font-size: 17px;
     }
-    #radar {
-        width: 104px;
-        height: 104px;
-        top: 116px;
-        right: 10px;
-    }
-    #district-label {
-        right: 12px;
-        bottom: calc(190px + var(--safe-b));
-        font-size: 22px;
-    }
-    #hud.radio-on #hud-mission-timer {
-        display: none;
-    }
-    #hud.paging #radio {
-        opacity: 0;
+    #hud-mission-timer {
+        text-align: left;
+        font-size: 15px;
     }
     #radio {
-        top: 112px;
-        bottom: auto !important;
-        left: 12px;
-        right: 12px;
         transform: translateY(-12px);
-        min-width: 0;
     }
     #radio.show {
         transform: none;
     }
     #radio.mini {
         opacity: 0;
+    }
+    #hud.paging #radio {
+        opacity: 0;
+    }
+    #hud.radio-on #hud-mission-timer {
+        display: none;
+    }
+    #radar {
+        width: 88px;
+        height: 88px;
+        top: var(--slot-top);
+        right: calc(12px + var(--safe-r));
+    }
+    #district-label {
+        right: calc(12px + var(--safe-r));
+        bottom: calc(max(var(--actions-h, 162px), 100px) + 26px + var(--safe-b));
+        font-size: 22px;
+    }
+    #rotate-hint {
+        bottom: calc(max(var(--actions-h, 162px), 100px) + 72px + var(--safe-b));
+    }
+    #big-banner.job {
+        padding-top: calc(var(--slot-top) + 124px);
+    }
+}
+/* Landscape phones: a slim top strip, radar tucked above the buttons, everything transient pinned top-centre
+   under the strip (never over the player), district label bottom-centre. */
+@media (max-height: 500px) and (orientation: landscape) {
+    #hud {
+        --strip-bottom: calc(var(--safe-t) + 12px + 46px + 8px);
+    }
+    .st-status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 46px;
+        padding: 0 10px;
+        border-radius: 10px;
+    }
+    .st-status .lbl {
+        display: none;
+    }
+    .meter-row {
+        gap: 5px;
+    }
+    .m-hp {
+        width: 70px;
+    }
+    .m-ar {
+        width: 32px;
+    }
+    .m-br {
+        width: 56px;
+    }
+    #hud-wanted {
+        font-size: 17px;
+    }
+    #btn-weapon {
+        margin: 0;
+        padding: 4px 6px;
+        font-size: 16px;
+    }
+    #hud-weapon-name,
+    #hud-tires-lbl,
+    #hud-bomb-lbl {
+        display: none;
+    }
+    #hud-tires,
+    #hud-bomb {
+        margin: 0;
+    }
+    .st-score {
+        padding: 2px 6px 2px 10px;
+        gap: 6px;
+    }
+    #hud-score {
+        font-size: 24px;
+    }
+    #hud-multiplier {
+        min-width: 28px;
+        height: 28px;
+        font-size: 13px;
+    }
+    .st-right {
+        align-items: center;
+    }
+    .hud-btns {
+        display: flex;
+        gap: 6px;
+    }
+    .hud-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 18px;
+    }
+    #pager-box,
+    #radio {
+        top: var(--strip-bottom);
+        bottom: auto !important;
+    }
+    #pager-box {
+        padding: 6px 8px 6px 10px;
+    }
+    #pager-message {
+        min-width: 200px;
+        max-width: calc(100vw - 2 * (120px + max(var(--safe-l), var(--safe-r))));
+        font-size: 16px;
+    }
+    #radio {
+        transform: translate(-50%, -12px);
+        padding: 6px 12px;
+    }
+    #radio.show {
+        transform: translate(-50%, 0);
+    }
+    #radio.mini {
+        opacity: 0;
+    }
+    #hud.paging #radio {
+        opacity: 0;
+    }
+    #hud-mission-timer {
+        position: absolute;
+        top: var(--strip-bottom);
+        left: calc(12px + var(--safe-l));
+        text-align: left;
+        font-size: 15px;
+    }
+    #hud.radio-on #hud-mission-timer {
+        display: none;
+    }
+    #radar {
+        width: 96px;
+        height: 96px;
+        top: var(--strip-bottom);
+        right: calc(12px + var(--safe-r));
+    }
+    #district-label {
+        right: auto;
+        left: 50%;
+        bottom: calc(12px + var(--safe-b));
+        font-size: 22px;
+        transform: translate(-50%, 24px);
+    }
+    #district-label.show {
+        transform: translate(-50%, 0);
+    }
+    #big-banner.job {
+        padding-top: calc(var(--strip-bottom) + 80px);
+    }
+    .actions {
+        grid-template-columns: repeat(2, 60px);
+        gap: 8px;
+    }
+    .act {
+        height: 60px;
+        font-size: 21px;
+    }
+    .act span {
+        font-size: 11px;
+    }
+    /* Map beside its key and close button instead of on top of them */
+    .map-wrap {
+        grid-template-columns: auto 230px;
+        grid-template-rows: 1fr auto 1fr;
+        column-gap: 14px;
+        align-items: center;
+    }
+    #citymap {
+        grid-column: 1;
+        grid-row: 1 / span 3;
+    }
+    .map-key {
+        grid-column: 2;
+        grid-row: 1;
+        align-self: end;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        gap: 6px;
+    }
+    #btn-close-map {
+        grid-column: 2;
+        grid-row: 2;
+    }
+}
+/* Narrow landscape phones (667px and below): trim the strip so status and cash never collide */
+@media (max-height: 500px) and (max-width: 760px) and (orientation: landscape) {
+    .st-status {
+        gap: 7px;
+        padding: 0 8px;
+    }
+    .m-hp {
+        width: 50px;
+    }
+    .m-ar {
+        width: 24px;
+    }
+    #hud-wanted {
+        font-size: 14px;
+        gap: 2px;
+    }
+    #btn-weapon {
+        padding: 4px 3px;
+        font-size: 14px;
+    }
+    #hud-score {
+        font-size: 19px;
+    }
+    #hud-multiplier {
+        min-width: 24px;
+        height: 24px;
+        font-size: 12px;
+    }
+    .st-score {
+        gap: 4px;
+        padding-left: 7px;
     }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -45,7 +45,10 @@
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     --display: 'Archivo', 'Arial Narrow', sans-serif;
     --text: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-r: env(safe-area-inset-right, 0px);
     --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-l: env(safe-area-inset-left, 0px);
 }
 * {
     box-sizing: border-box;
@@ -54,6 +57,7 @@ html,
 body {
     margin: 0;
     height: 100%;
+    overscroll-behavior: none; /* no pull-to-refresh / rubber-band mid-game */
 }
 body {
     background: var(--box);
@@ -64,6 +68,7 @@ body {
     user-select: none;
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
     font-variant-numeric: tabular-nums;
 }
 ::selection {
@@ -77,6 +82,7 @@ button {
     border: 0;
     padding: 0;
     cursor: pointer;
+    touch-action: manipulation; /* no double-tap zoom on iOS */
 }
 :focus-visible {
     outline: 3px solid var(--hazard);
