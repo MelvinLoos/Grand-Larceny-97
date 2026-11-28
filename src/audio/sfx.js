@@ -309,12 +309,45 @@ export const sfx = {
         this.tone(v, { type: 'square', f0: 2400, dur: 0.06, at: 0.12, gain: 0.035 });
     },
 
-    // 20Hz mechanical bell trill
+    // Soft retro double-ring: two mellow bell tones with a gentle tremolo, then a breath, then again
     phoneRing(x, y) {
-        const v = this.voice(x, y, 700);
-        const am = { rate: 20, depth: 1 };
-        this.tone(v, { type: 'sine', f0: 950, dur: 1.2, hold: 1.1, gain: 0.06, am });
-        this.tone(v, { type: 'sine', f0: 1180, dur: 1.2, hold: 1.1, gain: 0.05, am });
-        this.tone(v, { type: 'sine', f0: 2560, dur: 1.2, hold: 1.1, gain: 0.015, am });
+        const v = this.voice(x, y, 360);
+        if (!v) return;
+        const am = { rate: 14, depth: 0.7, type: 'sine' };
+        for (const at of [0, 0.5]) {
+            const o = { dur: 0.35, hold: 0.24, attack: 0.03, at, freq: 1800, am };
+            this.tone(v, { ...o, type: 'sine', f0: 680, gain: 0.033 });
+            this.tone(v, { ...o, type: 'triangle', f0: 860, gain: 0.0275 });
+        }
+        // remember it so accepting a job can hush it mid-ring
+        this._rings = (this._rings || []).filter((r) => r.pending > 0);
+        this._rings.push(v);
+    },
+
+    hushPhones() {
+        if (!this.ctx || !this._rings) return;
+        const now = this.ctx.currentTime;
+        for (const v of this._rings) if (v.pending > 0) v.in.gain.setTargetAtTime(0, now, 0.02);
+        this._rings = [];
+    },
+
+    // Player took damage: body thud + a short vocal grunt, so a hit is heard even if the HUD is missed
+    playerHurt(dmg = 5) {
+        if (!this.ctx || this.ctx.state !== 'running') return;
+        const now = this.ctx.currentTime;
+        if (now - (this._lastHurt ?? -9) < 0.16) return;
+        this._lastHurt = now;
+        const v = this.voice();
+        const heavy = dmg >= 20;
+        this.tone(v, { type: 'sine', f0: 165, f1: 48, dur: 0.11, gain: heavy ? 0.4 : 0.32 });
+        this.noise(v, { ftype: 'bandpass', freq: 450, Q: 1.2, dur: 0.07, gain: 0.2 });
+        this.formant(v, {
+            f0: heavy ? 119 : 145,
+            f1: heavy ? 78 : 95,
+            dur: 0.14,
+            at: 0.015,
+            gain: 0.16,
+            vowel: [600, 1150]
+        });
     }
 };

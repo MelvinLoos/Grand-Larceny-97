@@ -1,5 +1,6 @@
 import { audio } from './audio.js';
 import { LANDMARKS } from './city.js';
+import { PHONE_RING_PERIOD, PHONE_RING_ON } from './config.js';
 import { pedLook } from './palette.js';
 import { addCar, createCar } from './entities.js';
 import { addCrime, clearHeat } from './heat.js';
@@ -15,6 +16,7 @@ function clearMissionCars() {
 
 // --- PAYPHONE MISSIONS ---
 export function startPayphoneMission(phone) {
+    audio.hushPhones();
     audio.cash();
     const mIdx = mission.completedCount % 3;
     mission.active = true;
@@ -108,10 +110,10 @@ export function updateMission(dt) {
     // Ringing payphone check when not in a mission
     if (!mission.active) {
         for (const ph of payphones) {
-            ph.ringPhase += dt * 5;
+            ph.ringPhase += dt;
             const dist = Math.hypot(player.x - ph.x, player.y - ph.y);
-            // 1.2s trill every 4s; distance gain + panning come from the audio manager
-            const ringing = ph.ringPhase % 20 < 6;
+            // soft double-ring every PHONE_RING_PERIOD; distance gain + panning come from the audio manager
+            const ringing = ph.ringPhase % PHONE_RING_PERIOD < PHONE_RING_ON;
             if (ringing && !ph.wasRinging) audio.phoneRing(ph.x, ph.y);
             ph.wasRinging = ringing;
             if (!player.inCar && dist < 44 && player.deadTimer <= 0) {
