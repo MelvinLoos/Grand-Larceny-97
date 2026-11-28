@@ -16,17 +16,25 @@ import { LANDMARKS, buildCity } from './city.js';
 import { populateWorld } from './entities.js';
 import { bakeFoliage, plantFoliage } from './foliage.js';
 import { bakeVehicles } from './vehicles.js';
-import { updateHUD } from './hud.js';
+import { showPager, updateHUD } from './hud.js';
 import { render } from './render.js';
 import * as state from './state.js';
-import { camera, game, view } from './state.js';
+import { camera, game, player, view } from './state.js';
 import { handleResize, setupEvents } from './ui.js';
 import { update } from './update.js';
 
 const boxWindow = document.getElementById('box-window');
 
-// --- UPDATES: look for a new release on focus and every 15 min; the new
-// service worker then reloads the tab (public/sw-reload.js) ---
+console.info(`Grand Larceny '97 build ${__BUILD__}`);
+
+// --- UPDATES: look for a new release on focus and every 15 min. The new service worker announces
+// itself with 'update-ready'; we acknowledge (so its 3s fallback reload stands down) and reload at a
+// safe moment: title, paused / manual / map, dead, or a hidden tab. Mid-run we only show a pager notice ---
+let updatePending = false;
+const safeToReload = () => game.state !== 'play' || player.deadTimer > 0 || document.hidden;
+function reloadIfReady() {
+    if (updatePending && safeToReload()) location.reload();
+}
 if ('serviceWorker' in navigator) {
     const checkForUpdate = () =>
         navigator.serviceWorker
@@ -35,8 +43,17 @@ if ('serviceWorker' in navigator) {
             .catch(() => {});
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') checkForUpdate();
+        else reloadIfReady();
     });
     setInterval(checkForUpdate, 15 * 60 * 1000);
+    navigator.serviceWorker.addEventListener('message', (e) => {
+        if (e.data?.type !== 'update-ready') return;
+        e.source?.postMessage({ type: 'update-ack' });
+        if (updatePending) return;
+        updatePending = true;
+        if (safeToReload()) return reloadIfReady();
+        showPager('NEW BUILD READY — PAUSE TO UPDATE');
+    });
 }
 
 // --- AUTO QUALITY: step the render scale down if frames stay slow ---
@@ -59,6 +76,7 @@ function gameLoop(timestamp) {
     game.lastFrameTime = timestamp;
     adaptQuality(raw, dt);
 
+    reloadIfReady();
     audio.setActive(game.state !== 'paused'); // paused / map / hidden tab: suspend every loop and the radio clock
     if (game.state !== 'paused') update(dt);
     if (game.state === 'title') {

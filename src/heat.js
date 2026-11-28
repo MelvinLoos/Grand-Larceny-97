@@ -85,7 +85,7 @@ export function addCrime(cat, opts = {}) {
 export function releasePursuer(c) {
     c.pursuit = false;
     if (c.aiMode === 'police') c.aiMode = 'traffic';
-    c.sirenOn = false;
+    if (player.inCar !== c) c.sirenOn = false; // a hijacked cop car keeps the player's own siren state
     c.dismount = null; // a half-finished unload is abandoned with the chase
     c.pinT = 0;
     if (!c.stranded) c.handbrake = false;

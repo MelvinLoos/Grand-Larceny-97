@@ -150,6 +150,16 @@ function setupButtons() {
     let hornTimer = 0;
     let hornCar = null;
     let hornHeld = false;
+    let hornT0 = 0;
+    // One toggle per press: from the timer, or on release if the timer never ran (throttled / cancelled)
+    const latchSiren = () => {
+        if (hornHeld || !hornCar) return;
+        hornHeld = true;
+        clearTimeout(hornTimer);
+        if (hornCar.hp > 0) hornCar.sirenOn = !hornCar.sirenOn;
+        horn.classList.toggle('siren-on', !!hornCar.sirenOn);
+        buzz(30);
+    };
     held(
         horn,
         () => {
@@ -158,16 +168,14 @@ function setupButtons() {
             hornCar = car.spec.isPolice || car.spec.isEmergency ? car : null;
             hornHeld = false;
             if (!hornCar) return audio.horn(car);
-            hornTimer = setTimeout(() => {
-                hornHeld = true;
-                hornCar.sirenOn = !hornCar.sirenOn;
-                horn.classList.toggle('siren-on', hornCar.sirenOn);
-                buzz(30);
-            }, SIREN_HOLD_MS);
+            hornT0 = performance.now();
+            clearTimeout(hornTimer);
+            hornTimer = setTimeout(latchSiren, SIREN_HOLD_MS);
         },
         () => {
             clearTimeout(hornTimer);
-            if (hornCar && !hornHeld) audio.horn(hornCar);
+            if (hornCar && performance.now() - hornT0 >= SIREN_HOLD_MS) latchSiren();
+            else if (hornCar && !hornHeld) audio.horn(hornCar); // a tap honks and leaves a wailing siren alone
             hornCar = null;
         }
     );

@@ -7,6 +7,7 @@ const MASTER = 0.9;
 const NOISE_SECONDS = 1.5;
 const PAN_SPAN = 500; // world px of horizontal offset for full pan
 const PAN_MAX = 0.85;
+const GESTURES = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'];
 
 export class AudioCore {
     constructor() {
@@ -18,34 +19,37 @@ export class AudioCore {
         this._unlock = () => this.unlock();
     }
 
-    // The context is only ever created inside a user gesture, so the browser never warns about autoplay
+    // The context is only ever created inside a user gesture, so the browser never warns about autoplay.
+    // The listeners stay for good: iOS / WebKit suspends or "interrupts" the context after calls, Siri,
+    // alarms and lock-screen, and only a later gesture can bring it back. navigator.audioSession is left
+    // alone so the hardware mute switch keeps working.
     attach() {
-        window.addEventListener('keydown', this._unlock, true);
-        window.addEventListener('pointerdown', this._unlock, true);
+        for (const type of GESTURES) window.addEventListener(type, this._unlock, true);
         document.addEventListener('visibilitychange', () => this.applyActive());
-    }
-
-    detach() {
-        window.removeEventListener('keydown', this._unlock, true);
-        window.removeEventListener('pointerdown', this._unlock, true);
     }
 
     unlock() {
         if (!this.ctx) {
             const AC = window.AudioContext || window.webkitAudioContext;
-            if (!AC) return this.detach();
+            if (!AC) return;
             this.ctx = new AC();
+            this.ctx.onstatechange = () => this.onStateChange();
             this.build(this.ctx);
         }
-        if (this.ctx.state === 'running') return this.detach();
-        if (this.isActive()) {
-            this.ctx
-                .resume()
-                .then(() => {
-                    if (this.ctx.state === 'running') this.detach();
-                })
-                .catch(() => {});
-        }
+        this.recover();
+    }
+
+    // Resume whenever the context is not running and the game wants sound; a rejection outside a
+    // gesture just means the very next tap (caught by the permanent listeners) does it
+    recover() {
+        const ctx = this.ctx;
+        if (!ctx || ctx.state === 'running' || !this.isActive()) return;
+        ctx.resume().catch(() => {});
+    }
+
+    onStateChange() {
+        // 'suspended' | 'interrupted' (WebKit) while we want sound: try now, else wait for a gesture
+        if (this.ctx.state !== 'running') this.recover();
     }
 
     init() {

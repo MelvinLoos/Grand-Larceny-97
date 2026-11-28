@@ -1,5 +1,20 @@
 import { defineConfig } from 'vite';
+import { execSync } from 'node:child_process';
 import { VitePWA } from 'vite-plugin-pwa';
+
+// "abc1234 2026-11-28": git short SHA + build date; falls back to the date alone without git metadata
+function buildStamp() {
+    const date = new Date().toISOString().slice(0, 10);
+    try {
+        const sha = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+            .toString()
+            .trim();
+        return sha ? `${sha} ${date}` : date;
+    } catch {
+        return `dev ${date}`;
+    }
+}
+const BUILD = buildStamp();
 
 // On GitHub Pages the deploy workflow sets SITE_URL to the public base URL
 // (e.g. https://user.github.io/repo/) so Open Graph image URLs are absolute.
@@ -10,10 +25,12 @@ function absoluteSocialUrls() {
     return {
         name: 'absolute-social-urls',
         transformIndexHtml(html) {
-            return html.replace(
-                /(<meta (?:property="og:image"|name="twitter:image") content=")(?:\.\/|\/)?([^"]+)"/g,
-                (_, pre, path) => (siteUrl ? `${pre}${siteUrl}${path}"` : `${pre}${path}"`)
-            );
+            return html
+                .replace(/%BUILD%/g, BUILD)
+                .replace(
+                    /(<meta (?:property="og:image"|name="twitter:image") content=")(?:\.\/|\/)?([^"]+)"/g,
+                    (_, pre, path) => (siteUrl ? `${pre}${siteUrl}${path}"` : `${pre}${path}"`)
+                );
         }
     };
 }
@@ -21,6 +38,7 @@ function absoluteSocialUrls() {
 export default defineConfig({
     // Relative base: works on user.github.io/<repo>/ and on custom domains.
     base: './',
+    define: { __BUILD__: JSON.stringify(BUILD) },
     build: { target: 'es2020' },
     plugins: [
         absoluteSocialUrls(),
