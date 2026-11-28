@@ -88,10 +88,8 @@ export function startGame() {
         !document.fullscreenElement &&
         !window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches
     ) {
-        document.documentElement
-            .requestFullscreen({ navigationUI: 'hide' })
-            .then(() => screen.orientation?.lock?.('landscape')) // Android only; iOS / desktop reject, which is fine
-            .catch(() => {});
+        // No orientation lock: portrait is fully playable; the one-time rotate chip suggests landscape
+        document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
     }
     game.state = 'play';
     player.currentDistrict = -1;

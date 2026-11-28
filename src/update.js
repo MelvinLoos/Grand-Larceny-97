@@ -289,6 +289,7 @@ export function update(dt) {
     const left = keys['KeyA'] || keys['ArrowLeft'];
     const right = keys['KeyD'] || keys['ArrowRight'];
     const brake = keys['Space'];
+    const touchBrake = keys['Brake']; // touch BRAKE: handbrake only, never the fire-engine jet
     const stickOn = stick.active && stick.mag > 0;
     const fireInput =
         mouse.down || keys['ControlLeft'] || keys['ControlRight'] || keys['Fire'] || (!player.inCar && brake);
@@ -299,7 +300,7 @@ export function update(dt) {
             const car = player.inCar;
             const spec = car.spec;
             const flats = flatCount(car);
-            const hbrake = brake && !spec.turret; // Space is the fire key in a fire engine
+            const hbrake = touchBrake || (brake && !spec.turret); // keyboard Space is the fire key in a fire engine
 
             if (car.airborne || car.sink > 0) {
                 // Wheels off the ground (or going under): no steering, no braking, no screech

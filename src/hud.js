@@ -167,7 +167,7 @@ export function updateHUD() {
 // Touch buttons that do something right now: nothing else is drawn
 //   on foot:     CAR · WEAPON (only with something besides fists) · FIRE
 //   any car:     EXIT · HORN (hold = siren in cop / emergency cars) · BRAKE · RADIO · [BOMB]
-//   tank / fire engine: + FIRE (the fire engine's jet is on FIRE, so its BRAKE is hidden)
+//   tank / fire engine: + FIRE
 function updateTouchButtons(car, w) {
     const $ = (id) => document.getElementById(id);
     const armed = WEAPONS.filter((_, i) => player.ammo[i] > 0).length > 1;
@@ -178,7 +178,7 @@ function updateTouchButtons(car, w) {
     $('touch-horn-icon').setAttribute('href', car ? '#i-horn' : '#' + w.icon);
     $('touch-horn').hidden = !car && !armed;
     $('touch-horn').classList.toggle('siren-on', !!(car && car.sirenOn && (car.spec.isPolice || car.spec.isEmergency)));
-    $('touch-brake').hidden = !car || (turret && !car.spec.isTank);
+    $('touch-brake').hidden = !car;
     $('touch-radio').hidden = !car;
     $('touch-fire').hidden = !!car && !turret;
 }
